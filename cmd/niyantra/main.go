@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"time"
@@ -79,6 +80,11 @@ func cmdSnap(logger *slog.Logger, dbPath string) {
 	// 2. Convert to snapshot
 	snap := resp.ToSnapshot(time.Now().UTC())
 
+	// Tag provenance: captured via CLI
+	snap.CaptureMethod = "manual"
+	snap.CaptureSource = "cli"
+	snap.SourceID = "antigravity"
+
 	// 3. Store
 	db, err := store.Open(dbPath)
 	if err != nil {
@@ -99,6 +105,12 @@ func cmdSnap(logger *slog.Logger, dbPath string) {
 		fmt.Fprintf(os.Stderr, "Error storing snapshot: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Log successful snap
+	db.LogInfoSnap("cli", "snap", snap.Email, snapID, map[string]interface{}{
+		"plan": snap.PlanName, "method": "manual", "source": "cli",
+	})
+	db.UpdateSourceCapture("antigravity")
 
 	// 4. Display result
 	groups := client.GroupModels(snap.Models)
@@ -214,6 +226,20 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 	c := client.New(logger)
 
 	srv := web.NewServer(logger, db, c, port, auth)
+	defer srv.Shutdown()
+
+	autoCapture := db.GetConfigBool("auto_capture")
+	mode := "manual"
+	if autoCapture {
+		mode = "auto"
+	}
+	pollInterval := db.GetConfigInt("poll_interval", 300)
+
+	// Log server start
+	db.LogInfo("system", "server_start", "", map[string]interface{}{
+		"port": port, "mode": mode, "version": version,
+		"autoCapture": autoCapture, "pollInterval": pollInterval,
+	})
 
 	fmt.Println()
 	fmt.Println("  ╔══════════════════════════════════════╗")
@@ -221,15 +247,34 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 	fmt.Println("  ╠══════════════════════════════════════╣")
 	fmt.Printf("  ║  Dashboard: http://localhost:%-8d ║\n", port)
 	fmt.Printf("  ║  Database:  %-26s ║\n", truncate(dbPath, 26))
+	fmt.Printf("  ║  Mode:      %-26s ║\n", mode)
+	if autoCapture {
+		fmt.Printf("  ║  Polling:   every %-20s ║\n", fmt.Sprintf("%ds", pollInterval))
+	}
 	if auth != "" {
 		fmt.Println("  ║  Auth:      enabled                  ║")
 	}
 	fmt.Println("  ╚══════════════════════════════════════╝")
 	fmt.Println()
 
-	if err := srv.ListenAndServe(); err != nil {
-		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
-		os.Exit(1)
+	// Handle shutdown signals
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case <-ctx.Done():
+		fmt.Println("\n  Shutting down gracefully...")
+		srv.Shutdown()
+	case err := <-serverErr:
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+			os.Exit(1)
+		}
 	}
 }
 

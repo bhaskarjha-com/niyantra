@@ -281,28 +281,164 @@ None. The tool is single-user by design.
 
 ---
 
-## Client-Side Features (No API Required)
+## Config & Infrastructure Endpoints (v3)
 
-These features are implemented entirely in the browser using `localStorage`. No backend endpoints needed.
+### `GET /api/config`
 
-### Budget Threshold
+Returns all server configuration entries, grouped by category.
 
-- **Storage key:** `niyantra-budget`
-- **Value:** monthly budget as float (e.g., `200`)
-- **UI:** Budget alert bar on Overview tab (ok/warning ≥80%/danger ≥100%)
-- **Configurable from:** Overview tab "Set Budget" button, Settings tab, or Budget modal
+**Response:** `200 OK`
 
-### Default Currency
+```json
+{
+  "config": [
+    {
+      "key": "auto_capture",
+      "value": "false",
+      "valueType": "bool",
+      "category": "capture",
+      "label": "Auto Capture",
+      "description": "Enable autonomous data capture (polling, log parsing)"
+    },
+    {
+      "key": "budget_monthly",
+      "value": "200",
+      "valueType": "float",
+      "category": "display",
+      "label": "Monthly Budget",
+      "description": "Monthly AI spending budget ($)"
+    }
+  ]
+}
+```
 
-- **Storage key:** `niyantra-currency`
-- **Value:** ISO currency code (`USD`, `EUR`, `GBP`, `INR`, `CAD`, `AUD`)
-- **UI:** Settings tab dropdown
+### `PUT /api/config`
 
-### Theme Preference
+Updates a config entry. Validates value against `value_type`. Logs `config_change` event in activity log.
+
+**Request:**
+
+```json
+{
+  "key": "budget_monthly",
+  "value": "250"
+}
+```
+
+**Response:** `200 OK` — returns updated config entry.
+
+**Validation rules:**
+
+| Key | Valid Values |
+|-----|------------|
+| `auto_capture` | `true`, `false` |
+| `poll_interval` | `30`–`3600` (integer) |
+| `auto_link_subs` | `true`, `false` |
+| `budget_monthly` | `0`+ (float) |
+| `currency` | `USD`, `EUR`, `GBP`, `INR`, `CAD`, `AUD` |
+| `retention_days` | `30`–`3650` (integer) |
+
+### `GET /api/activity`
+
+Returns recent activity log entries.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `limit` | `int` | 50 | Max entries to return |
+| `type` | `string` | all | Filter by event type (e.g., `snap`, `config_change`) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "entries": [
+    {
+      "id": 42,
+      "timestamp": "2026-04-17T06:30:00Z",
+      "level": "info",
+      "source": "ui",
+      "eventType": "snap",
+      "accountEmail": "user@gmail.com",
+      "snapshotId": 47,
+      "details": "{\"plan\":\"Pro\",\"method\":\"manual\",\"source\":\"ui\"}"
+    }
+  ]
+}
+```
+
+### `GET /api/mode`
+
+Lightweight endpoint for the header mode badge. Returns current capture mode, agent polling status, and data source info.
+
+**Response:** `200 OK`
+
+```json
+{
+  "mode": "auto",
+  "autoCapture": true,
+  "isPolling": true,
+  "pollInterval": 300,
+  "lastPoll": "2026-04-17T14:30:00Z",
+  "lastPollOK": true,
+  "sources": [
+    { "id": "antigravity", "name": "Antigravity", "enabled": true, "lastCapture": "2026-04-17T14:30:00Z", "captureCount": 47 },
+    { "id": "claude_code", "name": "Claude Code", "enabled": false, "lastCapture": null, "captureCount": 0 },
+    { "id": "codex", "name": "Codex", "enabled": false, "lastCapture": null, "captureCount": 0 }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mode` | string | `"manual"` or `"auto"` — derived from config |
+| `autoCapture` | bool | Whether auto-capture is enabled in config |
+| `isPolling` | bool | Whether the polling agent goroutine is currently running |
+| `pollInterval` | int | Configured polling interval in seconds |
+| `lastPoll` | string? | ISO timestamp of last poll attempt (null if never polled) |
+| `lastPollOK` | bool? | Whether the last poll succeeded (null if never polled) |
+| `sources` | array | Data source registry with capture counts |
+
+---
+
+## Error Format
+
+All errors use a consistent JSON envelope:
+
+```json
+{
+  "error": "human-readable error message"
+}
+```
+
+HTTP status codes:
+- `400` — Bad request (invalid parameters, invalid config value)
+- `404` — Not found (subscription ID doesn't exist)
+- `405` — Method not allowed
+- `500` — Internal server error (database failure)
+- `502` — Bad gateway (Antigravity language server unreachable)
+
+## CORS
+
+Not needed. The dashboard is served from the same origin as the API.
+
+## Rate Limiting
+
+None. The tool is single-user by design.
+
+---
+
+## Client-Side Features
+
+### Theme Preference (localStorage)
+
+The only setting stored in localStorage — it's a pure visual preference with zero server impact.
 
 - **Storage key:** `niyantra-theme`
 - **Value:** `dark`, `light`, or absent (system default)
-- **UI:** Settings tab dropdown or header toggle button
+
+> **Note:** Budget and currency are stored in the SQLite `config` table (accessible via `/api/config`) because they're needed server-side for CSV export, future MCP queries, and CLI reports.
 
 ### Smart Insights (Client-Side Computed)
 

@@ -223,33 +223,53 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 
 ## 5. Settings Tab
 
-### 5.1 Budget
-- [ ] Input shows current budget value (from localStorage)
-- [ ] Change to 300 → tab away → toast confirms
-- [ ] Refresh page → value persists
+### 5.1 Capture & Sources
+- [ ] "Auto Capture" toggle visible — OFF by default
+- [ ] Toggle Auto Capture ON → mode badge in header changes to green "AUTO"
+- [ ] Poll Interval row appears when Auto Capture is ON
+- [ ] Toggle Auto Capture OFF → mode badge returns to blue "MANUAL"
+- [ ] Poll Interval row hides when Auto Capture is OFF
+- [ ] "Auto-Link Subscriptions" toggle visible — ON by default
+- [ ] Toggle Auto-Link OFF → change persists on page refresh
+- [ ] Data Sources section shows 3 sources:
+  - Antigravity (ls_poll, Active)
+  - Claude Code (log_parse, Disabled)
+  - Codex (log_parse, Disabled)
+- [ ] Antigravity shows capture count and last capture time
 
-### 5.2 Default Currency
-- [ ] Dropdown shows: USD, EUR, GBP, INR, CAD, AUD
-- [ ] Change to INR → toast confirms
-- [ ] Refresh page → value persists
-
-### 5.3 Theme
-- [ ] Dropdown shows: Dark, Light, System
-- [ ] Select "Light" → entire page switches to light mode
+### 5.2 Budget & Display
+- [ ] Monthly Budget input shows current value from server config
+- [ ] Change to 300 → tab away → toast confirms → refreshes persist
+- [ ] Default Currency dropdown: USD, EUR, GBP, INR, CAD, AUD
+- [ ] Change currency → toast confirms → change persists on refresh
+- [ ] Theme dropdown: Dark, Light, System
+- [ ] Select "Light" → page switches to light mode
 - [ ] Select "System" → follows OS preference
-- [ ] Refresh page → selection persists
+- [ ] Theme persists on refresh (localStorage)
 
-### 5.4 Data
+### 5.3 Data Management
+- [ ] Snapshot Retention input shows 365 (default)
+- [ ] Change to 180 → persists on refresh
 - [ ] CSV export button works (same as Overview)
 - [ ] Database location shows path
 
+### 5.4 Activity Log
+- [ ] Activity log section shows recent events
+- [ ] At minimum: `server_start` entry visible (logged on serve startup)
+- [ ] Filter dropdown: All Events, Snaps, Failed Snaps, Config Changes, Server Start
+- [ ] Select "Server Start" → only server_start events shown
+- [ ] Select "Config Changes" → shows config change events (after changing a setting)
+- [ ] ↻ Refresh button reloads the log
+- [ ] Each entry shows: timestamp, event type (color-coded badge), detail text
+- [ ] Event type colors: snap=blue, snap_failed=red, config_change=purple, server_start=green
+
 ### 5.5 Keyboard Shortcuts Reference
 - [ ] Grid shows 8 shortcuts with `kbd` styled keys
-- [ ] All shortcuts listed match actual behavior (test each)
 
 ### 5.6 About
-- [ ] Shows "Niyantra — AI Subscription & Quota Dashboard"
-- [ ] Shows "Schema version: 2 • 26 platform presets"
+- [ ] Shows "Niyantra — AI Operations Dashboard"
+- [ ] Shows "Schema v3 · 26 presets · Mode: Manual · 1 active source"
+- [ ] Mode text updates when Auto Capture is toggled
 
 ---
 
@@ -346,6 +366,129 @@ Test each shortcut from the Quotas tab with no modal open:
 
 ---
 
+## 11. Mode Badge (Header)
+
+- [ ] Mode badge visible in header (between logo and "Snap Now" button)
+- [ ] Default: blue badge with "MANUAL" text and solid dot
+- [ ] After enabling Auto Capture in Settings: green badge with "AUTO" text and pulsing dot
+- [ ] Badge hidden on small screens (< 768px)
+
+---
+
+## 12. Config API (Server-Side Settings)
+
+### 12.1 Config Persistence
+- [ ] Open Settings → change budget → refresh page → budget value persists
+- [ ] Open Settings → change currency → refresh page → currency persists
+- [ ] All settings survive server restart (stored in SQLite, not localStorage)
+
+### 12.2 localStorage Migration
+- [ ] If `niyantra-budget` exists in localStorage: value migrates to server config on first load
+- [ ] After migration: localStorage key is removed
+- [ ] If `niyantra-currency` exists in localStorage: same migration behavior
+- [ ] Theme stays in localStorage (not migrated)
+
+### 12.3 Config Change Logging
+- [ ] Change any setting → go to Activity Log → `config_change` event appears
+- [ ] Detail shows: key name, old value → new value
+
+---
+
+## 13. Provenance & Audit Trail
+
+### 13.1 Snap Provenance (UI)
+- [ ] Click Snap Now on dashboard → go to Activity Log
+- [ ] Entry shows: `snap`, email, "manual via ui"
+
+### 13.2 Snap Provenance (CLI)
+- [ ] Run `.\niyantra.exe snap` in terminal
+- [ ] Open dashboard → Activity Log → entry shows: `snap`, email, "manual via cli"
+
+### 13.3 Failed Snap Logging
+- [ ] Close Antigravity IDE → click Snap Now
+- [ ] Activity Log shows: `snap_failed` with error message (red badge)
+
+### 13.4 Server Start Logging
+- [ ] Stop and restart `.\niyantra.exe serve`
+- [ ] Open Activity Log → `server_start` entry with port and mode
+
+### 13.5 Data Source Bookkeeping
+- [ ] After successful snap: Antigravity source shows updated capture count
+- [ ] Last capture time updates to "just now" or similar
+
+---
+
+## 14. Database Migration (v2 → v3)
+
+- [ ] Delete `~/.niyantra/niyantra.db`
+- [ ] Start server → v3 schema created from scratch (all tables)
+- [ ] OR: use existing v2 database → v3 migration runs automatically:
+  - `config` table created with 6 seeded rows
+  - `activity_log` table created
+  - `data_sources` table created with 3 seeded rows
+  - `snapshots` table gains 3 new columns (capture_method, capture_source, source_id)
+  - Existing snapshots default to capture_method='manual'
+
+---
+
+## 15. Auto-Capture Agent (Phase 6)
+
+### 15.1 Enable/Disable Toggle
+- [ ] Settings → Capture & Sources → toggle "Auto Capture" ON
+- [ ] Toast shows "🟢 Auto-capture started"
+- [ ] Poll Interval row appears below toggle
+- [ ] Mode badge in header changes to green "Auto" with pulsing dot
+- [ ] Toggle "Auto Capture" OFF → toast "⏸️ Auto-capture stopped"
+- [ ] Mode badge returns to blue "Manual"
+- [ ] Poll Interval row hides
+
+### 15.2 Polling Behavior
+- [ ] Set poll interval to 30s, enable auto-capture
+- [ ] Within ~30s, new snapshot appears (check via Quotas tab refresh)
+- [ ] Activity log shows event with type=snap, source=server, method=auto
+- [ ] History endpoint shows new snapshot with `captureMethod: "auto"`, `captureSource: "server"`
+- [ ] Data sources list shows updated capture count and "Last: Xs ago"
+
+### 15.3 Polling Status Indicator
+- [ ] When auto-capture is active, green status bar appears below poll interval
+- [ ] Shows "● Polling every 30s · Last: Xs ago"
+- [ ] Status auto-refreshes every 30s
+- [ ] Activity log auto-refreshes when settings tab is open and polling is active
+
+### 15.4 Interval Change
+- [ ] While auto-capture is running, change poll interval from 30 to 60
+- [ ] Agent restarts with new interval (check logs or activity)
+- [ ] Polling status updates to show "every 60s"
+
+### 15.5 Mode API Enhancement
+- [ ] `GET /api/mode` returns `isPolling: true` when agent is running
+- [ ] Returns `pollInterval`, `lastPoll`, `lastPollOK` fields
+- [ ] `isPolling: false` when auto-capture is disabled
+
+### 15.6 Server Startup Behavior
+- [ ] Enable auto-capture, stop server, restart server
+- [ ] Startup banner shows `Mode: auto` and `Polling: every Ns`
+- [ ] Agent starts automatically on boot (activity log shows auto-snap events)
+
+### 15.7 Backoff on Failures
+- [ ] Enable auto-capture with Antigravity LS NOT running
+- [ ] First 3 polls log warnings (activity log: snap_failed events)
+- [ ] After 3 failures, polling pauses (debug log: "Auto-capture paused (backoff)")
+- [ ] Start Antigravity LS → agent retries and resumes
+
+### 15.8 Graceful Shutdown
+- [ ] Enable auto-capture, press Ctrl+C in terminal
+- [ ] "Shutting down gracefully..." message appears
+- [ ] No error messages, no orphaned goroutine warnings
+- [ ] Server exits cleanly
+
+### 15.9 Auto-Link with Auto-Capture
+- [ ] Delete all subscriptions, enable auto-capture, ensure auto-link is ON
+- [ ] After first auto-snap, subscription is auto-created
+- [ ] Activity log shows "auto_link" event
+
+---
+
 ## Test Results Template
 
 | Section | Pass | Fail | Notes |
@@ -360,7 +503,13 @@ Test each shortcut from the Quotas tab with no modal open:
 | 8. Cross-Browser | | | |
 | 9. CLI Commands | | | |
 | 10. Edge Cases | | | |
+| 11. Mode Badge | | | |
+| 12. Config API | | | |
+| 13. Provenance & Audit | | | |
+| 14. DB Migration | | | |
+| 15. Auto-Capture Agent | | | |
 
 **Tester:** _______________  
 **Date:** _______________  
 **Build:** `niyantra.exe` from commit _______________
+

@@ -17,8 +17,9 @@ func (s *Store) InsertSnapshot(snap *client.Snapshot) (int64, error) {
 
 	result, err := s.db.Exec(`
 		INSERT INTO snapshots (account_id, captured_at, email, plan_name,
-			prompt_credits, monthly_credits, models_json, raw_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			prompt_credits, monthly_credits, models_json, raw_json,
+			capture_method, capture_source, source_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		snap.AccountID,
 		snap.CapturedAt.UTC().Format(time.RFC3339),
@@ -28,6 +29,9 @@ func (s *Store) InsertSnapshot(snap *client.Snapshot) (int64, error) {
 		snap.MonthlyCredits,
 		string(modelsJSON),
 		snap.RawJSON,
+		snap.CaptureMethod,
+		snap.CaptureSource,
+		snap.SourceID,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("store: insert snapshot: %w", err)
@@ -40,7 +44,8 @@ func (s *Store) InsertSnapshot(snap *client.Snapshot) (int64, error) {
 func (s *Store) LatestPerAccount() ([]*client.Snapshot, error) {
 	rows, err := s.db.Query(`
 		SELECT s.id, s.account_id, s.captured_at, s.email, s.plan_name,
-			s.prompt_credits, s.monthly_credits, s.models_json
+			s.prompt_credits, s.monthly_credits, s.models_json,
+			COALESCE(s.capture_method,'manual'), COALESCE(s.capture_source,'cli'), COALESCE(s.source_id,'antigravity')
 		FROM snapshots s
 		INNER JOIN (
 			SELECT account_id, MAX(id) as max_id
@@ -68,13 +73,15 @@ func (s *Store) History(accountID int64, limit int) ([]*client.Snapshot, error) 
 
 	if accountID > 0 {
 		query = `SELECT id, account_id, captured_at, email, plan_name,
-			prompt_credits, monthly_credits, models_json
+			prompt_credits, monthly_credits, models_json,
+			COALESCE(capture_method,'manual'), COALESCE(capture_source,'cli'), COALESCE(source_id,'antigravity')
 			FROM snapshots WHERE account_id = ?
 			ORDER BY captured_at DESC LIMIT ?`
 		args = []interface{}{accountID, limit}
 	} else {
 		query = `SELECT id, account_id, captured_at, email, plan_name,
-			prompt_credits, monthly_credits, models_json
+			prompt_credits, monthly_credits, models_json,
+			COALESCE(capture_method,'manual'), COALESCE(capture_source,'cli'), COALESCE(source_id,'antigravity')
 			FROM snapshots ORDER BY captured_at DESC LIMIT ?`
 		args = []interface{}{limit}
 	}
@@ -116,7 +123,7 @@ func scanSnapshots(rows interface {
 		if err := r.Scan(
 			&snap.ID, &snap.AccountID, &capturedAt, &snap.Email,
 			&snap.PlanName, &snap.PromptCredits, &snap.MonthlyCredits,
-			&modelsJSON,
+			&modelsJSON, &snap.CaptureMethod, &snap.CaptureSource, &snap.SourceID,
 		); err != nil {
 			return nil, fmt.Errorf("store: scan snapshot: %w", err)
 		}

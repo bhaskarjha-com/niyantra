@@ -2,11 +2,21 @@
 
 ## Database
 
-**Engine:** SQLite 3 (via `modernc.org/sqlite`, pure Go)  
-**Location:** `~/.niyantra/niyantra.db` (auto-created)  
+**Engine:** SQLite 3 (via `modernc.org/sqlite`, pure Go)
+**Location:** `~/.niyantra/niyantra.db` (auto-created)
 **Encoding:** UTF-8, WAL mode
 
-## Schema
+## Schema Versions
+
+| Version | Tables | Description |
+|---------|--------|-------------|
+| v1 | `accounts`, `snapshots` | Core quota tracking |
+| v2 | `subscriptions` | Manual subscription management |
+| v3 | `config`, `activity_log`, `data_sources` + snapshot provenance | Infrastructure: config, audit trail, multi-source |
+
+---
+
+## Tables
 
 ### `accounts`
 
@@ -39,7 +49,7 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 ### `snapshots`
 
-Point-in-time quota captures.
+Point-in-time quota captures with full provenance.
 
 ```sql
 CREATE TABLE IF NOT EXISTS snapshots (
@@ -52,6 +62,9 @@ CREATE TABLE IF NOT EXISTS snapshots (
     monthly_credits INTEGER DEFAULT 0,
     models_json     TEXT    NOT NULL,
     raw_json        TEXT    DEFAULT '',
+    capture_method  TEXT    NOT NULL DEFAULT 'manual',  -- v3: manual, auto
+    capture_source  TEXT    NOT NULL DEFAULT 'cli',     -- v3: cli, ui, watch, parser, import, mcp
+    source_id       TEXT    NOT NULL DEFAULT 'antigravity', -- v3: FK → data_sources.id
     FOREIGN KEY (account_id) REFERENCES accounts(id)
 );
 
@@ -73,104 +86,25 @@ CREATE INDEX IF NOT EXISTS idx_snapshots_time
 | `monthly_credits` | INTEGER | Monthly credit allocation |
 | `models_json` | TEXT | JSON array of model quotas (see below) |
 | `raw_json` | TEXT | Full API response for debugging |
+| `capture_method` | TEXT | **v3:** `manual` or `auto` — was a human involved? |
+| `capture_source` | TEXT | **v3:** `cli`, `ui`, `watch`, `parser`, `import`, `mcp` — which channel? |
+| `source_id` | TEXT | **v3:** Which data source captured this (FK → data_sources.id) |
+
+**Provenance tagging rules:**
+
+| Trigger | `capture_method` | `capture_source` | `source_id` |
+|---------|-----------------|------------------|-------------|
+| `niyantra snap` (CLI) | manual | cli | antigravity |
+| Dashboard "Snap Now" button | manual | ui | antigravity |
+| Watch daemon polling | auto | watch | antigravity |
+| Claude Code log parser | auto | parser | claude_code |
+| Codex log parser | auto | parser | codex |
+| CSV/JSON import | manual | import | (varies) |
+| MCP agent trigger | auto | mcp | (varies) |
 
 ---
 
-## `models_json` Format
-
-Each snapshot stores the per-model quota data as a JSON array:
-
-```json
-[
-  {
-    "modelId": "MODEL_PLACEHOLDER_M35",
-    "label": "Claude Sonnet 4.6 (Thinking)",
-    "remainingFraction": 0.4,
-    "remainingPercent": 40.0,
-    "isExhausted": false,
-    "resetTime": "2026-04-17T04:24:00Z"
-  },
-  {
-    "modelId": "MODEL_PLACEHOLDER_M26",
-    "label": "Claude Opus 4.6 (Thinking)",
-    "remainingFraction": 0.4,
-    "remainingPercent": 40.0,
-    "isExhausted": false,
-    "resetTime": "2026-04-17T04:24:00Z"
-  },
-  {
-    "modelId": "MODEL_OPENAI_GPT_OSS_120B_MEDIUM",
-    "label": "GPT-OSS 120B (Medium)",
-    "remainingFraction": 0.4,
-    "remainingPercent": 40.0,
-    "isExhausted": false,
-    "resetTime": "2026-04-17T04:24:00Z"
-  },
-  {
-    "modelId": "MODEL_PLACEHOLDER_M37",
-    "label": "Gemini 3.1 Pro (High)",
-    "remainingFraction": 1.0,
-    "remainingPercent": 100.0,
-    "isExhausted": false,
-    "resetTime": "2026-04-17T04:48:00Z"
-  },
-  {
-    "modelId": "MODEL_PLACEHOLDER_M47",
-    "label": "Gemini 3 Flash",
-    "remainingFraction": 1.0,
-    "remainingPercent": 100.0,
-    "isExhausted": false,
-    "resetTime": "2026-04-17T04:48:00Z"
-  }
-]
-```
-
-## Key Queries
-
-### Latest snapshot per account
-
-Uses `MAX(id)` (not `MAX(captured_at)`) to guarantee exactly one row per account, even if two snapshots land in the same second.
-
-```sql
-SELECT s.* FROM snapshots s
-INNER JOIN (
-    SELECT account_id, MAX(id) as max_id
-    FROM snapshots
-    GROUP BY account_id
-) latest ON s.id = latest.max_id
-ORDER BY s.captured_at DESC;
-```
-
-### Account get-or-create
-
-```sql
-INSERT INTO accounts (email, plan_name)
-VALUES (?, ?)
-ON CONFLICT(email) DO UPDATE SET
-    plan_name = excluded.plan_name,
-    updated_at = datetime('now');
-
-SELECT id FROM accounts WHERE email = ?;
-```
-
-### Snapshot history for an account
-
-```sql
-SELECT * FROM snapshots
-WHERE account_id = ?
-ORDER BY captured_at DESC
-LIMIT ?;
-```
-
-### Snapshot count
-
-```sql
-SELECT COUNT(*) FROM snapshots;
-```
-
----
-
-### `subscriptions` (Schema v2)
+### `subscriptions` (v2)
 
 Manually-tracked AI subscriptions — enriched with presets, trial tracking, and status page links.
 
@@ -202,6 +136,10 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     created_at      DATETIME DEFAULT (datetime('now')),
     updated_at      DATETIME DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_renewal ON subscriptions(next_renewal);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_category ON subscriptions(category);
 ```
 
 | Column | Type | Description |
@@ -221,27 +159,273 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 | `auto_tracked` | INTEGER | 1 if auto-created by `snap`, 0 if manual |
 | `account_id` | INTEGER | Links to `accounts.id` for auto-tracked entries |
 
-**Auto-Link:** When `niyantra snap` detects a new Antigravity account, it auto-creates a linked subscription record (auto_tracked=1) so it appears in the Subscriptions tab.
+---
 
-**Indexes:**
-- `idx_subscriptions_status` — for filtering by status
-- `idx_subscriptions_renewal` — for upcoming renewals queries
-- `idx_subscriptions_category` — for category filtering
+### `config` (v3)
+
+Server-level configuration stored as typed key-value pairs with metadata for auto-rendering in the Settings UI.
+
+```sql
+CREATE TABLE IF NOT EXISTS config (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,
+    value_type  TEXT NOT NULL DEFAULT 'string',
+    category    TEXT NOT NULL DEFAULT 'general',
+    label       TEXT NOT NULL DEFAULT '',
+    description TEXT DEFAULT '',
+    updated_at  DATETIME DEFAULT (datetime('now'))
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `key` | TEXT | PK — setting identifier (e.g., `auto_capture`, `budget_monthly`) |
+| `value` | TEXT | Setting value as string (parsed by `value_type`) |
+| `value_type` | TEXT | `string`, `int`, `float`, `bool`, `json` — drives UI control type |
+| `category` | TEXT | `capture`, `display`, `data`, `integration` — groups in Settings |
+| `label` | TEXT | Human-readable label for the Settings UI |
+| `description` | TEXT | Help text shown below the input |
+| `updated_at` | DATETIME | Last modification timestamp |
+
+**Default seeds:**
+
+| Key | Value | Type | Category | Label |
+|-----|-------|------|----------|-------|
+| `auto_capture` | `false` | bool | capture | Auto Capture |
+| `poll_interval` | `300` | int | capture | Poll Interval (s) |
+| `auto_link_subs` | `true` | bool | capture | Auto-Link Subs |
+| `budget_monthly` | `0` | float | display | Monthly Budget |
+| `currency` | `USD` | string | display | Default Currency |
+| `retention_days` | `365` | int | data | Retention (days) |
+
+**Why metadata?** Adding a new config key in Go (e.g., `mcp_port` in Phase 7) automatically renders the correct UI control (number input, toggle, dropdown) without JavaScript changes.
+
+---
+
+### `data_sources` (v3)
+
+Registry of available data sources with per-source configuration.
+
+```sql
+CREATE TABLE IF NOT EXISTS data_sources (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    source_type   TEXT NOT NULL,
+    enabled       INTEGER NOT NULL DEFAULT 1,
+    config_json   TEXT DEFAULT '{}',
+    last_capture  DATETIME DEFAULT NULL,
+    capture_count INTEGER DEFAULT 0,
+    created_at    DATETIME DEFAULT (datetime('now'))
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | TEXT | PK — source identifier (e.g., `antigravity`, `claude_code`) |
+| `name` | TEXT | Human-readable name |
+| `source_type` | TEXT | `ls_poll`, `log_parse`, `api_poll`, `manual` |
+| `enabled` | INTEGER | 1 = active, 0 = disabled |
+| `config_json` | TEXT | Source-specific config (paths, intervals, API keys) |
+| `last_capture` | DATETIME | Timestamp of last successful capture |
+| `capture_count` | INTEGER | Total captures from this source |
+| `created_at` | DATETIME | When source was registered |
+
+**Default seeds:**
+
+| ID | Name | Type | Enabled | Config |
+|----|------|------|---------|--------|
+| `antigravity` | Antigravity | ls_poll | 1 | `{}` |
+| `claude_code` | Claude Code | log_parse | 0 | `{"logPath":"~/.claude/projects"}` |
+| `codex` | Codex | log_parse | 0 | `{"logPath":"~/.codex"}` |
+
+**Source types:**
+
+| Type | Capture Method | Description |
+|------|---------------|-------------|
+| `ls_poll` | Connect RPC to local language server | Antigravity |
+| `log_parse` | Watch local JSONL files | Claude Code, Codex |
+| `api_poll` | HTTP requests to cloud APIs | OpenAI, Anthropic (future) |
+| `manual` | User enters data via UI | Manual usage logging |
+
+---
+
+### `activity_log` (v3)
+
+Structured event log for audit trail, analytics, and notifications.
+
+```sql
+CREATE TABLE IF NOT EXISTS activity_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp       DATETIME NOT NULL DEFAULT (datetime('now')),
+    level           TEXT     NOT NULL DEFAULT 'info',
+    source          TEXT     NOT NULL DEFAULT 'system',
+    event_type      TEXT     NOT NULL,
+    account_email   TEXT     DEFAULT '',
+    snapshot_id     INTEGER  DEFAULT 0,
+    details         TEXT     DEFAULT '{}',
+    FOREIGN KEY (snapshot_id) REFERENCES snapshots(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_activity_log_time ON activity_log(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_log_type ON activity_log(event_type);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | PK, AUTO |
+| `timestamp` | DATETIME | Event time (UTC) |
+| `level` | TEXT | `debug`, `info`, `warn`, `error` |
+| `source` | TEXT | `system`, `cli`, `ui`, `watch`, `parser`, `mcp` |
+| `event_type` | TEXT | Event name (see taxonomy below) |
+| `account_email` | TEXT | Associated account (if applicable) |
+| `snapshot_id` | INTEGER | Associated snapshot (if applicable) |
+| `details` | TEXT | JSON blob with event-specific data |
+
+**Event taxonomy:**
+
+| Event Type | When | Example Details |
+|------------|------|-----------------|
+| `server_start` | Server boots | `{"port":9222,"mode":"manual","version":"dev"}` |
+| `snap` | Successful snapshot | `{"email":"...","plan":"Pro","method":"manual","source":"ui"}` |
+| `snap_failed` | Snap attempt failed | `{"error":"LS not detected","source":"cli"}` |
+| `config_change` | Setting updated | `{"key":"budget_monthly","from":"0","to":"200"}` |
+| `sub_created` | Subscription created | `{"platform":"Claude Pro","auto":false}` |
+| `sub_updated` | Subscription updated | `{"platform":"Claude Pro","field":"cost_amount"}` |
+| `sub_deleted` | Subscription deleted | `{"platform":"Claude Pro","id":5}` |
+| `auto_link` | Auto-created sub on snap | `{"email":"...","platform":"Antigravity"}` |
+| `export` | CSV/JSON exported | `{"format":"csv","count":12}` |
+| `watch_start` | Auto-poll started (future) | `{"interval":300,"source":"antigravity"}` |
+| `watch_stop` | Auto-poll stopped (future) | `{"reason":"user_stopped"}` |
+| `import` | Data imported (future) | `{"source":"claude_code","entries":15}` |
+
+---
+
+## `models_json` Format
+
+Each snapshot stores per-model quota data as a JSON array:
+
+```json
+[
+  {
+    "modelId": "MODEL_PLACEHOLDER_M35",
+    "label": "Claude Sonnet 4.6 (Thinking)",
+    "remainingFraction": 0.4,
+    "remainingPercent": 40.0,
+    "isExhausted": false,
+    "resetTime": "2026-04-17T04:24:00Z"
+  },
+  {
+    "modelId": "MODEL_PLACEHOLDER_M37",
+    "label": "Gemini 3.1 Pro (High)",
+    "remainingFraction": 1.0,
+    "remainingPercent": 100.0,
+    "isExhausted": false,
+    "resetTime": "2026-04-17T04:48:00Z"
+  }
+]
+```
+
+---
+
+## Key Queries
+
+### Latest snapshot per account
+
+Uses `MAX(id)` (not `MAX(captured_at)`) to guarantee exactly one row per account.
+
+```sql
+SELECT s.* FROM snapshots s
+INNER JOIN (
+    SELECT account_id, MAX(id) as max_id
+    FROM snapshots
+    GROUP BY account_id
+) latest ON s.id = latest.max_id
+ORDER BY s.captured_at DESC;
+```
+
+### Account get-or-create
+
+```sql
+INSERT INTO accounts (email, plan_name)
+VALUES (?, ?)
+ON CONFLICT(email) DO UPDATE SET
+    plan_name = excluded.plan_name,
+    updated_at = datetime('now');
+
+SELECT id FROM accounts WHERE email = ?;
+```
+
+### Snapshot history with provenance
+
+```sql
+SELECT id, account_id, captured_at, email, plan_name,
+       prompt_credits, monthly_credits, models_json,
+       capture_method, capture_source, source_id
+FROM snapshots
+WHERE account_id = ?
+ORDER BY captured_at DESC
+LIMIT ?;
+```
+
+### Config read
+
+```sql
+SELECT value FROM config WHERE key = ?;
+```
+
+### Config read all (for Settings UI)
+
+```sql
+SELECT key, value, value_type, category, label, description
+FROM config
+ORDER BY category, key;
+```
+
+### Config update (with audit log)
+
+```sql
+UPDATE config SET value = ?, updated_at = datetime('now') WHERE key = ?;
+```
+
+### Recent activity
+
+```sql
+SELECT * FROM activity_log
+ORDER BY timestamp DESC
+LIMIT ?;
+```
+
+### Activity filtered by type
+
+```sql
+SELECT * FROM activity_log
+WHERE event_type = ?
+ORDER BY timestamp DESC
+LIMIT ?;
+```
+
+### Data source status
+
+```sql
+SELECT id, name, source_type, enabled, last_capture, capture_count
+FROM data_sources
+ORDER BY id;
+```
 
 ---
 
 ## Data Volume Estimates
 
-Assuming 4 snaps/day across 3 accounts + 10 subscriptions:
+Assuming 4 snaps/day across 3 accounts + 10 subscriptions + 20 activity events/day:
 
-| Timeframe | Snapshots | Database Size |
-|-----------|-----------|---------------|
-| 1 day | ~12 | ~50 KB |
-| 1 month | ~360 | ~1.5 MB |
-| 1 year | ~4,380 | ~18 MB |
-| 5 years | ~21,900 | ~90 MB |
+| Timeframe | Snapshots | Activity Events | Database Size |
+|-----------|-----------|-----------------|---------------|
+| 1 day | ~12 | ~20 | ~60 KB |
+| 1 month | ~360 | ~600 | ~2 MB |
+| 1 year | ~4,380 | ~7,300 | ~25 MB |
+| 5 years | ~21,900 | ~36,500 | ~120 MB |
 
-SQLite handles this trivially. No cleanup or rotation needed for years.
+SQLite handles this trivially. Configurable retention (`config.retention_days`) allows auto-cleanup.
 
 ## Migration Strategy
 
@@ -249,7 +433,7 @@ Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
 PRAGMA user_version;      -- read current version
-PRAGMA user_version = 2;  -- current version (v2 adds subscriptions)
+PRAGMA user_version = 3;  -- current target (v3)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -257,36 +441,41 @@ Migrations are embedded in Go code and run on startup:
 ```go
 func (s *Store) migrate() error {
     version := s.getUserVersion()
-    
+
     if version < 1 {
         // v1: accounts + snapshots tables
         s.exec(createAccountsSQL)
         s.exec(createSnapshotsSQL)
         s.setUserVersion(1)
     }
-    
+
     if version < 2 {
         // v2: subscriptions table + indexes
         s.exec(createSubscriptionsSQL)
         s.setUserVersion(2)
     }
+
+    if version < 3 {
+        // v3: config, activity_log, data_sources, snapshot provenance
+        s.exec(createConfigSQL)
+        s.exec(createActivityLogSQL)
+        s.exec(createDataSourcesSQL)
+        s.exec(addSnapshotProvenanceSQL)
+        s.exec(seedDefaultConfigSQL)
+        s.exec(seedDefaultSourcesSQL)
+        s.setUserVersion(3)
+    }
 }
 ```
 
-**Backward compatibility:** v2 migration is additive — existing v1 databases are upgraded seamlessly with no data loss.
+**Backward compatibility:** All migrations are additive. Existing data is preserved. Existing snapshots get `capture_method='manual'` as the default, which is correct since all existing snapshots were manual captures.
 
 ## Client-Side Storage (localStorage)
 
-Settings that don't need server persistence are stored in the browser's `localStorage`. These are per-browser and not shared between devices.
+Only **visual preferences** that have zero server impact stay in localStorage:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `niyantra-budget` | float string | (absent) | Monthly AI spending budget in base currency |
-| `niyantra-currency` | ISO 4217 | `USD` | Default currency for new subscriptions |
 | `niyantra-theme` | enum | (absent) | `dark`, `light`, or absent (system preference) |
 
-**Design rationale:** Budget/currency/theme are presentation-layer settings with no value in the SQLite database. Keeping them in `localStorage` means:
-- Zero schema changes needed
-- Settings survive database resets
-- No API calls for settings reads/writes
-- Instant UI response (no network round-trip)
+> **Note:** In v3, `budget` and `currency` moved from localStorage to the SQLite `config` table because they're needed server-side (CSV export headers, future MCP queries, CLI report formatting). A one-time JavaScript migration moves existing localStorage values to SQLite on first load after the v3 upgrade.

@@ -49,6 +49,7 @@ function initTabs() {
       // Load tab data on activation
       if (tab === 'subscriptions') loadSubscriptions();
       if (tab === 'overview') loadOverview();
+      if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
     });
   });
 }
@@ -867,17 +868,43 @@ function populateChartAccountSelect(data) {
 //  BUDGET THRESHOLD
 // ════════════════════════════════════════════
 
+// Server config cache (loaded from /api/config)
+var serverConfig = {};
+
 function getBudget() {
-  var v = localStorage.getItem('niyantra-budget');
-  return v ? parseFloat(v) : 0;
+  return parseFloat(serverConfig['budget_monthly'] || '0');
 }
 
 function setBudget(amount) {
-  if (amount > 0) {
-    localStorage.setItem('niyantra-budget', amount.toString());
-  } else {
-    localStorage.removeItem('niyantra-budget');
-  }
+  serverConfig['budget_monthly'] = amount.toString();
+  updateConfig('budget_monthly', amount.toString());
+}
+
+function getCurrency() {
+  return serverConfig['currency'] || 'USD';
+}
+
+function updateConfig(key, value) {
+  return fetch('/api/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: key, value: value })
+  }).then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.config) {
+      data.config.forEach(function(c) { serverConfig[c.key] = c.value; });
+    }
+  }).catch(function(err) { console.error('Config update failed:', err); });
+}
+
+function loadConfig() {
+  return fetch('/api/config').then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.config) {
+      data.config.forEach(function(c) { serverConfig[c.key] = c.value; });
+    }
+    return serverConfig;
+  });
 }
 
 function initBudget() {
@@ -1146,27 +1173,11 @@ function renderOverviewEnhanced(data, subs) {
 // ════════════════════════════════════════════
 
 function initSettings() {
-  var budgetEl = document.getElementById('s-budget');
-  var currencyEl = document.getElementById('s-currency');
   var themeEl = document.getElementById('s-theme');
 
-  // Load saved values
-  budgetEl.value = getBudget() || '';
-  currencyEl.value = localStorage.getItem('niyantra-currency') || 'USD';
+  // Theme stays in localStorage (visual-only)
   var savedTheme = localStorage.getItem('niyantra-theme') || 'dark';
   themeEl.value = savedTheme;
-
-  // Auto-save on change
-  budgetEl.addEventListener('change', function() {
-    var val = parseFloat(budgetEl.value) || 0;
-    setBudget(val);
-    if (val > 0) showToast('✅ Budget: $' + val.toFixed(0) + '/mo', 'success');
-  });
-
-  currencyEl.addEventListener('change', function() {
-    localStorage.setItem('niyantra-currency', currencyEl.value);
-    showToast('✅ Currency: ' + currencyEl.value, 'success');
-  });
 
   themeEl.addEventListener('change', function() {
     var val = themeEl.value;
@@ -1178,9 +1189,267 @@ function initSettings() {
       localStorage.setItem('niyantra-theme', val);
       document.documentElement.setAttribute('data-theme', val);
     }
-    // Redraw chart with new theme colors
     if (typeof loadHistoryChart === 'function') loadHistoryChart();
   });
+
+  // Load server config and populate settings UI
+  loadConfig().then(function(cfg) {
+    // Migrate localStorage budget/currency to server config (one-time)
+    migrateLocalStorage(cfg);
+
+    // Populate fields from server config
+    var budgetEl = document.getElementById('s-budget');
+    var currencyEl = document.getElementById('s-currency');
+    var autoCaptureEl = document.getElementById('s-auto-capture');
+    var autoLinkEl = document.getElementById('s-auto-link');
+    var pollEl = document.getElementById('s-poll-interval');
+    var retentionEl = document.getElementById('s-retention');
+
+    budgetEl.value = parseFloat(cfg['budget_monthly'] || '0') || '';
+    currencyEl.value = cfg['currency'] || 'USD';
+    autoCaptureEl.checked = cfg['auto_capture'] === 'true';
+    autoLinkEl.checked = cfg['auto_link_subs'] !== 'false';
+    pollEl.value = cfg['poll_interval'] || '300';
+    retentionEl.value = cfg['retention_days'] || '365';
+
+    // Show/hide poll interval based on auto_capture
+    document.getElementById('poll-interval-row').style.display =
+      autoCaptureEl.checked ? '' : 'none';
+
+    // Auto-save handlers
+    budgetEl.addEventListener('change', function() {
+      var val = parseFloat(budgetEl.value) || 0;
+      setBudget(val);
+      if (val > 0) showToast('✅ Budget: $' + val.toFixed(0) + '/mo', 'success');
+    });
+
+    currencyEl.addEventListener('change', function() {
+      updateConfig('currency', currencyEl.value);
+      showToast('✅ Currency: ' + currencyEl.value, 'success');
+    });
+
+    autoCaptureEl.addEventListener('change', function() {
+      var val = autoCaptureEl.checked ? 'true' : 'false';
+      updateConfig('auto_capture', val).then(function() {
+        loadMode();
+        showToast(autoCaptureEl.checked ? '🟢 Auto-capture started' : '⏸️ Auto-capture stopped', 'success');
+      });
+      document.getElementById('poll-interval-row').style.display =
+        autoCaptureEl.checked ? '' : 'none';
+    });
+
+    autoLinkEl.addEventListener('change', function() {
+      updateConfig('auto_link_subs', autoLinkEl.checked ? 'true' : 'false');
+    });
+
+    pollEl.addEventListener('change', function() {
+      var v = parseInt(pollEl.value);
+      if (v >= 30 && v <= 3600) updateConfig('poll_interval', v.toString());
+    });
+
+    retentionEl.addEventListener('change', function() {
+      var v = parseInt(retentionEl.value);
+      if (v >= 30 && v <= 3650) updateConfig('retention_days', v.toString());
+    });
+  });
+
+  // Load mode badge
+  loadMode();
+
+  // Load data sources
+  loadDataSources();
+
+  // Activity log controls
+  document.getElementById('activity-refresh').addEventListener('click', loadActivityLog);
+  document.getElementById('activity-filter').addEventListener('change', loadActivityLog);
+  loadActivityLog();
+}
+
+// One-time migration of localStorage budget/currency to server config
+function migrateLocalStorage(cfg) {
+  var lsBudget = localStorage.getItem('niyantra-budget');
+  var lsCurrency = localStorage.getItem('niyantra-currency');
+
+  if (lsBudget && (!cfg['budget_monthly'] || cfg['budget_monthly'] === '0')) {
+    updateConfig('budget_monthly', lsBudget);
+    serverConfig['budget_monthly'] = lsBudget;
+    localStorage.removeItem('niyantra-budget');
+  }
+  if (lsCurrency && cfg['currency'] === 'USD') {
+    updateConfig('currency', lsCurrency);
+    serverConfig['currency'] = lsCurrency;
+    localStorage.removeItem('niyantra-currency');
+  }
+}
+
+// ════════════════════════════════════════════
+//  MODE BADGE
+// ════════════════════════════════════════════
+
+var modeRefreshTimer = null;
+
+function loadMode() {
+  fetch('/api/mode').then(function(r) { return r.json(); })
+  .then(function(data) {
+    var badge = document.getElementById('mode-badge');
+    var label = document.getElementById('mode-label');
+    if (data.mode === 'auto') {
+      badge.className = 'mode-badge mode-auto';
+      label.textContent = 'Auto';
+    } else {
+      badge.className = 'mode-badge mode-manual';
+      label.textContent = 'Manual';
+    }
+
+    // Show polling status indicator
+    var statusEl = document.getElementById('polling-status');
+    if (statusEl) {
+      if (data.isPolling) {
+        var lastMsg = '';
+        if (data.lastPoll) {
+          lastMsg = 'Last: ' + formatTimeAgo(data.lastPoll);
+          if (data.lastPollOK === false) lastMsg += ' (failed)';
+        } else {
+          lastMsg = 'Starting...';
+        }
+        statusEl.innerHTML = '<span class="polling-dot"></span> Polling every ' +
+          data.pollInterval + 's · ' + lastMsg;
+        statusEl.style.display = '';
+      } else {
+        statusEl.style.display = 'none';
+      }
+    }
+
+    // Update about section
+    var aboutEl = document.getElementById('s-about-info');
+    if (aboutEl) {
+      var srcCount = (data.sources || []).filter(function(s) { return s.enabled; }).length;
+      aboutEl.textContent = 'Schema v3 · 26 presets · Mode: ' +
+        (data.mode === 'auto' ? 'Auto' : 'Manual') +
+        (data.isPolling ? ' (polling)' : '') +
+        ' · ' + srcCount + ' active source' + (srcCount !== 1 ? 's' : '');
+    }
+
+    // Auto-refresh mode badge every 30s when auto-capture is active
+    if (modeRefreshTimer) { clearInterval(modeRefreshTimer); modeRefreshTimer = null; }
+    if (data.isPolling) {
+      modeRefreshTimer = setInterval(function() {
+        loadMode();
+        // Also refresh activity log if settings tab is active
+        var activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab && activeTab.getAttribute('data-tab') === 'settings') {
+          loadActivityLog();
+        }
+      }, 30000);
+    }
+  }).catch(function() {});
+}
+
+// ════════════════════════════════════════════
+//  DATA SOURCES
+// ════════════════════════════════════════════
+
+function loadDataSources() {
+  fetch('/api/mode').then(function(r) { return r.json(); })
+  .then(function(data) {
+    var container = document.getElementById('data-sources-list');
+    if (!data.sources || data.sources.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    var html = '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';
+    data.sources.forEach(function(src) {
+      var meta = src.captureCount + ' captures';
+      if (src.lastCapture) {
+        meta += ' · Last: ' + formatTimeAgo(src.lastCapture);
+      }
+      html += '<div class="data-source-item">' +
+        '<div class="data-source-info">' +
+          '<span class="data-source-name">' + esc(src.name) + '</span>' +
+          '<span class="data-source-meta">' + esc(src.sourceType) + ' · ' + meta + '</span>' +
+        '</div>' +
+        '<span class="data-source-status ' + (src.enabled ? 'enabled' : 'disabled') + '">' +
+          (src.enabled ? '● Active' : '○ Disabled') +
+        '</span>' +
+      '</div>';
+    });
+    container.innerHTML = html;
+  }).catch(function() {});
+}
+
+function formatTimeAgo(isoStr) {
+  if (!isoStr) return 'never';
+  var d = new Date(isoStr);
+  var now = new Date();
+  var sec = Math.floor((now - d) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  return Math.floor(sec / 86400) + 'd ago';
+}
+
+// ════════════════════════════════════════════
+//  ACTIVITY LOG
+// ════════════════════════════════════════════
+
+function loadActivityLog() {
+  var filter = document.getElementById('activity-filter').value;
+  var url = '/api/activity?limit=50';
+  if (filter) url += '&type=' + filter;
+
+  fetch(url).then(function(r) { return r.json(); })
+  .then(function(data) {
+    var container = document.getElementById('activity-log');
+    if (!data.entries || data.entries.length === 0) {
+      container.innerHTML = '<div class="activity-empty">No activity' +
+        (filter ? ' for "' + filter + '"' : '') + ' yet</div>';
+      return;
+    }
+
+    var html = '';
+    data.entries.forEach(function(entry) {
+      var time = entry.timestamp ? entry.timestamp.replace('T', ' ').substring(5, 16) : '';
+      var detail = formatActivityDetail(entry);
+      html += '<div class="activity-entry">' +
+        '<span class="activity-time">' + time + '</span>' +
+        '<span class="activity-type ' + esc(entry.eventType) + '">' +
+          esc(entry.eventType.replace(/_/g, ' ')) +
+        '</span>' +
+        '<span class="activity-detail">' + detail + '</span>' +
+      '</div>';
+    });
+    container.innerHTML = html;
+  }).catch(function() {
+    document.getElementById('activity-log').innerHTML =
+      '<div class="activity-empty">Failed to load activity log</div>';
+  });
+}
+
+function formatActivityDetail(entry) {
+  try {
+    var d = JSON.parse(entry.details || '{}');
+    switch (entry.eventType) {
+      case 'snap':
+        return esc(entry.accountEmail || '') +
+          (d.method ? ' · ' + d.method : '') +
+          (d.source ? ' via ' + d.source : '');
+      case 'snap_failed':
+        return esc(d.error || 'Unknown error');
+      case 'config_change':
+        return esc(d.key || '') + ': ' + esc(d.from || '""') + ' → ' + esc(d.to || '""');
+      case 'server_start':
+        return 'Port ' + (d.port || '?') + ' · ' + esc(d.mode || 'manual') + ' mode';
+      case 'sub_created':
+      case 'sub_deleted':
+        return esc(d.platform || '');
+      case 'auto_link':
+        return esc(entry.accountEmail || '') + ' → ' + esc(d.platform || '');
+      default:
+        return entry.accountEmail ? esc(entry.accountEmail) : '';
+    }
+  } catch(e) {
+    return '';
+  }
 }
 
 // ════════════════════════════════════════════
@@ -1279,6 +1548,7 @@ function switchToTab(tabName) {
 
   if (tabName === 'subscriptions') loadSubscriptions();
   if (tabName === 'overview') loadOverview();
+  if (tabName === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
 }
 
 // ════════════════════════════════════════════
@@ -1322,7 +1592,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // No auto-polling. Zero-daemon philosophy.
-  // Data refreshes only on manual snap or page reload.
+  // Load mode badge in header (manual/auto status)
+  loadMode();
+
+  // Auto-capture polling is handled server-side by the agent.
+  // Manual data refreshes on snap or page reload.
 });
 

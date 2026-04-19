@@ -23,6 +23,10 @@
                 <span class="header-badge" id="account-count">0 accounts</span>
             </div>
             <div class="header-right">
+                <span class="mode-badge mode-manual" id="mode-badge" title="Capture mode">
+                    <span class="mode-dot"></span>
+                    <span id="mode-label">Manual</span>
+                </span>
                 <span class="header-status" id="last-updated"></span>
                 <button class="snap-btn" id="snap-btn" title="Capture current Antigravity quota">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
@@ -119,7 +123,47 @@
             <section class="tab-panel" id="panel-settings">
                 <div class="settings-page">
                     <div class="settings-section">
-                        <h3>Budget</h3>
+                        <h3>⚡ Capture &amp; Sources</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Auto Capture</strong>
+                                <span>Enable autonomous data capture (polling, log parsing)</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-auto-capture">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="settings-row" id="poll-interval-row" style="display:none">
+                            <div class="settings-label">
+                                <strong>Poll Interval</strong>
+                                <span>Seconds between auto-polls</span>
+                            </div>
+                            <div class="settings-control">
+                                <input type="number" id="s-poll-interval" class="form-input" min="30" max="3600" style="width:80px">
+                                <span style="color:var(--text-muted);font-size:12px;margin-left:4px">sec</span>
+                            </div>
+                        </div>
+                        <div id="polling-status" class="polling-status" style="display:none"></div>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Auto-Link Subscriptions</strong>
+                                <span>Auto-create subscription when new account detected on snap</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-auto-link" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="data-sources-list" id="data-sources-list"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>🎨 Budget &amp; Display</h3>
                         <div class="settings-row">
                             <div class="settings-label">
                                 <strong>Monthly Budget</strong>
@@ -132,14 +176,10 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="settings-section">
-                        <h3>Display</h3>
                         <div class="settings-row">
                             <div class="settings-label">
                                 <strong>Default Currency</strong>
-                                <span>Currency for new subscriptions</span>
+                                <span>Currency for new subscriptions and reports</span>
                             </div>
                             <div class="settings-control">
                                 <select id="s-currency" class="form-input">
@@ -168,11 +208,21 @@
                     </div>
 
                     <div class="settings-section">
-                        <h3>Data</h3>
+                        <h3>💾 Data Management</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Snapshot Retention</strong>
+                                <span>How long to keep activity log and old snapshots</span>
+                            </div>
+                            <div class="settings-control">
+                                <input type="number" id="s-retention" class="form-input" min="30" max="3650" style="width:80px">
+                                <span style="color:var(--text-muted);font-size:12px;margin-left:4px">days</span>
+                            </div>
+                        </div>
                         <div class="settings-row">
                             <div class="settings-label">
                                 <strong>Export All Data</strong>
-                                <span>Download subscriptions as CSV for tax/expense reports</span>
+                                <span>Download subscriptions as CSV</span>
                             </div>
                             <div class="settings-control">
                                 <a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex">📥 Export CSV</a>
@@ -180,14 +230,31 @@
                         </div>
                         <div class="settings-row">
                             <div class="settings-label">
-                                <strong>Database Location</strong>
+                                <strong>Database</strong>
                                 <span id="s-db-path">~/.niyantra/niyantra.db</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="settings-section">
-                        <h3>Keyboard Shortcuts</h3>
+                        <h3>📋 Activity Log</h3>
+                        <div class="activity-controls">
+                            <select id="activity-filter" class="form-input" style="width:160px">
+                                <option value="">All Events</option>
+                                <option value="snap">Snaps</option>
+                                <option value="snap_failed">Failed Snaps</option>
+                                <option value="config_change">Config Changes</option>
+                                <option value="server_start">Server Start</option>
+                            </select>
+                            <button class="btn-add" id="activity-refresh" style="padding:6px 10px;font-size:12px">↻ Refresh</button>
+                        </div>
+                        <div class="activity-log" id="activity-log">
+                            <div class="activity-empty">No activity yet</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>⌨️ Keyboard Shortcuts</h3>
                         <div class="shortcuts-grid">
                             <div class="shortcut-item"><kbd>1</kbd> Quotas tab</div>
                             <div class="shortcut-item"><kbd>2</kbd> Subscriptions tab</div>
@@ -201,11 +268,11 @@
                     </div>
 
                     <div class="settings-section">
-                        <h3>About</h3>
+                        <h3>ℹ️ About</h3>
                         <div class="settings-about">
-                            <p><strong>Niyantra</strong> — AI Subscription & Quota Dashboard</p>
-                            <p style="color:var(--text-muted);font-size:12px">Local-first. Zero daemon. Open source.</p>
-                            <p style="color:var(--text-muted);font-size:12px;margin-top:4px">Schema version: 2 • 26 platform presets</p>
+                            <p><strong>Niyantra</strong> — AI Operations Dashboard</p>
+                            <p style="color:var(--text-muted);font-size:12px">Local-first. Full provenance. Open source.</p>
+                            <p style="color:var(--text-muted);font-size:12px;margin-top:4px" id="s-about-info">Schema v3 · 26 presets · Mode: Manual</p>
                         </div>
                     </div>
                 </div>

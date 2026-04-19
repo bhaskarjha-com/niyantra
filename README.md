@@ -1,10 +1,10 @@
 # Niyantra
 
-**Local-first AI subscription & quota dashboard.**
+**Local-first AI operations dashboard.**
 
-Niyantra (Sanskrit: नियन्त्र, "controller") is a single-binary dashboard that combines **automated quota detection** with **manual subscription tracking** for all your AI tools. It auto-captures Antigravity quotas from the local language server and lets you manually track spending, limits, and renewals for every AI service you use — ChatGPT, Claude, Cursor, Copilot, and 26+ others.
+Niyantra (Sanskrit: नियन्त्र, "controller") is a single-binary dashboard that gives developers complete visibility into their AI tool ecosystem. It **auto-captures Antigravity quotas** from the local language server, **tracks subscriptions** for 26+ AI platforms, and provides **budget alerts, usage insights, and a full activity log** with provenance on every data point.
 
-> **Zero daemon. One API call. All local.**
+> **Zero daemon by default. Full provenance. All local.**
 
 ## The Problem
 
@@ -100,11 +100,12 @@ Card-based view of all AI subscriptions:
 
 ### Settings Tab
 
-- **Budget** — set monthly AI spending threshold with alerts
-- **Display** — default currency (USD/EUR/GBP/INR/CAD/AUD), theme (dark/light/system)
-- **Data** — CSV export, database location
+- **Capture & Sources** — auto-capture toggle, poll interval, auto-link toggle, data sources list
+- **Budget & Display** — monthly spending threshold with alerts, default currency, theme
+- **Data Management** — snapshot retention, CSV export, database location
+- **Activity Log** — structured event log with filters (snaps, config changes, server starts)
 - **Keyboard shortcuts** — reference grid
-- **About** — version info, schema version, preset count
+- **About** — version, schema, mode, active sources
 
 ### Keyboard Shortcuts
 
@@ -140,8 +141,8 @@ Card-based view of all AI subscriptions:
 
 ## Design Principles
 
-1. **Zero daemon** — No background process, no polling, no system tray. You invoke it when you need it.
-2. **One API call per snap** — Minimal footprint on the language server. No pre-flight checks, no token refresh.
+1. **Zero daemon by default** — No background process, no polling, no system tray. Manual capture is always available. Auto-capture is opt-in.
+2. **Full provenance** — Every data point tagged with who captured it, how, and from which source.
 3. **Local-first** — All readiness computation from SQLite, zero network. `status` and `serve` never phone home.
 4. **Single binary** — Go with embedded web assets via `embed.FS`. No Node.js, no npm, no containers.
 5. **Multi-platform** — Process detection works on Windows (CIM/PowerShell), macOS (ps/lsof), Linux (ps/ss).
@@ -210,34 +211,37 @@ niyantra/
 │   │   ├── detect_unix.go     # macOS/Linux: ps aux
 │   │   ├── ports.go           # Port discovery (lsof/ss/netstat)
 │   │   ├── probe.go           # Connect RPC endpoint validation
-│   │   ├── types.go           # API response structs
+│   │   ├── types.go           # API response structs + Snapshot
 │   │   └── helpers.go         # Model grouping logic
 │   │
-│   ├── store/                 # SQLite persistence
-│   │   ├── store.go           # Open, migrate (v1→v2), close
-│   │   ├── snapshots.go       # Insert, LatestPerAccount, History
+│   ├── store/                 # SQLite persistence (v3 schema)
+│   │   ├── store.go           # Open, migrate (v1→v2→v3), close
+│   │   ├── snapshots.go       # Insert (with provenance), LatestPerAccount, History
 │   │   ├── accounts.go        # GetOrCreateAccount (upsert by email)
 │   │   ├── subscriptions.go   # Subscription CRUD, overview stats, renewals
-│   │   └── presets.go         # 26 platform preset templates
+│   │   ├── presets.go         # 26 platform preset templates
+│   │   ├── config.go          # Server config CRUD (typed key-value)
+│   │   ├── activity_log.go    # Structured activity log CRUD
+│   │   └── data_sources.go    # Data sources registry CRUD
 │   │
 │   ├── readiness/             # Pure computation engine (zero I/O)
 │   │   └── readiness.go       # Calculate readiness from snapshots
 │   │
 │   └── web/                   # HTTP server + embedded dashboard
-│       ├── server.go          # Server setup, quota handlers, auto-link
+│       ├── server.go          # Quota/config/activity/mode handlers
 │       ├── handlers_subscriptions.go  # Subscription CRUD, overview, presets, CSV
 │       └── static/            # Embedded via Go embed.FS
 │           ├── index.html     # 4-tab dashboard (Quotas/Subs/Overview/Settings)
 │           ├── style.css      # Design system (charts, modals, tabs, themes)
-│           ├── app.js         # Dashboard logic (CRUD, charts, search, shortcuts)
+│           ├── app.js         # Dashboard logic (CRUD, charts, config, activity)
 │           └── manifest.json  # PWA manifest for installability
 │
 ├── docs/                      # Documentation
-│   ├── VISION.md              # Why this tool exists
+│   ├── VISION.md              # Product vision + roadmap
 │   ├── ARCHITECTURE.md        # System design + component details
-│   ├── API_SPEC.md            # REST API reference (11 endpoints)
-│   ├── DATA_MODEL.md          # SQLite schema v2 + queries
-│   └── TESTING.md             # Manual testing guide (80+ test cases)
+│   ├── API_SPEC.md            # REST API reference (15 endpoints)
+│   ├── DATA_MODEL.md          # SQLite schema v3 + queries
+│   └── TESTING.md             # Manual testing guide (130+ test cases)
 │
 ├── go.mod                     # Single dependency: modernc.org/sqlite
 ├── go.sum
@@ -256,9 +260,10 @@ niyantra/
 
 ## Stats
 
-- **~3,500 lines** of code (Go + JS + CSS + HTML)
+- **~4,500 lines** of code (Go + JS + CSS + HTML)
 - **~16 MB** compiled binary (includes embedded SQLite engine + Chart.js loaded from CDN)
 - **0** external runtime dependencies
+- **15 API endpoints** — quotas, subscriptions, config, activity, mode
 - **PWA installable** — add to home screen / install as app
 
 ## License

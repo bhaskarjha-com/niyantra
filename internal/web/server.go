@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bhaskarjha-com/niyantra/internal/agent"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -21,22 +22,58 @@ var staticFiles embed.FS
 
 // Server is the Niyantra HTTP server.
 type Server struct {
-	logger *slog.Logger
-	store  *store.Store
-	client *client.Client
-	port   int
-	auth   string // "user:pass" or ""
+	logger   *slog.Logger
+	store    *store.Store
+	client   *client.Client
+	port     int
+	auth     string // "user:pass" or ""
+	agentMgr *agent.Manager
 }
 
 // NewServer creates a new Niyantra web server.
 func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, auth string) *Server {
-	return &Server{
-		logger: logger,
-		store:  s,
-		client: c,
-		port:   port,
-		auth:   auth,
+	srv := &Server{
+		logger:   logger,
+		store:    s,
+		client:   c,
+		port:     port,
+		auth:     auth,
+		agentMgr: agent.NewManager(logger),
 	}
+
+	// Auto-start polling agent if config says so
+	if s.GetConfigBool("auto_capture") {
+		srv.startPollingAgent()
+	}
+
+	return srv
+}
+
+// startPollingAgent creates and starts the auto-capture polling agent.
+func (s *Server) startPollingAgent() {
+	interval := s.store.GetConfigInt("poll_interval", 300)
+	if interval < 30 {
+		interval = 30
+	}
+
+	ag := agent.NewPollingAgent(s.client, s.store, time.Duration(interval)*time.Second, s.logger)
+	ag.SetPollingCheck(func() bool {
+		return s.store.GetConfigBool("auto_capture")
+	})
+
+	s.agentMgr.Start(ag)
+	s.logger.Info("Auto-capture started", "interval", interval)
+}
+
+// stopPollingAgent stops the auto-capture polling agent.
+func (s *Server) stopPollingAgent() {
+	s.agentMgr.Stop()
+	s.logger.Info("Auto-capture stopped")
+}
+
+// Shutdown stops the agent and cleans up resources.
+func (s *Server) Shutdown() {
+	s.agentMgr.Stop()
 }
 
 // ListenAndServe starts the HTTP server.
@@ -54,6 +91,11 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/overview", s.handleOverview)
 	mux.HandleFunc("/api/presets", s.handlePresets)
 	mux.HandleFunc("/api/export/csv", s.handleExportCSV)
+
+	// Config & infrastructure routes (v3)
+	mux.HandleFunc("/api/config", s.handleConfig)
+	mux.HandleFunc("/api/activity", s.handleActivity)
+	mux.HandleFunc("/api/mode", s.handleMode)
 
 	// Static files (embedded)
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -105,11 +147,19 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 	resp, err := s.client.FetchQuotas(ctx)
 	if err != nil {
 		s.logger.Error("snap failed", "error", err)
+		s.store.LogError("ui", "snap_failed", "", map[string]interface{}{
+			"error": err.Error(),
+		})
 		jsonError(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 
 	snap := resp.ToSnapshot(time.Now().UTC())
+
+	// Tag provenance: captured via dashboard UI
+	snap.CaptureMethod = "manual"
+	snap.CaptureSource = "ui"
+	snap.SourceID = "antigravity"
 
 	accountID, err := s.store.GetOrCreateAccount(snap.Email, snap.PlanName)
 	if err != nil {
@@ -123,6 +173,14 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "database error", http.StatusInternalServerError)
 		return
 	}
+
+	// Log successful snap
+	s.store.LogInfoSnap("ui", "snap", snap.Email, snapID, map[string]interface{}{
+		"plan": snap.PlanName, "method": "manual", "source": "ui",
+	})
+
+	// Update data source bookkeeping
+	s.store.UpdateSourceCapture("antigravity")
 
 	// Auto-link: create a subscription record if one doesn't exist for this account
 	existing, _ := s.store.FindSubscriptionByAccountID(accountID)
@@ -202,29 +260,158 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 
 	// Convert snapshots to API format with groups
 	type snapResponse struct {
-		ID         int64                 `json:"id"`
-		AccountID  int64                 `json:"accountId"`
-		Email      string                `json:"email"`
-		CapturedAt time.Time             `json:"capturedAt"`
-		PlanName   string                `json:"planName"`
-		Groups     []client.GroupedQuota  `json:"groups"`
+		ID            int64                `json:"id"`
+		AccountID     int64                `json:"accountId"`
+		Email         string               `json:"email"`
+		CapturedAt    time.Time            `json:"capturedAt"`
+		PlanName      string               `json:"planName"`
+		Groups        []client.GroupedQuota `json:"groups"`
+		CaptureMethod string               `json:"captureMethod"`
+		CaptureSource string               `json:"captureSource"`
 	}
 
 	var items []snapResponse
 	for _, s := range snapshots {
 		items = append(items, snapResponse{
-			ID:         s.ID,
-			AccountID:  s.AccountID,
-			Email:      s.Email,
-			CapturedAt: s.CapturedAt,
-			PlanName:   s.PlanName,
-			Groups:     client.GroupModels(s.Models),
+			ID:            s.ID,
+			AccountID:     s.AccountID,
+			Email:         s.Email,
+			CapturedAt:    s.CapturedAt,
+			PlanName:      s.PlanName,
+			Groups:        client.GroupModels(s.Models),
+			CaptureMethod: s.CaptureMethod,
+			CaptureSource: s.CaptureSource,
 		})
 	}
 
 	writeJSON(w, map[string]interface{}{
 		"snapshots": items,
 	})
+}
+
+// handleConfig handles GET (list) and PUT (update) for server configuration.
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		category := r.URL.Query().Get("category")
+		entries, err := s.store.AllConfig(category)
+		if err != nil {
+			jsonError(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]interface{}{"config": entries})
+
+	case http.MethodPut:
+		var req struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonError(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.Key == "" {
+			jsonError(w, "key is required", http.StatusBadRequest)
+			return
+		}
+
+		oldVal, err := s.store.SetConfig(req.Key, req.Value)
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Log the config change
+		s.store.LogInfo("ui", "config_change", "", map[string]interface{}{
+			"key": req.Key, "from": oldVal, "to": req.Value,
+		})
+
+		// React to auto_capture toggle
+		if req.Key == "auto_capture" {
+			if req.Value == "true" {
+				s.startPollingAgent()
+			} else {
+				s.stopPollingAgent()
+			}
+		}
+
+		// React to poll_interval change while running
+		if req.Key == "poll_interval" && s.agentMgr.IsRunning() {
+			s.stopPollingAgent()
+			s.startPollingAgent()
+		}
+
+		entries, _ := s.store.AllConfig("")
+		writeJSON(w, map[string]interface{}{"config": entries})
+
+	default:
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleActivity returns recent activity log entries.
+func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	limit := 50
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+
+	eventType := r.URL.Query().Get("type")
+
+	entries, err := s.store.RecentActivity(limit, eventType)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if entries == nil {
+		entries = []*store.ActivityEntry{}
+	}
+
+	writeJSON(w, map[string]interface{}{"entries": entries})
+}
+
+// handleMode returns lightweight capture mode status for the header badge.
+func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	autoCapture := s.store.GetConfigBool("auto_capture")
+	mode := "manual"
+	if autoCapture {
+		mode = "auto"
+	}
+
+	sources, _ := s.store.AllDataSources()
+	if sources == nil {
+		sources = []*store.DataSource{}
+	}
+
+	result := map[string]interface{}{
+		"mode":         mode,
+		"autoCapture":  autoCapture,
+		"isPolling":    s.agentMgr.IsRunning(),
+		"pollInterval": s.store.GetConfigInt("poll_interval", 300),
+		"sources":      sources,
+	}
+
+	// Add last poll info if agent is running
+	if ag := s.agentMgr.Agent(); ag != nil {
+		if t := ag.LastPollTime(); !t.IsZero() {
+			result["lastPoll"] = t
+			result["lastPollOK"] = ag.LastPollOK()
+		}
+	}
+
+	writeJSON(w, result)
 }
 
 // basicAuth wraps a handler with HTTP basic authentication.

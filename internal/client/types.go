@@ -107,6 +107,9 @@ type Snapshot struct {
 	MonthlyCredits int
 	Models         []ModelQuota
 	RawJSON        string
+	CaptureMethod  string // "manual" or "auto"
+	CaptureSource  string // "cli", "ui", "watch", "parser", "import", "mcp"
+	SourceID       string // "antigravity", "claude_code", "codex"
 }
 
 // GroupedQuota represents one logical quota group (e.g., Claude+GPT).
