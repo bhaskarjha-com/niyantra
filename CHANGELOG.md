@@ -8,16 +8,24 @@ All notable changes to Niyantra are documented here.
 - MIT License for open-source release
 - `niyantra demo` command for sample data seeding
 - Makefile with version injection (`make build`, `make run`, `make demo`)
-- GitHub Actions CI (3 OS) and release workflows
+- GoReleaser config for automated cross-platform releases (6 binaries)
+- `install.sh` one-liner installer for macOS/Linux
+- GitHub Actions CI (3 OS) and GoReleaser-based release workflow
 - Unit tests for `readiness` and `advisor` packages (16 tests)
-- SECURITY.md, CHANGELOG.md documentation
-- Comparison table in README (vs onWatch, Wallos)
+- USER_GUIDE.md — complete end-user feature guide (516 lines)
+- SECURITY.md — data access model and threat documentation
+- CHANGELOG.md — version history from v0.1.0
+- FAQ / Troubleshooting section in README
+- GitHub issue templates (bug report, feature request)
+- `go install` support for direct installation
+- Honest comparison table in README (vs onWatch, Wallos)
 - "Who Is This For?" and use-case stories in documentation
 
 ### Changed
-- README redesigned: hero + quickstart + user-story features + honest comparison
+- README redesigned: 4 install methods, "Try It Now", FAQ, feature groups
 - ARCHITECTURE.md rewritten (fixed single-line encoding, updated to schema v7)
 - VISION.md updated with market position, competitor landscape, use-case stories
+- CONTRIBUTING.md rewritten with full project layout (12 packages), Make targets, testing section
 
 ## [0.11.0] - 2026-04-18
 

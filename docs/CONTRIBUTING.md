@@ -1,69 +1,108 @@
 # Contributing to Niyantra
 
-## Build from Source
+## Quick Start
 
 ```bash
 # Clone
-git clone <repo-url>
+git clone https://github.com/bhaskarjha-com/niyantra.git
 cd niyantra
 
-# Build (single binary, no external deps)
-go build -o niyantra ./cmd/niyantra
+# Build with version injection
+make build
 
 # Verify
 ./niyantra version
+
+# Seed sample data + explore
+make demo
 ```
 
 ### Requirements
 
-- **Go 1.22+** — the only build dependency
+- **Go 1.25+** — the only build dependency
 - No CGo, no C compiler needed (`modernc.org/sqlite` is pure Go)
 - No npm, no Node.js, no frontend build step (JS/CSS are embedded as-is)
 
 ## Run Locally
 
 ```bash
-# Start the dashboard
-./niyantra serve
+# Start the dashboard with sample data
+make demo          # Seeds data + launches serve
 
-# Open http://localhost:9222
-# Click "Snap Now" to capture current Antigravity account
+# Or with real data (Antigravity must be running)
+./niyantra snap
+./niyantra serve   # http://localhost:9222
 ```
 
-### Prerequisites
+## Make Targets
 
-1. **Antigravity IDE must be running** — Niyantra talks to the language server the IDE starts
-2. **An account must be logged in** — Niyantra captures whichever account is active
+| Target | What it does |
+|--------|-------------|
+| `make build` | Build binary with version injection |
+| `make run` | Build + launch dashboard |
+| `make demo` | Seed sample data + launch dashboard |
+| `make test` | Run all tests with race detection |
+| `make vet` | Run Go vet |
+| `make clean` | Remove built binaries |
 
 ## Project Layout
 
 ```
-cmd/niyantra/main.go         ← CLI entrypoint (snap, status, serve, version)
+cmd/niyantra/main.go              ← CLI entrypoint (snap, status, serve, mcp, demo, backup, restore)
 
 internal/
-  client/                     ← Language server detection + API call
-    client.go                    Detect() + FetchQuotas() — the only external call
-    detect_windows.go            Windows: CIM → PowerShell → WMIC fallback chain
-    detect_unix.go               macOS/Linux: ps aux
-    ports.go                     Port discovery via lsof/ss/netstat
-    probe.go                     Connect RPC endpoint validation
-    types.go                     API response structs (UserStatusResponse, etc.)
-    helpers.go                   Model grouping logic (claude_gpt / gemini_pro / gemini_flash)
+  client/                          ← Antigravity language server detection + API call
+    client.go                         Detect() + FetchQuotas() — the only external call
+    detect_windows.go                 Windows: CIM → PowerShell → WMIC fallback chain
+    detect_unix.go                    macOS/Linux: ps aux
+    ports.go                          Port discovery via lsof/ss/netstat
+    probe.go                          Connect RPC endpoint validation
+    types.go                          API response structs
+    helpers.go                        Model grouping logic (claude_gpt / gemini_pro / gemini_flash)
 
-  store/                      ← SQLite persistence
-    store.go                     Open, migrate schema, close
-    snapshots.go                 InsertSnapshot, LatestPerAccount, History
-    accounts.go                  GetOrCreateAccount (upsert by email)
+  store/                           ← SQLite persistence (schema v7, 11 tables)
+    store.go                          Open, migrate schema, close
+    snapshots.go                      InsertSnapshot, LatestPerAccount, History
+    accounts.go                       GetOrCreateAccount (upsert by email)
+    subscriptions.go                  Subscription CRUD, 26 presets
+    config.go                         Typed key-value config
+    activity.go                       Activity log CRUD
+    codex.go                          Codex snapshot persistence
+    sessions.go                       Usage session tracking
+    usage_logs.go                     Manual usage log CRUD
 
-  readiness/                  ← Pure computation, zero I/O
-    readiness.go                 Calculate() — groups models, computes percentages + countdowns
+  readiness/                       ← Pure readiness computation (zero I/O)
+    readiness.go                      Calculate() — groups models, computes % + countdowns
+    readiness_test.go                 9 unit tests
 
-  web/                        ← HTTP server + embedded dashboard
-    server.go                    Setup, handlers: GET /api/status, POST /api/snap
-    static/                      Embedded via Go embed.FS
-      index.html                  Single-page dashboard shell
-      style.css                   Design system (CSS variables, dark/light themes)
-      app.js                      Dashboard logic (vanilla JS, no frameworks)
+  advisor/                         ← Switch advisor engine
+    advisor.go                        Multi-factor scoring (remaining%, burn rate, reset time)
+    advisor_test.go                   7 unit tests
+
+  agent/                           ← Auto-capture polling agent
+    agent.go                          Ticker loop, exponential backoff, graceful shutdown
+
+  tracker/                         ← Usage intelligence
+    tracker.go                        Reset cycle detection, consumption rates, exhaustion forecast
+
+  codex/                           ← Codex/ChatGPT integration
+    codex.go                          OAuth auth detection + API polling
+
+  claudebridge/                    ← Claude Code bridge
+    bridge.go                         Settings patch + rate limit monitoring
+
+  notify/                          ← OS-native notifications
+    notify.go                         Windows (PowerShell), macOS (osascript), Linux (notify-send)
+
+  mcpserver/                       ← MCP stdio server
+    server.go                         8 tools: quota, models, usage, budget, best_model, spending, switch, codex
+
+  web/                             ← HTTP server + embedded dashboard
+    server.go                         Setup, handlers (27 REST endpoints)
+    static/                           Embedded via Go embed.FS
+      index.html                       Single-page dashboard shell
+      style.css                        Design system (CSS variables, dark/light themes)
+      app.js                           Dashboard logic (vanilla JS, no frameworks)
 ```
 
 ## Key Design Decisions (read these first!)
@@ -83,7 +122,7 @@ The HTML `hidden` attribute sets `display: none`, but any CSS rule with `display
 
 ### 2. Serialize durations as seconds, not Go nanoseconds
 
-Go's `time.Duration` marshals to JSON as **nanoseconds** (int64). This creates confusing numbers in the frontend. Always convert to seconds at the Go layer:
+Go's `time.Duration` marshals to JSON as **nanoseconds** (int64). Always convert to seconds at the Go layer:
 
 ```go
 // ✅ Correct
@@ -97,9 +136,9 @@ TimeUntilReset time.Duration `json:"timeUntilReset"`
 
 If two snapshots have the same timestamp (same-second rapid clicks), `MAX(captured_at)` returns both. `MAX(id)` is always unique.
 
-### 4. No auto-polling
+### 4. Zero-daemon by default
 
-The dashboard does NOT auto-refresh. Data updates only on manual snap or page reload. This matches the "zero daemon" philosophy.
+Auto-capture only runs when explicitly enabled AND `niyantra serve` is running. It uses a ticker loop with configurable interval (30s-300s) and exponential backoff on failures. There is no standalone background daemon.
 
 ### 5. Event delegation for dynamic content
 
@@ -113,29 +152,34 @@ grid.addEventListener('click', function(e) {
 });
 ```
 
+### 6. Provenance on every data point
+
+Every snapshot must carry `capture_method` (manual/auto), `capture_source` (cli/ui/server), and `source_id` (antigravity/codex/claude). This is checked in code review.
+
 ## Testing
 
 ```bash
-# Build
-go build -o niyantra ./cmd/niyantra
+# Run all tests
+make test
 
-# Run vet
-go vet ./...
+# Run specific packages
+go test -count=1 ./internal/readiness/
+go test -count=1 ./internal/advisor/
 
-# Manual test: capture + view
-./niyantra snap
-./niyantra status
-./niyantra serve
+# Build + vet
+make build
+make vet
 ```
 
-No automated test suite yet. Verification is manual: build succeeds, `snap` captures, dashboard renders, expand/collapse works.
+Current coverage: 16 unit tests across `readiness` (9 tests) and `advisor` (7 tests).
 
 ## Common Issues
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| "language server process not found" | Antigravity IDE not running | Start the IDE first |
+| "language server process not found" | Antigravity IDE not running | Start the IDE with a project open |
 | "not authenticated" | No account logged in | Log into Antigravity in the IDE |
-| Dashboard shows stale data | No auto-refresh by design | Click "Snap Now" or reload |
+| Dashboard shows stale data | No auto-refresh by design | Click "Snap Now" or reload page |
 | "AI Credits" missing | Not in local LS API | Cannot be fixed — cloud-only data |
 | Binary won't cross-compile | `modernc.org/sqlite` needs correct GOOS/GOARCH | Set env vars explicitly |
+| Demo data won't seed | Database already has data | Use a fresh db: `niyantra demo --db /tmp/demo.db` |
