@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -63,6 +64,8 @@ func main() {
 			os.Exit(1)
 		}
 		cmdRestore(logger, *dbPath, fs.Arg(0))
+	case "demo":
+		cmdDemo(logger, *dbPath)
 	case "version":
 		fmt.Printf("niyantra %s\n", version)
 	case "help", "--help", "-h":
@@ -405,6 +408,161 @@ func cmdRestore(logger *slog.Logger, dbPath, backupPath string) {
 	fmt.Printf("✅ Database restored: %d bytes written to %s\n", written, dbPath)
 }
 
+// cmdDemo seeds the database with sample data for evaluation and screenshots.
+func cmdDemo(logger *slog.Logger, dbPath string) {
+	db, err := store.Open(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Safety check: don't overwrite real data
+	if db.AccountCount() > 0 {
+		fmt.Println("⚠️  Database already contains data.")
+		fmt.Println("   To seed demo data, use a fresh database:")
+		fmt.Println("   niyantra demo --db /tmp/demo.db")
+		os.Exit(1)
+	}
+
+	fmt.Print("\n  🌱 Seeding demo data...\n\n")
+
+	now := time.Now().UTC()
+
+	// --- Accounts & Snapshots ---
+	type demoAccount struct {
+		email string
+		plan  string
+	}
+	accounts := []demoAccount{
+		{"alex.chen@company.com", "Pro"},
+		{"alex.personal@gmail.com", "Pro Trial"},
+	}
+
+	totalSnaps := 0
+	for _, acc := range accounts {
+		accID, _ := db.GetOrCreateAccount(acc.email, acc.plan)
+
+		// Generate 12 snapshots spanning the last 24 hours
+		for i := 11; i >= 0; i-- {
+			capturedAt := now.Add(-time.Duration(i) * 2 * time.Hour)
+
+			claudeRemaining := 0.3 + rand.Float64()*0.5
+			if i < 3 {
+				claudeRemaining = 0.05 + rand.Float64()*0.15
+			}
+			geminiProRemaining := 0.6 + rand.Float64()*0.35
+			geminiFlashRemaining := 0.8 + rand.Float64()*0.2
+
+			resetTime := capturedAt.Add(3*time.Hour + time.Duration(rand.Intn(120))*time.Minute)
+			resetTime2 := resetTime.Add(1 * time.Hour)
+			resetTime3 := resetTime.Add(2 * time.Hour)
+
+			models := []client.ModelQuota{
+				{
+					Label:             "Claude Sonnet 4.6 (Thinking)",
+					RemainingFraction: claudeRemaining,
+					ResetTime:         &resetTime,
+				},
+				{
+					Label:             "GPT-4.1",
+					RemainingFraction: claudeRemaining * 0.9,
+					ResetTime:         &resetTime,
+				},
+				{
+					Label:             "Gemini 2.5 Pro",
+					RemainingFraction: geminiProRemaining,
+					ResetTime:         &resetTime2,
+				},
+				{
+					Label:             "Gemini 2.5 Flash",
+					RemainingFraction: geminiFlashRemaining,
+					ResetTime:         &resetTime3,
+				},
+			}
+
+			snap := &client.Snapshot{
+				AccountID:     accID,
+				CapturedAt:    capturedAt,
+				Email:         acc.email,
+				PlanName:      acc.plan,
+				PromptCredits: 500,
+				Models:        models,
+				CaptureMethod: "auto",
+				CaptureSource: "server",
+				SourceID:      "antigravity",
+			}
+
+			snapID, err := db.InsertSnapshot(snap)
+			if err == nil {
+				totalSnaps++
+				if i == 0 {
+					db.LogInfoSnap("server", "snap", acc.email, snapID, map[string]interface{}{
+						"plan": acc.plan, "method": "auto", "source": "server",
+					})
+				}
+			}
+		}
+	}
+	fmt.Printf("  ✓ Created %d accounts\n", len(accounts))
+	fmt.Printf("  ✓ Inserted %d quota snapshots\n", totalSnaps)
+
+	// --- Subscriptions ---
+	type demoSub struct {
+		platform, category, plan, status, email, cycle, currency string
+		cost                                                     float64
+		dashURL, statusURL                                       string
+	}
+	subs := []demoSub{
+		{"Antigravity", "coding", "Pro", "active", "alex.chen@company.com", "monthly", "USD", 15.00,
+			"https://windsurf.com/account", "https://status.codeium.com"},
+		{"Claude", "coding", "Pro", "active", "alex.personal@gmail.com", "monthly", "USD", 20.00,
+			"https://console.anthropic.com", "https://status.anthropic.com"},
+		{"ChatGPT", "chat", "Plus", "active", "alex.personal@gmail.com", "monthly", "USD", 20.00,
+			"https://chat.openai.com", "https://status.openai.com"},
+		{"Cursor", "coding", "Pro", "active", "alex.chen@company.com", "monthly", "USD", 20.00,
+			"https://cursor.sh/settings", ""},
+		{"Midjourney", "image", "Standard", "active", "alex.personal@gmail.com", "monthly", "USD", 30.00,
+			"https://midjourney.com/account", ""},
+	}
+
+	for _, s := range subs {
+		renewal := now.AddDate(0, 0, 7+rand.Intn(21))
+		sub := &store.Subscription{
+			Platform:      s.platform,
+			Category:      s.category,
+			PlanName:      s.plan,
+			Status:        s.status,
+			CostAmount:    s.cost,
+			CostCurrency:  s.currency,
+			BillingCycle:   s.cycle,
+			Email:         s.email,
+			NextRenewal:   renewal.Format("2006-01-02"),
+			URL:           s.dashURL,
+			StatusPageURL: s.statusURL,
+		}
+		db.InsertSubscription(sub)
+	}
+	fmt.Printf("  ✓ Created %d subscriptions\n", len(subs))
+
+	// --- Config ---
+	db.SetConfig("budget_monthly", "150")
+	db.SetConfig("currency", "USD")
+	db.SetConfig("retention_days", "365")
+	fmt.Println("  ✓ Set budget to $150/mo")
+
+	// --- Activity Log ---
+	db.LogInfo("system", "server_start", "", map[string]interface{}{
+		"port": 9222, "mode": "auto", "version": version,
+	})
+	db.LogInfo("system", "config_change", "", map[string]interface{}{
+		"key": "budget_monthly", "from": "0", "to": "150",
+	})
+	fmt.Println("  ✓ Logged activity events")
+
+	fmt.Print("\n  ✅ Demo data ready. Run 'niyantra serve' to explore the dashboard.\n\n")
+}
+
 func printUsage() {
 	fmt.Println(`Niyantra — Multi-account quota ledger for Antigravity
 
@@ -416,6 +574,7 @@ Commands:
   status     Show all accounts' readiness (0 network calls)
   serve      Start the web dashboard
   mcp        Start MCP server (stdio) for AI agent integration
+  demo       Seed database with sample data for evaluation
   backup     Create a database backup
   restore    Restore database from a backup file
   version    Print version information

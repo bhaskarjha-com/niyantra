@@ -34,17 +34,24 @@ Each tool has its own dashboard, its own billing page, its own quota display, it
 4. **Trial rot** — Free trials expire silently, converting to paid subscriptions
 5. **Cost invisibility** — Pay-as-you-go APIs (OpenAI, Anthropic) have no natural ceiling
 
-### Why Existing Solutions Fail
+### Why Existing Solutions Fall Short
 
-| Approach | Problem |
-|----------|---------|
-| **Check each tool's UI** | 10 tabs, 10 logins, 10 different UIs |
-| **Spreadsheets** | Manual data entry, stale immediately |
-| **Enterprise billing tools** (Stripe, Chargebee) | For SaaS *providers*, not *consumers* |
-| **Mint/YNAB** | Track bank transactions, not API quotas or rolling windows |
-| **Background polling** | Hammers APIs, risks rate limiting, wastes resources |
+| Approach | What it does well | What it doesn't do |
+|----------|-------------------|-------------------|
+| **Quota trackers** (e.g. onWatch) | Multi-provider API quota monitoring (9+ providers), historical trends, burn rate projections | No subscription management, no budget forecasting, no MCP, no account routing |
+| **Subscription trackers** (e.g. Wallos) | Generic subscription tracking with notifications | No AI quota awareness, no usage analytics, manual entry only |
+| **Enterprise SaaS platforms** (CloudEagle, Torii) | Team license management, compliance | $10K+/yr, team-focused, not for individual developers |
+| **Personal finance apps** (Rocket Money, Monarch) | Bank-connected expense tracking | Cloud-only, not developer-focused, no API quotas |
+| **IDE extensions** (Cursor Quota Checker) | Quick status bar indicator for one provider | Single-provider, no history, no budget context |
 
-**There is no local-first, developer-focused tool for tracking AI subscriptions from the consumer side.** Niyantra fills this gap.
+### Market Position
+
+Niyantra sits in a gap between these categories: **quota monitoring + subscription management + budget intelligence + AI agent integration** in a single local-first tool.
+
+- Quota trackers like **onWatch** (590+ stars, GPL-3) excel at multi-provider coverage (Synthetic, Z.ai, Anthropic, Codex, Copilot, MiniMax, Gemini CLI, Cursor, Antigravity) with historical trends and burn rate analytics.
+- Niyantra currently tracks fewer providers (Antigravity, Codex, Claude Code) but adds the **subscription economics layer** (26 platform presets, budget forecasting, renewal calendar, CSV export) and **AI agent integration layer** (8 MCP tools, switch advisor) that quota trackers don't cover.
+
+**Niyantra's thesis:** Knowing your quota is only half the problem. You also need to know what you're spending, when renewals hit, which account to switch to, and your AI agents need this context too.
 
 ## The Solution
 
@@ -261,6 +268,16 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - **Dashboard** — Codex status card (Overview), Codex settings toggle, sessions timeline, import button, 2 new command palette entries.
 - **Schema v7** — `codex_snapshots`, `usage_sessions`, `usage_logs` tables + config keys: `codex_capture`, `session_idle_timeout`.
 
+### ✅ Phase 11.5: Hardening & Polish
+- **MIT License** — fully independent codebase, ready for public release
+- **Makefile** — build/run/test/vet/clean/demo targets with `-ldflags` version injection
+- **`niyantra demo`** — seed command populates realistic sample data (2 accounts, 24 snapshots, 5 subs)
+- **README redesign** — from 343-line technical manual to ~170-line hero + quickstart + features format with badges
+- **ARCHITECTURE.md rewrite** — fixed single-line encoding issue, updated to schema v7
+- **Go unit tests** — 16 tests (readiness + advisor packages), all passing
+- **GitHub Actions** — CI (build+vet+test on 3 OS) + release (multi-arch binaries on tag push)
+- **Code independence audit** — zero references to prior art in tracked files or git history
+
 ### 🔲 Phase 12: Remote & Enterprise (NEXT)
 - **Streamable HTTP MCP transport** — remote agent access (SSE is deprecated; modern MCP requires Streamable HTTP)
 - **SMTP/Email notifications** — enterprise notification channel with TLS/STARTTLS support
@@ -272,6 +289,23 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - Plugin system for custom data sources
 - WebPush notifications (VAPID)
 - Copilot/Gemini API integration
+
+## Real-World Use Cases
+
+### The Quota Emergency
+You're deep in a coding flow. Claude hits 0% mid-task. You have 3 Antigravity accounts. Which one has quota? Open Niyantra dashboard -- the readiness grid tells you in 1 second. The switch advisor says "switch to personal@gmail.com (85% remaining, score 78)."
+
+### The Expense Report
+End of month, your manager asks "how much are we spending on AI tools?" Open Subscriptions tab, click CSV Export. Done. Total monthly spend, per-platform breakdown, renewal dates -- all in one file.
+
+### The Trial Trap
+You signed up for Cursor Pro trial (14 days), Midjourney trial (7 days), and Claude Pro trial (free month). Which one converts to paid next? The renewal calendar shows Midjourney in 2 days with a pin marker. You cancel before the charge.
+
+### The Agent Handoff
+You're using Claude Desktop with MCP. Mid-conversation, Claude asks your Niyantra MCP server: "What's my budget status?" Niyantra responds: "$127 of $150 spent, 15 days remaining. Burn rate suggests $190 by month end." Claude adjusts its recommendations accordingly.
+
+### The Multi-Account Rotation
+You have work and personal Antigravity accounts. Auto-capture polls both every 60 seconds. At 3am, your work account's Claude quota resets. Next morning, the activity log shows the exact reset time -- you know you're starting fresh.
 
 ## Non-Goals
 

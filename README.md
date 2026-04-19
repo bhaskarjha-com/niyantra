@@ -1,342 +1,201 @@
 # Niyantra
 
-**Local-first AI operations dashboard.**
+**Track every AI subscription. Monitor every quota. Control every dollar.**
 
-Niyantra (Sanskrit: नियन्त्र, "controller") is a single-binary dashboard that gives developers complete visibility into their AI tool ecosystem. It **auto-captures Antigravity quotas** from the local language server, **tracks Codex/ChatGPT usage** via OAuth API, **monitors Claude Code rate limits** via statusline bridge, **tracks subscriptions** for 26+ AI platforms, and provides **budget alerts, usage insights, switch recommendations, and a full activity log** with provenance on every data point.
+[![Go 1.25+](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-grey?style=flat-square)]()
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions&logoColor=white)](.github/workflows/ci.yml)
 
-> **Zero daemon by default. Full provenance. All local.**
+> Local-first. Zero daemon by default. Full provenance on every data point. All data stays on your machine.
+
+<!-- ![Dashboard Screenshot](docs/screenshots/overview-dark.png) -->
+
+---
 
 ## The Problem
 
-Developers in 2026 juggle **8+ AI subscriptions** — Antigravity, Cursor, Claude, ChatGPT, Copilot, API credits. Each has different limits, billing cycles, and quota windows. You waste time:
+Developers in 2026 spend **$200-600/month** across 8+ AI subscriptions. Each tool has its own dashboard, its own billing page, its own quota display. There is no unified view of what you're spending, which accounts have quota, or when renewals hit.
 
-- Checking each tool's dashboard individually
-- Forgetting which account has quota right now
-- Missing trial expiry dates (and getting auto-billed)
-- Manually tallying AI spending for expense reports
+Quota trackers solve part of this, but they only watch API usage. What about the 5 other subscriptions you're paying for? The trial that auto-converted yesterday? The $30/month tool you forgot to cancel?
 
-## The Solution
+**Niyantra combines AI quota monitoring with subscription management, budget intelligence, and AI agent integration** in a single local-first binary.
 
-```
-niyantra snap       # Captures current account's quota (1 API call)
-niyantra status     # Shows all accounts' readiness (0 API calls)
-niyantra serve      # Launches visual dashboard at http://localhost:9222
-niyantra mcp        # Starts MCP server for AI agent integration
-```
+## Who Is This For?
 
-Each `snap` makes exactly one HTTP call to the **local** Antigravity language server (already running via your IDE). No cloud APIs, no API keys, no rate limiting risk.
-
-## Prerequisites
-
-- **Go 1.22+** — to build from source
-- **Antigravity IDE** — must be running (it provides the language server)
-- **One account logged in** — `snap` captures whichever account is currently active
+- **Multi-account developers** juggling work + personal AI accounts
+- **AI power users** paying $100-500/month across multiple subscriptions
+- **Privacy-conscious developers** who want local-only data, no cloud dashboards
+- **Freelancers & contractors** tracking AI costs per client or project
+- **Anyone tired of checking 5 different dashboards** to answer "am I ready to code?"
 
 ## Quick Start
 
 ```bash
-# 1. Build
+# Build from source (Go 1.25+)
 go build -o niyantra ./cmd/niyantra
 
-# 2. Log into your first Antigravity account in the IDE
-
-# 3. Capture its quota
+# Capture your first Antigravity snapshot
 ./niyantra snap
 
-# 4. Switch to another account in the IDE, then:
-./niyantra snap
-
-# 5. See which account is ready
-./niyantra status
-
-# 6. Or launch the visual dashboard
-./niyantra serve
-# → open http://localhost:9222
+# Launch the dashboard
+./niyantra serve    # http://localhost:9222
 ```
 
-## Dashboard — 4 Tabs
-
-The dashboard at `http://localhost:9222` has four tabs:
-
-### Quotas Tab (Auto-Tracked)
-
-Real-time readiness grid for Antigravity accounts:
-
-| Account | Claude+GPT | Gemini Pro | Gemini Flash | Status |
-|---------|-----------|-----------|-------------|--------|
-| work@company.com | 40% ↻3h | 100% ↻4h | 100% ↻4h | ✅ Ready |
-| personal@gmail.com | 0% ↻1h | 100% ↻2h | 100% ↻4h | ⚠️ Low |
-
-- **Click any row** → expands per-model detail (progress bars, reset countdowns)
-- **Snap Now** → captures current account's quota
-- **Quota History Chart** — Chart.js line chart showing quota trends over time
-  - Filter by account, view last 20/50/100 snapshots
-  - Theme-aware (adapts to dark/light mode)
-- Color-coded by group (orange = Claude+GPT, green = Gemini Pro, blue = Flash)
-
-### Subscriptions Tab (Manual Tracking)
-
-Card-based view of all AI subscriptions:
-
-- **26 platform presets** — one-click onboarding for Claude, ChatGPT, Cursor, Copilot, Midjourney, etc.
-- **Pre-filled expert tips** — "Claude's 5h window is rolling, not fixed", "Cursor Auto mode is unlimited"
-- **Status badges** — Active, Trial, Paused, Cancelled
-- **Trial countdown** — "Trial ends in 3 days" with red badge
-- **Dashboard links** — one-click to each tool's billing/usage page
-- **Status page links** — "Is it down?" → opens status.anthropic.com, etc.
-- **Search** — real-time full-text search across all subscriptions
-- **Filters** — by status and category
-- **Category grouping** — coding, chat, API, image, audio, productivity
-- **Auto-link** — when `snap` detects an Antigravity account, auto-creates a subscription card
-
-### Overview Tab
-
-- **Budget alert** — ok/warning/danger states when spend approaches your monthly budget
-- **Smart switch advisor** — cross-account routing: "switch", "stay", or "wait" with scores
-- **Codex / ChatGPT card** — multi-quota bars (5h window, 7d window, code review) with manual snap
-- **Sessions timeline** — usage sessions across all providers with live indicators
-- **Smart insights** — trial warnings, top spending category, renewal alerts, annual savings potential
-- **Monthly/annual spend** with category breakdown
-- **Renewal calendar** — month-view with pin markers on renewal dates
-- **Budget forecast** — burn rate per day, projected monthly spend, on-track/over-budget
-- **System alerts** — persistent dismissible banners for quota warnings
-- **CSV/JSON Export** — download all data for tax/expense reports or data portability
-
-### Settings Tab
-
-- **Capture & Sources** — auto-capture toggle, poll interval, auto-link toggle, data sources list
-- **Claude Code Bridge** — statusline integration for real-time Claude Code rate limits (5h/7d windows)
-- **Codex / ChatGPT** — enable Codex capture toggle with OAuth status display
-- **Budget & Display** — monthly spending threshold with alerts, default currency, theme
-- **Notifications** — OS-native desktop alerts when quota drops below threshold
-- **Data Management** — snapshot retention, CSV/JSON export, database backup, JSON import (additive merge)
-- **Activity Log** — structured event log with filters (snaps, config changes, server starts)
-- **Keyboard shortcuts** — reference grid
-- **About** — version, schema, mode, active sources
-
-### Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `1` `2` `3` `4` | Switch tabs |
-| `N` | New subscription |
-| `S` | Snap quota |
-| `/` | Search subscriptions |
-| `Ctrl+K` | Command palette |
-| `Esc` | Close modal |
-
-### What It Does NOT Show
-
-- **AI Credits** — not available via local language server API. Requires cloud API that the LS doesn't expose.
-
-## CLI Commands
-
-| Command | What it does | Network calls |
-|---------|-------------|---------------|
-| `niyantra snap` | Capture current account's quota | 1 (local LS) |
-| `niyantra status` | Show all accounts' readiness | 0 |
-| `niyantra serve` | Start web dashboard | 0 (+ 1 per snap) |
-| `niyantra mcp` | Start MCP server for AI agents | 0 |
-| `niyantra backup` | Create timestamped database backup | 0 |
-| `niyantra restore <file>` | Restore database from backup | 0 |
-| `niyantra version` | Print version | 0 |
-
-### Flags
-
-```
---port     Dashboard port (default: 9222)
---db       Database path (default: ~/.niyantra/niyantra.db)
---auth     HTTP basic auth for dashboard (user:pass)
---debug    Enable verbose logging
+Or with Make:
+```bash
+make build    # Build with version injection
+make run      # Build + launch dashboard
+make demo     # Seed sample data + launch (try before configuring)
 ```
 
-## Design Principles
+---
 
-1. **Zero daemon by default** — No background process, no polling, no system tray. Manual capture is always available. Auto-capture is opt-in.
-2. **Full provenance** — Every data point tagged with who captured it, how, and from which source.
-3. **Local-first** — All readiness computation from SQLite, zero network. `status` and `serve` never phone home.
-4. **Single binary** — Go with embedded web assets via `embed.FS`. No Node.js, no npm, no containers.
-5. **Multi-platform** — Process detection works on Windows (CIM/PowerShell), macOS (ps/lsof), Linux (ps/ss).
+## What Niyantra Does
+
+### Know Your Quotas
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track Codex/ChatGPT via OAuth API. Monitor Claude Code rate limits via statusline bridge. See who's ready, who's exhausted, and when resets happen.
+
+### Control Your Spending
+Track subscriptions across 26+ AI platforms with renewals, spending breakdowns, and CSV export. Set a monthly budget and get forecasts before you overspend. Visual renewal calendar so nothing surprises you.
+
+### Let AI Help You Code Smarter
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (8 tools) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task -- no context switching.
+
+### Your Data, Your Machine
+SQLite database. No cloud. No accounts. No tracking. No telemetry. Full provenance audit trail on every snapshot. MIT licensed.
+
+---
+
+## Dashboard
+
+**4 tabs** -- Quotas, Subscriptions, Overview, Settings
+
+| Tab | What it shows |
+|-----|---------------|
+| **Quotas** | Per-account readiness grid, per-model progress bars, reset countdowns, history chart |
+| **Subscriptions** | Card view of all AI subs, search, 26 platform presets, CSV export |
+| **Overview** | Monthly budget vs actual, switch advisor, Codex status, sessions timeline, renewal calendar |
+| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore |
 
 ## How It Works
 
 ```
-niyantra snap
-    │
-    ▼
-┌─────────────────────────┐
-│  1. Detect Language Server │  ← find process by name, extract CSRF token
-│     (ps / CIM / netstat)   │
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  2. Fetch Quotas           │  ← 1 POST to localhost (Connect RPC)
-│     GetUserStatus          │  ← returns 6 models + plan info
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  3. Store in SQLite        │  ← ~/.niyantra/niyantra.db
-│     snapshots + accounts   │  ← models_json + raw_json
-└───────────┬─────────────┘
-            │
-            ▼
-┌─────────────────────────┐
-│  4. Compute Readiness      │  ← group models, calc percentages
-│     (pure local, no I/O)   │  ← reset countdowns, staleness
-└─────────────────────────┘
+You're coding in Antigravity
+    |
+    v
+Niyantra watches your quotas (manual snap or auto-polling)
+    |
+    v
+Everything stored locally in SQLite (with full provenance)
+    |
+    v
+Dashboard shows all accounts + subscriptions + budget
+    |
+    v
+AI agents can query via MCP ("which account should I use?")
 ```
 
-## What Data We Can Access
+Each `snap` makes exactly **one HTTP call** to the local language server. No cloud APIs, no API keys, no rate-limit risk.
 
-The Antigravity language server (running locally) exposes **one useful endpoint**: `GetUserStatus`, which returns:
+## CLI Reference
 
-| Field | Example | Shown in Dashboard |
-|-------|---------|--------------------|
-| `email` | `user@example.com` | ✅ Account name |
-| `name` | `"Bhaskar Jha"` | ❌ Available but unused |
-| `planName` | `"Pro"` | ✅ Plan badge |
-| `availablePromptCredits` | `500` | ✅ Credits badge (✦ 500) |
-| `monthlyPromptCredits` | `50000` | ❌ Available but unused |
-| Per-model `label` | `"Claude Sonnet 4.6 (Thinking)"` | ✅ Model detail rows |
-| Per-model `remainingFraction` | `0.4` (= 40%) | ✅ Progress bars |
-| Per-model `resetTime` | `"2026-04-17T01:36:50Z"` | ✅ Reset countdown |
-| Per-model `modelOrAlias.model` | `"MODEL_PLACEHOLDER_M35"` | ❌ Internal, not shown |
+| Command | What it does | Network |
+|---------|-------------|:---:|
+| `niyantra snap` | Capture current Antigravity account's quota | 1 call |
+| `niyantra status` | Show all accounts' readiness | 0 |
+| `niyantra serve` | Launch web dashboard at `localhost:9222` | 0 |
+| `niyantra mcp` | Start MCP server (stdio) for AI agents | 0 |
+| `niyantra demo` | Seed database with sample data | 0 |
+| `niyantra backup` | Create timestamped database backup | 0 |
+| `niyantra restore <file>` | Restore from backup | 0 |
+| `niyantra version` | Print version | 0 |
 
-### What We CANNOT Access
+**Flags:** `--port 9222` `--db ~/.niyantra/niyantra.db` `--auth user:pass` `--debug`
 
-The **"AI Credits: 1000"** shown in Antigravity's Agent Manager is served by a **different API** (Codeium cloud), not the local language server. We probed 24 potential RPC endpoints on the local LS — all returned 404. This data requires authentication against `codeium.com`, which is outside our scope.
-
-## Project Structure
-
-```
-niyantra/
-├── cmd/niyantra/              # CLI entrypoint + command dispatch
-│   └── main.go                # snap, status, serve, mcp, version, backup, restore
-│
-├── internal/
-│   ├── agent/                # Auto-capture polling (Phase 6+11)
-│   │   ├── agent.go          # PollingAgent: multi-source polling + session managers
-│   │   └── manager.go        # Start/Stop lifecycle
-│   │
-│   ├── client/                # Antigravity language server client
-│   │   ├── client.go          # Detect + FetchQuotas (1 API call)
-│   │   ├── detect_windows.go  # Windows: CIM → PowerShell → WMIC
-│   │   ├── detect_unix.go     # macOS/Linux: ps aux
-│   │   ├── ports.go           # Port discovery (lsof/ss/netstat)
-│   │   ├── probe.go           # Connect RPC endpoint validation
-│   │   ├── types.go           # API response structs + Snapshot
-│   │   └── helpers.go         # Model grouping logic
-│   │
-│   ├── codex/                 # Codex/ChatGPT integration (Phase 11)
-│   │   └── codex.go           # OAuth client, credential detection, usage API
-│   │
-│   ├── tracker/               # Cycle intelligence (Phase 7+11)
-│   │   ├── tracker.go         # 3-method reset detection + cycles
-│   │   ├── summary.go         # UsageSummary + BudgetForecast
-│   │   └── session.go         # SessionManager: usage-change detection
-│   │
-│   ├── advisor/               # Switch Advisor (Phase 10)
-│   │   └── advisor.go         # Stateless multi-factor account scoring
-│   │
-│   ├── mcpserver/             # MCP server (Phase 8+10+11)
-│   │   └── mcpserver.go       # 8 tools over stdio for AI agents
-│   │
-│   ├── claudebridge/          # Claude Code bridge (Phase 9)
-│   │   └── claudebridge.go    # Statusline patcher, rate limit reader
-│   │
-│   ├── notify/                # OS-native notifications (Phase 9)
-│   │   └── notify.go          # Cross-platform toast, once-per-cycle guard
-│   │
-│   ├── store/                 # SQLite persistence (v7 schema)
-│   │   ├── store.go           # Open, migrate (v1→v7), close
-│   │   ├── snapshots.go       # Insert (with provenance), LatestPerAccount, History
-│   │   ├── accounts.go        # GetOrCreateAccount (upsert by email)
-│   │   ├── subscriptions.go   # Subscription CRUD, overview stats, renewals
-│   │   ├── alerts.go          # System alerts CRUD (Phase 10)
-│   │   ├── presets.go         # 26 platform preset templates
-│   │   ├── config.go          # Server config CRUD (typed key-value)
-│   │   ├── activity_log.go    # Structured activity log CRUD
-│   │   ├── data_sources.go    # Data sources registry CRUD
-│   │   ├── cycles.go          # Reset cycle CRUD (Phase 7)
-│   │   ├── claude_snapshots.go # Claude Code rate limit snapshots (Phase 9)
-│   │   ├── codex_snapshots.go # Codex/ChatGPT usage snapshots (Phase 11)
-│   │   ├── sessions.go        # Usage session CRUD (Phase 11)
-│   │   ├── usage_logs.go      # Manual usage log CRUD (Phase 11)
-│   │   └── import.go          # JSON import with merge/dedup (Phase 11)
-│   │
-│   ├── readiness/             # Pure computation engine (zero I/O)
-│   │   └── readiness.go       # Calculate readiness from snapshots
-│   │
-│   └── web/                   # HTTP server + embedded dashboard
-│       ├── server.go          # 27 REST handlers, agent management
-│       ├── handlers_subscriptions.go  # Subscription CRUD, overview, presets, CSV
-│       └── static/            # Embedded via Go embed.FS
-│           ├── index.html     # 4-tab dashboard
-│           ├── style.css      # Design system (~2500 lines)
-│           ├── app.js         # Dashboard logic (~2500 lines)
-│           └── manifest.json  # PWA manifest
-│
-├── docs/
-│   ├── VISION.md, ARCHITECTURE.md, API_SPEC.md
-│   ├── DATA_MODEL.md, TESTING.md
-│
-├── go.mod / go.sum
-├── .gitignore
-└── README.md
-```
-
-## Dependencies
-
-| Dependency | Purpose |
-|-----------|---------|
-| `modernc.org/sqlite` | Pure-Go SQLite (no CGo → true single binary) |
-| `github.com/modelcontextprotocol/go-sdk` | MCP server for AI agent integration |
-| Go stdlib | Everything else (HTTP, JSON, embed, crypto, os) |
-
-**That's it.** No web frameworks, no ORMs, no logging libraries, no npm.
-
-## MCP Server (AI Agent Integration)
+## MCP Integration
 
 Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-**8 tools available:**
+**8 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status`
 
-| Tool | What it does |
-|------|--------------|
-| `quota_status` | All accounts with per-group readiness |
-| `model_availability` | Check a specific model by name |
-| `usage_intelligence` | Consumption rates and projections |
-| `budget_forecast` | Burn rate and monthly projection |
-| `best_model` | Recommend least-exhausted model |
-| `analyze_spending` | Spending analysis with savings detection |
-| `switch_recommendation` | Cross-account routing recommendation |
-| `codex_status` | Codex/ChatGPT detection and quota status |
-
-**Setup** — add to Claude Desktop's `claude_desktop_config.json`:
+Add to Claude Desktop's config:
 ```json
 {
   "mcpServers": {
     "niyantra": {
-      "command": "path/to/niyantra.exe",
+      "command": "path/to/niyantra",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-Then ask: *"What's my Windsurf quota?"* or *"Which model should I use?"* or *"What's my Codex status?"*
+Then ask: *"What's my Antigravity quota?"* or *"Which account should I use?"* or *"How much am I spending on AI this month?"*
+
+## Comparison
+
+| Feature | Niyantra | Quota trackers (e.g. onWatch) | Sub trackers (e.g. Wallos) |
+|---------|----------|-------------------------------|---------------------------|
+| AI quota monitoring | Antigravity + Codex + Claude | Up to 9 providers | -- |
+| Subscription management | 26 AI platforms, renewals, CSV | -- | Generic subs |
+| Budget forecasting | Monthly budget with projections | -- | Basic budget |
+| Switch advisor (account routing) | Multi-factor scoring engine | -- | -- |
+| MCP for AI agents | 8 tools over stdio | -- | -- |
+| Renewal calendar | Visual month view | -- | -- |
+| Activity audit trail | Full provenance on every data point | -- | -- |
+| Zero-daemon default | Manual mode, opt-in auto | Daemon by default | N/A |
+| License | MIT | GPL-3 | MIT |
+| Single binary | Yes (Go, no CGo) | Yes | No (PHP/Docker) |
+
+> **Note:** Quota tracker tools like onWatch excel at multi-provider coverage with support for 9+ providers. Niyantra focuses on combining quota data with subscription management, budget intelligence, and AI agent integration rather than maximizing provider count.
+
+## Building from Source
+
+**Prerequisites:** Go 1.25+
+
+```bash
+git clone https://github.com/bhaskarjha-com/niyantra.git
+cd niyantra
+make build
+./niyantra serve
+```
+
+## Dependencies
+
+| Dependency | Purpose |
+|-----------|---------|
+| [`modernc.org/sqlite`](https://pkg.go.dev/modernc.org/sqlite) | Pure-Go SQLite -- no CGo, true single binary |
+| [`go-sdk/mcp`](https://github.com/modelcontextprotocol/go-sdk) | Official MCP Go SDK for AI agent integration |
+| Go stdlib | Everything else -- HTTP, JSON, embed, crypto |
+
+No web frameworks. No ORMs. No npm. Chart.js loaded from CDN for visualization.
 
 ## Stats
 
-- **~13,000 lines** of code (Go + JS + CSS + HTML)
-- **~18 MB** compiled binary (includes embedded SQLite engine + Chart.js loaded from CDN)
-- **0** external runtime dependencies
-- **27 REST endpoints + 8 MCP tools**
-- **200+ manual test cases**
-- **PWA installable** — add to home screen / install as app
+| Metric | Value |
+|--------|-------|
+| Lines of code | ~14,000 (Go + JS + CSS + HTML) |
+| Binary size | ~18 MB |
+| External deps | 2 (sqlite + MCP SDK) |
+| REST endpoints | 27 |
+| MCP tools | 8 |
+| Unit tests | 16 (readiness + advisor) |
+| Schema version | v7 (11 tables) |
+
+## Documentation
+
+| Document | Content |
+|----------|---------|
+| [VISION.md](docs/VISION.md) | Product vision, market position, roadmap, use cases |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (27 endpoints) |
+| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v7, migrations |
+| [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
+| [TESTING.md](docs/TESTING.md) | Test cases |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |
+| [CHANGELOG.md](CHANGELOG.md) | Version history (v0.1.0 - v0.12.0) |
 
 ## License
 
-Private. Not for redistribution.
+[MIT](LICENSE) -- (c) 2026 Bhaskar Jha

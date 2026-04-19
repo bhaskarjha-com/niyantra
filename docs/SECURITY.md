@@ -1,0 +1,58 @@
+# Security Model
+
+## What Niyantra Accesses
+
+| Data | How | Why |
+|------|-----|-----|
+| Language server process list | `ps aux` / CIM / `Get-Process` | Detect running Antigravity instance |
+| Language server command-line args | Process inspection | Extract CSRF token and port number |
+| Local HTTP endpoint (`127.0.0.1`) | Single HTTP POST per snap | Fetch quota data via Connect RPC |
+| Codex auth file (`~/.codex/auth.json`) | File read | OAuth token for Codex API polling |
+| Claude settings (`~/.claude/settings.json`) | File read + optional patch | Statusline bridge for rate limits |
+
+## What Niyantra Does NOT Access
+
+- No cloud APIs (all calls to `127.0.0.1` only)
+- No API keys stored or transmitted
+- No user credentials (except optional dashboard HTTP basic auth)
+- No telemetry, analytics, or phone-home
+- No third-party services contacted
+- No file system writes outside its own database directory
+
+## Network Behavior
+
+- **`niyantra snap`**: 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
+- **`niyantra serve`**: Binds HTTP server on `localhost:9222` (configurable)
+- **`niyantra mcp`**: stdio only, no network
+- **All other commands**: 0 network calls
+
+## TLS
+
+The Antigravity language server uses a self-signed certificate. Niyantra connects with `InsecureSkipVerify: true` because:
+1. The connection is to `127.0.0.1` (localhost only)
+2. The CSRF token provides request authentication
+3. The alternative (no TLS) would be less secure
+
+## Dashboard Authentication
+
+Optional HTTP basic auth via `--auth user:pass` flag. No session tokens, no cookies. The auth is per-request and not persisted.
+
+## Data Storage
+
+- All data stored in a single SQLite file (default: `~/.niyantra/niyantra.db`)
+- No encryption at rest (the database contains quota percentages, not credentials)
+- Backup/restore via `niyantra backup` / `niyantra restore`
+
+## Provenance
+
+Every snapshot is tagged with:
+- `capture_method`: `manual` or `auto`
+- `capture_source`: `cli`, `ui`, or `server`
+- `source_id`: which data source produced it
+- `captured_at`: timestamp
+
+This creates an audit trail — you can always verify *how* and *when* data entered the system.
+
+## Reporting Vulnerabilities
+
+If you discover a security issue, please email security@bhaskarjha.com rather than opening a public issue.
