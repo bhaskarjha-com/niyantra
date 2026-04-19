@@ -7,14 +7,21 @@
 git clone https://github.com/bhaskarjha-com/niyantra.git
 cd niyantra
 
-# Build with version injection
+# Build (macOS/Linux)
 make build
+
+# Build (Windows or without make)
+go build -o niyantra.exe ./cmd/niyantra
 
 # Verify
 ./niyantra version
 
-# Seed sample data + explore
+# Seed sample data + explore (macOS/Linux)
 make demo
+
+# Seed sample data + explore (Windows)
+go run ./cmd/niyantra demo
+go run ./cmd/niyantra serve
 ```
 
 ### Requirements
@@ -27,7 +34,10 @@ make demo
 
 ```bash
 # Start the dashboard with sample data
-make demo          # Seeds data + launches serve
+make demo          # macOS/Linux
+# OR
+go run ./cmd/niyantra demo
+go run ./cmd/niyantra serve  # Windows
 
 # Or with real data (Antigravity must be running)
 ./niyantra snap

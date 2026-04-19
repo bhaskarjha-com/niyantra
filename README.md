@@ -54,7 +54,12 @@ Pre-built binaries for macOS, Linux, and Windows are available on the [Releases 
 ```bash
 git clone https://github.com/bhaskarjha-com/niyantra.git
 cd niyantra
+
+# macOS/Linux (with make)
 make build
+
+# Windows (or without make)
+go build -o niyantra.exe ./cmd/niyantra
 ```
 
 ## Try It Now
@@ -62,8 +67,12 @@ make build
 Don't have Antigravity running? No problem. The `demo` command seeds realistic sample data so you can explore immediately:
 
 ```bash
-niyantra demo     # Seeds 2 accounts, 24 snapshots, 5 subscriptions
-niyantra serve    # Open http://localhost:9222
+# macOS/Linux
+make demo     # Seeds data + launches serve
+
+# Windows
+go run ./cmd/niyantra demo
+go run ./cmd/niyantra serve
 ```
 
 When you're ready to use real data:
