@@ -1,13 +1,393 @@
-<!-- Niyantra Dashboard — placeholder, will be implemented in Phase 5 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Niyantra</title>
+    <title>Niyantra — AI Subscription & Quota Dashboard</title>
+    <meta name="description" content="Track AI subscriptions, quotas, and credits in one place. Auto-detect quotas, manually track any AI service.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0e17">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <h1>Niyantra Dashboard</h1>
-    <p>Coming soon.</p>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                    Niyantra
+                </h1>
+                <span class="header-badge" id="account-count">0 accounts</span>
+            </div>
+            <div class="header-right">
+                <span class="header-status" id="last-updated"></span>
+                <button class="snap-btn" id="snap-btn" title="Capture current Antigravity quota">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                    Snap Now
+                </button>
+                <button class="btn-add" id="add-sub-btn" title="Add subscription">+ Add</button>
+                <button class="theme-btn" id="theme-btn" title="Toggle theme">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav" id="tab-nav">
+            <button class="tab-btn active" data-tab="quotas">Quotas</button>
+            <button class="tab-btn" data-tab="subscriptions">Subscriptions</button>
+            <button class="tab-btn" data-tab="overview">Overview</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
+        </nav>
+
+        <main class="main">
+            <!-- Tab: Quotas (existing auto-tracked) -->
+            <section class="tab-panel active" id="panel-quotas">
+                <div class="grid-section">
+                    <div class="grid-header">
+                        <div class="grid-col-account">Account</div>
+                        <div class="grid-col-group">Claude + GPT</div>
+                        <div class="grid-col-group">Gemini Pro</div>
+                        <div class="grid-col-group">Gemini Flash</div>
+                        <div class="grid-col-status">Status</div>
+                    </div>
+                    <div id="account-grid" class="account-grid"></div>
+                </div>
+
+                <!-- Quota History Chart -->
+                <div class="chart-section" id="chart-section">
+                    <div class="chart-header">
+                        <h3>Quota History</h3>
+                        <div class="chart-controls">
+                            <select id="chart-account" class="filter-select">
+                                <option value="0">All Accounts</option>
+                            </select>
+                            <select id="chart-range" class="filter-select">
+                                <option value="20">Last 20</option>
+                                <option value="50">Last 50</option>
+                                <option value="100">Last 100</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="history-chart"></canvas>
+                    </div>
+                    <div class="chart-legend" id="chart-legend"></div>
+                </div>
+            </section>
+
+            <!-- Tab: Subscriptions (manual tracking) -->
+            <section class="tab-panel" id="panel-subscriptions">
+                <div class="subs-toolbar">
+                    <div class="subs-summary" id="subs-summary">0 subscriptions</div>
+                    <div class="subs-filters">
+                        <select id="filter-status" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="trial">Trial</option>
+                            <option value="paused">Paused</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <select id="filter-category" class="filter-select">
+                            <option value="">All Categories</option>
+                            <option value="coding">Coding</option>
+                            <option value="chat">Chat</option>
+                            <option value="api">API</option>
+                            <option value="image">Image</option>
+                            <option value="audio">Audio</option>
+                            <option value="productivity">Productivity</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <button class="btn-add-sm" id="add-sub-btn-2">+ Add</button>
+                    </div>
+                </div>
+                <div class="search-bar">
+                    <input type="text" id="search-subs" class="form-input search-input" placeholder="🔍 Search subscriptions...">
+                </div>
+                <div id="subs-grid" class="subs-grid"></div>
+            </section>
+
+            <!-- Tab: Overview -->
+            <section class="tab-panel" id="panel-overview">
+                <div id="overview-content" class="overview-content"></div>
+            </section>
+
+            <!-- Tab: Settings -->
+            <section class="tab-panel" id="panel-settings">
+                <div class="settings-page">
+                    <div class="settings-section">
+                        <h3>Budget</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Monthly Budget</strong>
+                                <span>Show alerts when total AI spend exceeds this amount</span>
+                            </div>
+                            <div class="settings-control">
+                                <div class="input-with-prefix">
+                                    <span class="input-prefix">$</span>
+                                    <input type="number" id="s-budget" class="form-input" step="1" min="0" placeholder="200">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Display</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Default Currency</strong>
+                                <span>Currency for new subscriptions</span>
+                            </div>
+                            <div class="settings-control">
+                                <select id="s-currency" class="form-input">
+                                    <option value="USD">USD ($)</option>
+                                    <option value="EUR">EUR (€)</option>
+                                    <option value="GBP">GBP (£)</option>
+                                    <option value="INR">INR (₹)</option>
+                                    <option value="CAD">CAD (C$)</option>
+                                    <option value="AUD">AUD (A$)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Theme</strong>
+                                <span>Dashboard appearance</span>
+                            </div>
+                            <div class="settings-control">
+                                <select id="s-theme" class="form-input">
+                                    <option value="dark">Dark</option>
+                                    <option value="light">Light</option>
+                                    <option value="system">System</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Data</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Export All Data</strong>
+                                <span>Download subscriptions as CSV for tax/expense reports</span>
+                            </div>
+                            <div class="settings-control">
+                                <a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex">📥 Export CSV</a>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Database Location</strong>
+                                <span id="s-db-path">~/.niyantra/niyantra.db</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Keyboard Shortcuts</h3>
+                        <div class="shortcuts-grid">
+                            <div class="shortcut-item"><kbd>1</kbd> Quotas tab</div>
+                            <div class="shortcut-item"><kbd>2</kbd> Subscriptions tab</div>
+                            <div class="shortcut-item"><kbd>3</kbd> Overview tab</div>
+                            <div class="shortcut-item"><kbd>4</kbd> Settings tab</div>
+                            <div class="shortcut-item"><kbd>N</kbd> New subscription</div>
+                            <div class="shortcut-item"><kbd>S</kbd> Snap quota</div>
+                            <div class="shortcut-item"><kbd>/</kbd> Search</div>
+                            <div class="shortcut-item"><kbd>Esc</kbd> Close modal</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>About</h3>
+                        <div class="settings-about">
+                            <p><strong>Niyantra</strong> — AI Subscription & Quota Dashboard</p>
+                            <p style="color:var(--text-muted);font-size:12px">Local-first. Zero daemon. Open source.</p>
+                            <p style="color:var(--text-muted);font-size:12px;margin-top:4px">Schema version: 2 • 26 platform presets</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Toast -->
+            <div id="toast" class="toast" hidden></div>
+        </main>
+
+        <!-- Add/Edit Subscription Modal -->
+        <div class="modal-overlay" id="modal-overlay" hidden>
+            <div class="modal" id="sub-modal">
+                <div class="modal-header">
+                    <h2 id="modal-title">Add Subscription</h2>
+                    <button class="modal-close" id="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="f-platform">Platform</label>
+                        <div class="preset-row">
+                            <input type="text" id="f-platform" class="form-input" placeholder="e.g. Claude Pro" list="preset-list" autocomplete="off">
+                            <datalist id="preset-list"></datalist>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="f-category">Category</label>
+                            <select id="f-category" class="form-input">
+                                <option value="coding">Coding</option>
+                                <option value="chat">Chat</option>
+                                <option value="api">API</option>
+                                <option value="image">Image</option>
+                                <option value="audio">Audio</option>
+                                <option value="productivity">Productivity</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="f-status">Status</label>
+                            <select id="f-status" class="form-input">
+                                <option value="active">Active</option>
+                                <option value="trial">Trial</option>
+                                <option value="paused">Paused</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="f-email">Email</label>
+                            <input type="email" id="f-email" class="form-input" placeholder="account@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-plan">Plan</label>
+                            <input type="text" id="f-plan" class="form-input" placeholder="e.g. Pro, Max 5x">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="f-cost">Cost</label>
+                            <input type="number" id="f-cost" class="form-input" step="0.01" min="0" placeholder="20.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-currency">Currency</label>
+                            <select id="f-currency" class="form-input">
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                                <option value="INR">INR</option>
+                                <option value="CAD">CAD</option>
+                                <option value="AUD">AUD</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="f-cycle">Billing</label>
+                            <select id="f-cycle" class="form-input">
+                                <option value="monthly">Monthly</option>
+                                <option value="annual">Annual</option>
+                                <option value="lifetime">Lifetime</option>
+                                <option value="payg">Pay-as-you-go</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="f-token-limit">Token Limit</label>
+                            <input type="number" id="f-token-limit" class="form-input" min="0" placeholder="0 = unlimited">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-credit-limit">Credit Limit</label>
+                            <input type="number" id="f-credit-limit" class="form-input" min="0" placeholder="0 = unlimited">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-request-limit">Request Limit</label>
+                            <input type="number" id="f-request-limit" class="form-input" min="0" placeholder="0 = unlimited">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="f-limit-period">Limit Period</label>
+                            <select id="f-limit-period" class="form-input">
+                                <option value="monthly">Monthly</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="rolling_3h">Rolling 3h</option>
+                                <option value="rolling_5h">Rolling 5h</option>
+                                <option value="hourly">Hourly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="f-renewal">Next Renewal</label>
+                            <input type="date" id="f-renewal" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="f-trial-ends">Trial Ends</label>
+                            <input type="date" id="f-trial-ends" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="f-url">Dashboard URL</label>
+                        <input type="url" id="f-url" class="form-input" placeholder="https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="f-notes">Notes</label>
+                        <textarea id="f-notes" class="form-input form-textarea" rows="3" placeholder="Benefits, limits, tips..."></textarea>
+                    </div>
+                    <input type="hidden" id="f-id">
+                    <input type="hidden" id="f-status-page-url">
+                    <input type="hidden" id="f-auto-tracked">
+                    <input type="hidden" id="f-account-id">
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" id="modal-cancel">Cancel</button>
+                    <button class="btn-save" id="modal-save">Save Subscription</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation -->
+        <div class="modal-overlay" id="delete-overlay" hidden>
+            <div class="modal modal-sm">
+                <div class="modal-header">
+                    <h2>Delete Subscription</h2>
+                    <button class="modal-close" id="delete-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Delete <strong id="delete-name"></strong>? This cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" id="delete-cancel">Cancel</button>
+                    <button class="btn-delete" id="delete-confirm">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Settings Modal -->
+        <div class="modal-overlay" id="budget-overlay" hidden>
+            <div class="modal modal-sm">
+                <div class="modal-header">
+                    <h2>Monthly Budget</h2>
+                    <button class="modal-close" id="budget-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Set a monthly AI spending threshold. You'll see a warning on the Overview tab when your total exceeds this.</p>
+                    <div class="form-group">
+                        <label for="f-budget">Monthly Budget ($)</label>
+                        <input type="number" id="f-budget" class="form-input" step="1" min="0" placeholder="e.g. 200">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-cancel" id="budget-cancel">Cancel</button>
+                    <button class="btn-save" id="budget-save">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <span>Niyantra — AI subscription & quota dashboard</span>
+            <span id="snap-count"></span>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>

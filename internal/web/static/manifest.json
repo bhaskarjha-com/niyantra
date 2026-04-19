@@ -1,0 +1,16 @@
+{
+  "name": "Niyantra — AI Dashboard",
+  "short_name": "Niyantra",
+  "description": "Local-first AI subscription & quota dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0e17",
+  "theme_color": "#0a0e17",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%230a0e17' stroke='%2338bdf8' stroke-width='4'/><circle cx='50' cy='50' r='12' fill='%2338bdf8'/><line x1='50' y1='5' x2='50' y2='25' stroke='%2338bdf8' stroke-width='3'/><line x1='50' y1='75' x2='50' y2='95' stroke='%2338bdf8' stroke-width='3'/><line x1='5' y1='50' x2='25' y2='50' stroke='%2338bdf8' stroke-width='3'/><line x1='75' y1='50' x2='95' y2='50' stroke='%2338bdf8' stroke-width='3'/></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

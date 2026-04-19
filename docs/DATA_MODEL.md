@@ -83,27 +83,43 @@ Each snapshot stores the per-model quota data as a JSON array:
 ```json
 [
   {
-    "modelId": "gpt-4o",
-    "label": "GPT-4o",
+    "modelId": "MODEL_PLACEHOLDER_M35",
+    "label": "Claude Sonnet 4.6 (Thinking)",
     "remainingFraction": 0.4,
+    "remainingPercent": 40.0,
+    "isExhausted": false,
     "resetTime": "2026-04-17T04:24:00Z"
   },
   {
-    "modelId": "claude-3.5-sonnet",
-    "label": "Claude 3.5 Sonnet",
+    "modelId": "MODEL_PLACEHOLDER_M26",
+    "label": "Claude Opus 4.6 (Thinking)",
     "remainingFraction": 0.4,
+    "remainingPercent": 40.0,
+    "isExhausted": false,
     "resetTime": "2026-04-17T04:24:00Z"
   },
   {
-    "modelId": "gemini-2.5-pro",
-    "label": "Gemini 2.5 Pro",
+    "modelId": "MODEL_OPENAI_GPT_OSS_120B_MEDIUM",
+    "label": "GPT-OSS 120B (Medium)",
+    "remainingFraction": 0.4,
+    "remainingPercent": 40.0,
+    "isExhausted": false,
+    "resetTime": "2026-04-17T04:24:00Z"
+  },
+  {
+    "modelId": "MODEL_PLACEHOLDER_M37",
+    "label": "Gemini 3.1 Pro (High)",
     "remainingFraction": 1.0,
+    "remainingPercent": 100.0,
+    "isExhausted": false,
     "resetTime": "2026-04-17T04:48:00Z"
   },
   {
-    "modelId": "gemini-2.5-flash",
-    "label": "Gemini 2.5 Flash",
+    "modelId": "MODEL_PLACEHOLDER_M47",
+    "label": "Gemini 3 Flash",
     "remainingFraction": 1.0,
+    "remainingPercent": 100.0,
+    "isExhausted": false,
     "resetTime": "2026-04-17T04:48:00Z"
   }
 ]
@@ -113,14 +129,15 @@ Each snapshot stores the per-model quota data as a JSON array:
 
 ### Latest snapshot per account
 
+Uses `MAX(id)` (not `MAX(captured_at)`) to guarantee exactly one row per account, even if two snapshots land in the same second.
+
 ```sql
 SELECT s.* FROM snapshots s
 INNER JOIN (
-    SELECT account_id, MAX(captured_at) as max_time
+    SELECT account_id, MAX(id) as max_id
     FROM snapshots
     GROUP BY account_id
-) latest ON s.account_id = latest.account_id
-    AND s.captured_at = latest.max_time
+) latest ON s.id = latest.max_id
 ORDER BY s.captured_at DESC;
 ```
 
@@ -151,9 +168,71 @@ LIMIT ?;
 SELECT COUNT(*) FROM snapshots;
 ```
 
+---
+
+### `subscriptions` (Schema v2)
+
+Manually-tracked AI subscriptions — enriched with presets, trial tracking, and status page links.
+
+```sql
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform        TEXT    NOT NULL,
+    category        TEXT    DEFAULT 'other',
+    icon_key        TEXT    DEFAULT '',
+    email           TEXT    DEFAULT '',
+    plan_name       TEXT    DEFAULT '',
+    status          TEXT    DEFAULT 'active',
+    cost_amount     REAL    DEFAULT 0,
+    cost_currency   TEXT    DEFAULT 'USD',
+    billing_cycle   TEXT    DEFAULT 'monthly',
+    token_limit     INTEGER DEFAULT 0,
+    credit_limit    INTEGER DEFAULT 0,
+    request_limit   INTEGER DEFAULT 0,
+    limit_period    TEXT    DEFAULT 'monthly',
+    limit_note      TEXT    DEFAULT '',
+    next_renewal    TEXT    DEFAULT '',
+    started_at      TEXT    DEFAULT '',
+    trial_ends_at   TEXT    DEFAULT '',
+    notes           TEXT    DEFAULT '',
+    url             TEXT    DEFAULT '',
+    status_page_url TEXT    DEFAULT '',
+    auto_tracked    INTEGER DEFAULT 0,
+    account_id      INTEGER DEFAULT 0,
+    created_at      DATETIME DEFAULT (datetime('now')),
+    updated_at      DATETIME DEFAULT (datetime('now'))
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `platform` | TEXT | Platform name (e.g., "Claude Pro", "Cursor Pro") |
+| `category` | TEXT | coding, chat, api, image, audio, productivity, other |
+| `status` | TEXT | active, trial, paused, cancelled |
+| `cost_amount` | REAL | Cost per billing cycle |
+| `billing_cycle` | TEXT | monthly, annual, lifetime, payg |
+| `token_limit` / `credit_limit` / `request_limit` | INTEGER | 0 = unlimited |
+| `limit_period` | TEXT | monthly, daily, weekly, rolling_3h, rolling_5h, hourly |
+| `next_renewal` | TEXT | ISO date (YYYY-MM-DD) for next billing |
+| `trial_ends_at` | TEXT | ISO date for trial expiry (shown as countdown badge) |
+| `notes` | TEXT | Tips, benefits — pre-filled from presets |
+| `url` | TEXT | Dashboard/billing URL (one-click access) |
+| `status_page_url` | TEXT | Service status page URL |
+| `auto_tracked` | INTEGER | 1 if auto-created by `snap`, 0 if manual |
+| `account_id` | INTEGER | Links to `accounts.id` for auto-tracked entries |
+
+**Auto-Link:** When `niyantra snap` detects a new Antigravity account, it auto-creates a linked subscription record (auto_tracked=1) so it appears in the Subscriptions tab.
+
+**Indexes:**
+- `idx_subscriptions_status` — for filtering by status
+- `idx_subscriptions_renewal` — for upcoming renewals queries
+- `idx_subscriptions_category` — for category filtering
+
+---
+
 ## Data Volume Estimates
 
-Assuming 4 snaps/day across 3 accounts:
+Assuming 4 snaps/day across 3 accounts + 10 subscriptions:
 
 | Timeframe | Snapshots | Database Size |
 |-----------|-----------|---------------|
@@ -170,7 +249,7 @@ Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
 PRAGMA user_version;      -- read current version
-PRAGMA user_version = 1;  -- set after migration
+PRAGMA user_version = 2;  -- current version (v2 adds subscriptions)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -180,13 +259,34 @@ func (s *Store) migrate() error {
     version := s.getUserVersion()
     
     if version < 1 {
-        // Initial schema
+        // v1: accounts + snapshots tables
         s.exec(createAccountsSQL)
         s.exec(createSnapshotsSQL)
         s.setUserVersion(1)
     }
     
-    // Future migrations:
-    // if version < 2 { ... }
+    if version < 2 {
+        // v2: subscriptions table + indexes
+        s.exec(createSubscriptionsSQL)
+        s.setUserVersion(2)
+    }
 }
 ```
+
+**Backward compatibility:** v2 migration is additive — existing v1 databases are upgraded seamlessly with no data loss.
+
+## Client-Side Storage (localStorage)
+
+Settings that don't need server persistence are stored in the browser's `localStorage`. These are per-browser and not shared between devices.
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `niyantra-budget` | float string | (absent) | Monthly AI spending budget in base currency |
+| `niyantra-currency` | ISO 4217 | `USD` | Default currency for new subscriptions |
+| `niyantra-theme` | enum | (absent) | `dark`, `light`, or absent (system preference) |
+
+**Design rationale:** Budget/currency/theme are presentation-layer settings with no value in the SQLite database. Keeping them in `localStorage` means:
+- Zero schema changes needed
+- Settings survive database resets
+- No API calls for settings reads/writes
+- Instant UI response (no network round-trip)
