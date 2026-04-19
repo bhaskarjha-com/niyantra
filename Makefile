@@ -1,4 +1,4 @@
-VERSION ?= $(shell cat VERSION 2>/dev/null || echo "dev")
+VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION)"
 
 .PHONY: build run test vet clean demo
