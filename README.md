@@ -21,6 +21,7 @@ Developers in 2026 juggle **8+ AI subscriptions** — Antigravity, Cursor, Claud
 niyantra snap       # Captures current account's quota (1 API call)
 niyantra status     # Shows all accounts' readiness (0 API calls)
 niyantra serve      # Launches visual dashboard at http://localhost:9222
+niyantra mcp        # Starts MCP server for AI agent integration
 ```
 
 Each `snap` makes exactly one HTTP call to the **local** Antigravity language server (already running via your IDE). No cloud APIs, no API keys, no rate limiting risk.
@@ -96,13 +97,16 @@ Card-based view of all AI subscriptions:
 - **Upcoming renewals** with countdown
 - **Quick Links Hub** — clickable grid of all your AI tool dashboards
 - **Ready Now advisor** — shows which auto-tracked tools have quota right now
+- **Budget forecast** — burn rate per day, projected monthly spend, on-track/over-budget
 - **CSV Export** — download all subscriptions for tax/expense reports
 
 ### Settings Tab
 
 - **Capture & Sources** — auto-capture toggle, poll interval, auto-link toggle, data sources list
+- **Claude Code Bridge** — statusline integration for real-time Claude Code rate limits (5h/7d windows)
 - **Budget & Display** — monthly spending threshold with alerts, default currency, theme
-- **Data Management** — snapshot retention, CSV export, database location
+- **Notifications** — OS-native desktop alerts when quota drops below threshold
+- **Data Management** — snapshot retention, CSV export, database backup, database location
 - **Activity Log** — structured event log with filters (snaps, config changes, server starts)
 - **Keyboard shortcuts** — reference grid
 - **About** — version, schema, mode, active sources
@@ -115,6 +119,7 @@ Card-based view of all AI subscriptions:
 | `N` | New subscription |
 | `S` | Snap quota |
 | `/` | Search subscriptions |
+| `Ctrl+K` | Command palette |
 | `Esc` | Close modal |
 
 ### What It Does NOT Show
@@ -128,6 +133,9 @@ Card-based view of all AI subscriptions:
 | `niyantra snap` | Capture current account's quota | 1 (local LS) |
 | `niyantra status` | Show all accounts' readiness | 0 |
 | `niyantra serve` | Start web dashboard | 0 (+ 1 per snap) |
+| `niyantra mcp` | Start MCP server for AI agents | 0 |
+| `niyantra backup` | Create timestamped database backup | 0 |
+| `niyantra restore <file>` | Restore database from backup | 0 |
 | `niyantra version` | Print version | 0 |
 
 ### Flags
@@ -202,9 +210,13 @@ The **"AI Credits: 1000"** shown in Antigravity's Agent Manager is served by a *
 ```
 niyantra/
 ├── cmd/niyantra/              # CLI entrypoint + command dispatch
-│   └── main.go                # snap, status, serve, version commands
+│   └── main.go                # snap, status, serve, mcp, version
 │
 ├── internal/
+│   ├── agent/                # Auto-capture polling (Phase 6)
+│   │   ├── agent.go          # PollingAgent: ticker + backoff
+│   │   └── manager.go        # Start/Stop lifecycle
+│   │
 │   ├── client/                # Antigravity language server client
 │   │   ├── client.go          # Detect + FetchQuotas (1 API call)
 │   │   ├── detect_windows.go  # Windows: CIM → PowerShell → WMIC
@@ -214,37 +226,41 @@ niyantra/
 │   │   ├── types.go           # API response structs + Snapshot
 │   │   └── helpers.go         # Model grouping logic
 │   │
-│   ├── store/                 # SQLite persistence (v3 schema)
-│   │   ├── store.go           # Open, migrate (v1→v2→v3), close
+│   ├── tracker/               # Cycle intelligence (Phase 7)
+│   │   ├── tracker.go         # 3-method reset detection + cycles
+│   │   └── summary.go         # UsageSummary + BudgetForecast
+│   │
+│   ├── mcpserver/             # MCP server (Phase 8)
+│   │   └── mcpserver.go       # 5 tools over stdio for AI agents
+│   │
+│   ├── store/                 # SQLite persistence (v4 schema)
+│   │   ├── store.go           # Open, migrate (v1→v2→v3→v4), close
 │   │   ├── snapshots.go       # Insert (with provenance), LatestPerAccount, History
 │   │   ├── accounts.go        # GetOrCreateAccount (upsert by email)
 │   │   ├── subscriptions.go   # Subscription CRUD, overview stats, renewals
 │   │   ├── presets.go         # 26 platform preset templates
 │   │   ├── config.go          # Server config CRUD (typed key-value)
 │   │   ├── activity_log.go    # Structured activity log CRUD
-│   │   └── data_sources.go    # Data sources registry CRUD
+│   │   ├── data_sources.go    # Data sources registry CRUD
+│   │   └── cycles.go          # Reset cycle CRUD (Phase 7)
 │   │
 │   ├── readiness/             # Pure computation engine (zero I/O)
 │   │   └── readiness.go       # Calculate readiness from snapshots
 │   │
 │   └── web/                   # HTTP server + embedded dashboard
-│       ├── server.go          # Quota/config/activity/mode handlers
+│       ├── server.go          # Quota/config/activity/mode/usage handlers
 │       ├── handlers_subscriptions.go  # Subscription CRUD, overview, presets, CSV
 │       └── static/            # Embedded via Go embed.FS
-│           ├── index.html     # 4-tab dashboard (Quotas/Subs/Overview/Settings)
-│           ├── style.css      # Design system (charts, modals, tabs, themes)
-│           ├── app.js         # Dashboard logic (CRUD, charts, config, activity)
-│           └── manifest.json  # PWA manifest for installability
+│           ├── index.html     # 4-tab dashboard
+│           ├── style.css      # Design system
+│           ├── app.js         # Dashboard logic
+│           └── manifest.json  # PWA manifest
 │
-├── docs/                      # Documentation
-│   ├── VISION.md              # Product vision + roadmap
-│   ├── ARCHITECTURE.md        # System design + component details
-│   ├── API_SPEC.md            # REST API reference (15 endpoints)
-│   ├── DATA_MODEL.md          # SQLite schema v3 + queries
-│   └── TESTING.md             # Manual testing guide (130+ test cases)
+├── docs/
+│   ├── VISION.md, ARCHITECTURE.md, API_SPEC.md
+│   ├── DATA_MODEL.md, TESTING.md, knowledge_base.md
 │
-├── go.mod                     # Single dependency: modernc.org/sqlite
-├── go.sum
+├── go.mod / go.sum
 ├── .gitignore
 └── README.md
 ```
@@ -254,16 +270,46 @@ niyantra/
 | Dependency | Purpose |
 |-----------|---------|
 | `modernc.org/sqlite` | Pure-Go SQLite (no CGo → true single binary) |
+| `github.com/modelcontextprotocol/go-sdk` | MCP server for AI agent integration |
 | Go stdlib | Everything else (HTTP, JSON, embed, crypto, os) |
 
 **That's it.** No web frameworks, no ORMs, no logging libraries, no npm.
 
+## MCP Server (AI Agent Integration)
+
+Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
+
+**5 tools available:**
+
+| Tool | What it does |
+|------|--------------|
+| `quota_status` | All accounts with per-group readiness |
+| `model_availability` | Check a specific model by name |
+| `usage_intelligence` | Consumption rates and projections |
+| `budget_forecast` | Burn rate and monthly projection |
+| `best_model` | Recommend least-exhausted model |
+
+**Setup** — add to Claude Desktop's `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "niyantra": {
+      "command": "path/to/niyantra.exe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Then ask: *"What's my Windsurf quota?"* or *"Which model should I use?"*
+
 ## Stats
 
-- **~4,500 lines** of code (Go + JS + CSS + HTML)
+- **~8,700 lines** of code (Go + JS + CSS + HTML)
 - **~16 MB** compiled binary (includes embedded SQLite engine + Chart.js loaded from CDN)
 - **0** external runtime dependencies
-- **15 API endpoints** — quotas, subscriptions, config, activity, mode
+- **16 REST endpoints + 5 MCP tools**
+- **170+ manual test cases**
 - **PWA installable** — add to home screen / install as app
 
 ## License

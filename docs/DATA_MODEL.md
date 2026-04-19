@@ -13,6 +13,8 @@
 | v1 | `accounts`, `snapshots` | Core quota tracking |
 | v2 | `subscriptions` | Manual subscription management |
 | v3 | `config`, `activity_log`, `data_sources` + snapshot provenance | Infrastructure: config, audit trail, multi-source |
+| v4 | `model_cycles` | Cycle intelligence — per-model reset detection and usage tracking |
+| v5 | `claude_snapshots` + config keys | Claude Code rate limits, notifications, bridge config |
 
 ---
 
@@ -197,6 +199,9 @@ CREATE TABLE IF NOT EXISTS config (
 | `budget_monthly` | `0` | float | display | Monthly Budget |
 | `currency` | `USD` | string | display | Default Currency |
 | `retention_days` | `365` | int | data | Retention (days) |
+| `claude_bridge` | `false` | bool | integration | Claude Code Bridge |
+| `notify_enabled` | `false` | bool | integration | Desktop Notifications |
+| `notify_threshold` | `10` | int | integration | Notification Threshold (%) |
 
 **Why metadata?** Adding a new config key in Go (e.g., `mcp_port` in Phase 7) automatically renders the correct UI control (number input, toggle, dropdown) without JavaScript changes.
 
@@ -297,6 +302,37 @@ CREATE INDEX IF NOT EXISTS idx_activity_log_type ON activity_log(event_type);
 | `watch_start` | Auto-poll started (future) | `{"interval":300,"source":"antigravity"}` |
 | `watch_stop` | Auto-poll stopped (future) | `{"reason":"user_stopped"}` |
 | `import` | Data imported (future) | `{"source":"claude_code","entries":15}` |
+
+---
+
+### `claude_snapshots` (v5)
+
+Claude Code rate limit snapshots captured via the statusline bridge.
+
+```sql
+CREATE TABLE IF NOT EXISTS claude_snapshots (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    five_hour_pct   REAL NOT NULL,
+    seven_day_pct   REAL,
+    five_hour_reset DATETIME,
+    seven_day_reset DATETIME,
+    captured_at     DATETIME DEFAULT (datetime('now')),
+    source          TEXT DEFAULT 'statusline'
+);
+
+CREATE INDEX IF NOT EXISTS idx_claude_snapshots_time
+    ON claude_snapshots(captured_at DESC);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | PK, AUTO |
+| `five_hour_pct` | REAL | 5-hour window usage percentage (0-100) |
+| `seven_day_pct` | REAL | 7-day window usage percentage (nullable) |
+| `five_hour_reset` | DATETIME | When the 5-hour window resets |
+| `seven_day_reset` | DATETIME | When the 7-day window resets |
+| `captured_at` | DATETIME | Timestamp of capture |
+| `source` | TEXT | `statusline` (bridge) or `manual` |
 
 ---
 
@@ -464,6 +500,19 @@ func (s *Store) migrate() error {
         s.exec(seedDefaultConfigSQL)
         s.exec(seedDefaultSourcesSQL)
         s.setUserVersion(3)
+    }
+
+    if version < 4 {
+        // v4: model_cycles for cycle intelligence
+        s.exec(createModelCyclesSQL)
+        s.setUserVersion(4)
+    }
+
+    if version < 5 {
+        // v5: Claude Code snapshots + notification/bridge config
+        s.exec(createClaudeSnapshotsSQL)
+        s.exec(seedPhase9ConfigSQL) // claude_bridge, notify_enabled, notify_threshold
+        s.setUserVersion(5)
     }
 }
 ```

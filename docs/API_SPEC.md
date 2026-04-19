@@ -402,6 +402,48 @@ Lightweight endpoint for the header mode badge. Returns current capture mode, ag
 
 ---
 
+### `GET /api/usage`
+
+Returns per-model usage intelligence and budget burn rate forecast. Requires at least 30 minutes of auto-capture data for rate/projection calculations.
+
+**Query Parameters:**
+
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `account` | int | No | Filter by account ID. Defaults to first account. |
+
+**Response:** `200 OK`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `models` | array | Per-model usage summaries with intelligence data |
+| `models[].modelId` | string | Opaque model identifier |
+| `models[].label` | string | Human-readable model name |
+| `models[].group` | string | Quota group key (claude_gpt, gemini_pro, gemini_flash) |
+| `models[].remainingFraction` | float | Current remaining quota (0.0-1.0) |
+| `models[].usagePercent` | float | Usage percentage (0-100) |
+| `models[].isExhausted` | bool | Whether quota is depleted |
+| `models[].resetTime` | string? | ISO timestamp of next reset |
+| `models[].timeUntilReset` | string | Human-readable time until reset (e.g., "2h30m") |
+| `models[].currentRate` | float | Usage fraction consumed per hour (0 if insufficient data) |
+| `models[].projectedUsage` | float | Projected total usage at reset (0.0-1.0) |
+| `models[].projectedExhaustion` | string? | ISO timestamp when quota will hit 0 at current rate |
+| `models[].hasIntelligence` | bool | True if rate data is available (≥30 min of tracking) |
+| `models[].completedCycles` | int | Number of completed reset cycles tracked |
+| `models[].avgPerCycle` | float | Average usage delta per cycle |
+| `models[].peakCycle` | float | Highest peak usage observed in any cycle |
+| `models[].cycleAge` | string | How long the current cycle has been active |
+| `models[].cycleSnapshots` | int | Number of snapshots in the current cycle |
+| `budgetForecast` | object? | Budget projection (null if no budget set) |
+| `budgetForecast.monthlyBudget` | float | Configured monthly budget |
+| `budgetForecast.currentSpend` | float | Current month's spend from subscriptions |
+| `budgetForecast.projectedMonthlySpend` | float | Projected spend at current burn rate |
+| `budgetForecast.burnRate` | float | Dollars per day |
+| `budgetForecast.daysUntilBudgetExhausted` | int? | When budget runs out (null if on track) |
+| `budgetForecast.onTrack` | bool | Whether projected spend is within budget |
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:
@@ -470,3 +512,99 @@ Generated from `/api/overview` + `/api/subscriptions` data:
 - `manifest.json` served alongside dashboard assets
 - Enables "Add to Home Screen" / "Install App" on supporting browsers
 - `theme-color: #0a0e17` for native-feeling toolbar
+
+---
+
+## MCP Server (Phase 8)
+
+Niyantra includes an MCP (Model Context Protocol) server that exposes quota intelligence to AI coding agents over stdio transport.
+
+### Usage
+
+```bash
+niyantra mcp          # Start MCP server (blocks, communicates over stdin/stdout)
+```
+
+### Client Configuration
+
+Add to Claude Desktop `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "niyantra": {
+      "command": "C:\\path\\to\\niyantra.exe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Tools (5 total)
+
+| Tool | Input | Description |
+|------|-------|-------------|
+| `quota_status` | none | All accounts with per-group readiness, remaining %, reset timers |
+| `model_availability` | `model` (string) | Check specific model by name/keyword (fuzzy match) |
+| `usage_intelligence` | none | Per-model rates, projections, exhaustion, cycle history |
+| `budget_forecast` | none | Monthly burn rate, projected spend, on-track status |
+| `best_model` | `group` (string) | Recommend least-exhausted model in a quota group |
+
+### Protocol
+
+- **Transport:** stdio (newline-delimited JSON-RPC 2.0)
+- **SDK:** `github.com/modelcontextprotocol/go-sdk` v1.5.0
+- **Protocol version:** `2025-03-26`
+- **Server info:** `name: "niyantra"`, `version: "1.0.0"`
+
+---
+
+## Phase 9 Endpoints
+
+### `GET /api/claude/status`
+
+Returns Claude Code rate limit data from the statusline bridge.
+
+**Response:** `200 OK`
+
+```json
+{
+  "installed": true,
+  "bridgeEnabled": true,
+  "bridgeFresh": true,
+  "supported": true,
+  "snapshot": {
+    "fiveHourPct": 42.5,
+    "sevenDayPct": 15.0,
+    "fiveHourReset": "2026-04-18T18:00:00Z",
+    "sevenDayReset": "2026-04-24T00:00:00Z",
+    "capturedAt": "2026-04-18T17:15:00Z",
+    "source": "statusline"
+  }
+}
+```
+
+---
+
+### `GET /api/backup`
+
+Downloads the database file as an attachment.
+
+**Response:** `200 OK` with `Content-Type: application/octet-stream`
+
+**Headers:**
+- `Content-Disposition: attachment; filename="niyantra-2026-04-18.db"`
+
+---
+
+### `POST /api/notify/test`
+
+Sends a test OS-native desktop notification.
+
+**Response:** `200 OK`
+
+```json
+{ "status": "sent" }
+```
+
+**Error:** `400 Bad Request` if notifications not supported on the platform.

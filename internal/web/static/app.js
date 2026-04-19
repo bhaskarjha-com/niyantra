@@ -129,6 +129,18 @@ function fetchPresets() {
   return fetch('/api/presets').then(function(res) { return res.json(); });
 }
 
+// Usage intelligence cache (populated by fetchUsage)
+var usageDataCache = null;
+
+function fetchUsage(accountId) {
+  var url = '/api/usage';
+  if (accountId) url += '?account=' + accountId;
+  return fetch(url).then(function(res) { return res.json(); }).then(function(data) {
+    usageDataCache = data;
+    return data;
+  });
+}
+
 // ════════════════════════════════════════════
 //  RENDER — Quotas Tab (existing)
 // ════════════════════════════════════════════
@@ -212,12 +224,39 @@ function renderAccounts(data) {
         else if (mpct < 50) mcls = 'ok';
         var color = GROUP_COLORS[m.groupKey] || '#94a3b8';
         var resetStr = m.resetSeconds > 0 ? ('↻ ' + formatSeconds(m.resetSeconds)) : '';
+
+        // Intelligence badges from usage data
+        var intellBadges = '';
+        if (usageDataCache && usageDataCache.models) {
+          for (var ui = 0; ui < usageDataCache.models.length; ui++) {
+            var um = usageDataCache.models[ui];
+            if (um.modelId === m.modelId && um.hasIntelligence) {
+              var rateStr = (um.currentRate * 100).toFixed(1) + '%/hr';
+              intellBadges += '<span class="rate-badge" title="Current consumption rate">' + rateStr + '</span>';
+              if (um.projectedUsage > 0) {
+                var projPct = Math.round(um.projectedUsage * 100);
+                var projCls = projPct > 95 ? 'proj-danger' : (projPct > 80 ? 'proj-warn' : 'proj-ok');
+                intellBadges += '<span class="proj-badge ' + projCls + '" title="Projected usage at reset">→' + projPct + '%</span>';
+              }
+              if (um.projectedExhaustion) {
+                var exhaust = new Date(um.projectedExhaustion);
+                var minsLeft = Math.round((exhaust - Date.now()) / 60000);
+                if (minsLeft > 0) {
+                  intellBadges += '<span class="exhaust-badge" title="Projected exhaustion time">⚠ ' + (minsLeft > 60 ? Math.round(minsLeft/60) + 'h' : minsLeft + 'm') + '</span>';
+                }
+              }
+              break;
+            }
+          }
+        }
+
         modelRows += '<div class="model-row">' +
           '<div class="model-indicator" style="background:' + color + '"></div>' +
           '<span class="model-label">' + esc(m.label || m.modelId) + '</span>' +
           '<div class="model-bar-track"><div class="model-bar-fill ' + mcls + '" style="width:' + mpct + '%"></div></div>' +
           '<span class="model-pct ' + mcls + '">' + mpct + '%</span>' +
           '<span class="model-reset">' + resetStr + '</span>' +
+          intellBadges +
           '</div>';
       }
       var expandedCls = isExpanded ? ' is-expanded' : '';
@@ -1041,17 +1080,18 @@ function renderInsightChips(chips) {
 // ════════════════════════════════════════════
 
 function loadOverview() {
-  // Fetch both overview and subscriptions for insights
-  Promise.all([fetchOverview(), fetchSubscriptions('', '')]).then(function(results) {
+  // Fetch overview, subscriptions, and usage intelligence
+  Promise.all([fetchOverview(), fetchSubscriptions('', ''), fetchUsage()]).then(function(results) {
     var data = results[0];
     var subsData = results[1];
-    renderOverviewEnhanced(data, subsData.subscriptions || []);
+    var usageData = results[2];
+    renderOverviewEnhanced(data, subsData.subscriptions || [], usageData);
   }).catch(function(err) {
     console.error('Failed to load overview:', err);
   });
 }
 
-function renderOverviewEnhanced(data, subs) {
+function renderOverviewEnhanced(data, subs, usageData) {
   var el = document.getElementById('overview-content');
   if (!el) return;
 
@@ -1165,7 +1205,43 @@ function renderOverviewEnhanced(data, subs) {
     readyHTML += '</div>';
   }
 
-  el.innerHTML = budgetHTML + insightsHTML + spendHTML + catHTML + renewHTML + linksHTML + exportHTML + readyHTML;
+  // ── Budget Forecast (from usage intelligence) ──
+  var forecastHTML = '';
+  if (usageData && usageData.budgetForecast) {
+    var bf = usageData.budgetForecast;
+    var forecastCls = bf.onTrack ? 'forecast-ok' : 'forecast-over';
+    var forecastIcon = bf.onTrack ? '✅' : '⚠️';
+    var projStr = '$' + bf.projectedMonthlySpend.toFixed(2);
+    var burnStr = '$' + bf.burnRate.toFixed(2) + '/day';
+    var statusMsg = bf.onTrack
+      ? 'On track — projected ' + projStr + ' of $' + bf.monthlyBudget.toFixed(2) + ' budget'
+      : 'Over budget — projected ' + projStr + ' exceeds $' + bf.monthlyBudget.toFixed(2);
+    if (bf.daysUntilBudgetExhausted !== null && !bf.onTrack) {
+      statusMsg += ' (exhausts by day ' + bf.daysUntilBudgetExhausted + ')';
+    }
+    forecastHTML = '<div class="overview-card full-width">' +
+      '<h3>Budget Forecast</h3>' +
+      '<div class="budget-forecast ' + forecastCls + '">' +
+      '<div class="forecast-header">' + forecastIcon + ' ' + statusMsg + '</div>' +
+      '<div class="forecast-details">' +
+      '<span class="forecast-chip">Burn rate: ' + burnStr + '</span>' +
+      '<span class="forecast-chip">Day ' + bf.dayOfMonth + ' of ' + bf.daysInMonth + '</span>' +
+      '<span class="forecast-chip">Spent: $' + bf.currentSpend.toFixed(2) + '</span>' +
+      '</div></div></div>';
+  }
+
+  // ── Claude Code card ──
+  var claudeHTML = '';
+  if (serverConfig['claude_bridge'] === 'true') {
+    claudeHTML = renderClaudeCodeCard();
+  }
+
+  el.innerHTML = budgetHTML + insightsHTML + forecastHTML + claudeHTML + spendHTML + catHTML + renewHTML + linksHTML + exportHTML + readyHTML;
+
+  // Async load Claude Code data
+  if (serverConfig['claude_bridge'] === 'true') {
+    loadClaudeCardData();
+  }
 }
 
 // ════════════════════════════════════════════
@@ -1251,6 +1327,59 @@ function initSettings() {
       var v = parseInt(retentionEl.value);
       if (v >= 30 && v <= 3650) updateConfig('retention_days', v.toString());
     });
+
+    // ── Phase 9: Claude Code Bridge ──
+    var claudeBridgeEl = document.getElementById('s-claude-bridge');
+    if (claudeBridgeEl) {
+      claudeBridgeEl.checked = cfg['claude_bridge'] === 'true';
+      claudeBridgeEl.addEventListener('change', function() {
+        var val = claudeBridgeEl.checked ? 'true' : 'false';
+        updateConfig('claude_bridge', val).then(function() {
+          showToast(claudeBridgeEl.checked ? '🔗 Claude Code bridge enabled' : '🔗 Bridge disabled', 'success');
+          loadClaudeBridgeStatus();
+        });
+      });
+      loadClaudeBridgeStatus();
+    }
+
+    // ── Phase 9: Notifications ──
+    var notifyEl = document.getElementById('s-notify-enabled');
+    var thresholdEl = document.getElementById('s-notify-threshold');
+    var thresholdRow = document.getElementById('notify-threshold-row');
+    var testRow = document.getElementById('notify-test-row');
+    if (notifyEl) {
+      notifyEl.checked = cfg['notify_enabled'] === 'true';
+      thresholdEl.value = cfg['notify_threshold'] || '10';
+      thresholdRow.style.display = notifyEl.checked ? '' : 'none';
+      testRow.style.display = notifyEl.checked ? '' : 'none';
+
+      notifyEl.addEventListener('change', function() {
+        var val = notifyEl.checked ? 'true' : 'false';
+        updateConfig('notify_enabled', val).then(function() {
+          showToast(notifyEl.checked ? '🔔 Notifications enabled' : '🔕 Notifications disabled', 'success');
+        });
+        thresholdRow.style.display = notifyEl.checked ? '' : 'none';
+        testRow.style.display = notifyEl.checked ? '' : 'none';
+      });
+
+      thresholdEl.addEventListener('change', function() {
+        var v = parseInt(thresholdEl.value);
+        if (v >= 5 && v <= 50) {
+          updateConfig('notify_threshold', v.toString());
+          showToast('🔔 Threshold: ' + v + '%', 'success');
+        }
+      });
+
+      document.getElementById('notify-test-btn').addEventListener('click', function() {
+        fetch('/api/notify/test', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) showToast('❌ ' + data.error, 'error');
+            else showToast('🔔 Test notification sent!', 'success');
+          })
+          .catch(function() { showToast('❌ Failed to send test', 'error'); });
+      });
+    }
   });
 
   // Load mode badge
@@ -1532,6 +1661,14 @@ function initKeyboardShortcuts() {
         break;
     }
   });
+
+  // Ctrl+K / Cmd+K for command palette
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      toggleCommandPalette();
+    }
+  });
 }
 
 function switchToTab(tabName) {
@@ -1571,8 +1708,9 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('chart-account').addEventListener('change', loadHistoryChart);
   document.getElementById('chart-range').addEventListener('change', loadHistoryChart);
 
-  // Load quotas (existing behavior)
-  fetchStatus().then(function(data) {
+  // Load quotas and usage intelligence
+  Promise.all([fetchStatus(), fetchUsage()]).then(function(results) {
+    var data = results[0];
     renderAccounts(data);
     updateTimestamp();
     populateChartAccountSelect(data);
@@ -1595,7 +1733,250 @@ document.addEventListener('DOMContentLoaded', function() {
   // Load mode badge in header (manual/auto status)
   loadMode();
 
+  // Init command palette
+  initCommandPalette();
+
   // Auto-capture polling is handled server-side by the agent.
   // Manual data refreshes on snap or page reload.
 });
 
+// ════════════════════════════════════════════
+//  COMMAND PALETTE (Phase 9)
+// ════════════════════════════════════════════
+
+var PALETTE_COMMANDS = [
+  { name: 'Snap Now',            key: 'S',    icon: '📸', action: function() { handleSnap(); } },
+  { name: 'Show Quotas',         key: '1',    icon: '📊', action: function() { switchToTab('quotas'); } },
+  { name: 'Show Subscriptions',  key: '2',    icon: '💳', action: function() { switchToTab('subscriptions'); } },
+  { name: 'Show Overview',       key: '3',    icon: '📋', action: function() { switchToTab('overview'); } },
+  { name: 'Show Settings',       key: '4',    icon: '⚙️', action: function() { switchToTab('settings'); } },
+  { name: 'New Subscription',    key: 'N',    icon: '➕', action: function() { openModal(); } },
+  { name: 'Toggle Auto-Capture',              icon: '🔄', action: function() {
+    var el = document.getElementById('s-auto-capture');
+    if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change')); }
+  }},
+  { name: 'Export CSV',                       icon: '📥', action: function() { window.location.href = '/api/export/csv'; } },
+  { name: 'Download Backup',                  icon: '💾', action: function() { window.location.href = '/api/backup'; } },
+  { name: 'Search Subscriptions', key: '/',   icon: '🔍', action: function() {
+    switchToTab('subscriptions');
+    setTimeout(function() { var s = document.getElementById('search-subs'); if (s) s.focus(); }, 100);
+  }},
+  { name: 'Set Budget',                       icon: '💰', action: function() { openBudgetModal(); } },
+  { name: 'Toggle Theme',                     icon: '🌓', action: function() {
+    var cur = document.documentElement.getAttribute('data-theme');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('niyantra-theme', next);
+    var themeEl = document.getElementById('s-theme');
+    if (themeEl) themeEl.value = next;
+  }},
+];
+
+var paletteSelectedIndex = 0;
+var paletteFilteredCommands = PALETTE_COMMANDS;
+
+function initCommandPalette() {
+  var overlay = document.getElementById('command-palette-overlay');
+  var search = document.getElementById('command-palette-search');
+  if (!overlay || !search) return;
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeCommandPalette();
+  });
+
+  search.addEventListener('input', function() {
+    var query = search.value.toLowerCase().trim();
+    paletteFilteredCommands = PALETTE_COMMANDS.filter(function(cmd) {
+      return cmd.name.toLowerCase().indexOf(query) >= 0;
+    });
+    paletteSelectedIndex = 0;
+    renderPaletteList();
+  });
+
+  search.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      paletteSelectedIndex = Math.min(paletteSelectedIndex + 1, paletteFilteredCommands.length - 1);
+      renderPaletteList();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      paletteSelectedIndex = Math.max(paletteSelectedIndex - 1, 0);
+      renderPaletteList();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (paletteFilteredCommands[paletteSelectedIndex]) {
+        closeCommandPalette();
+        paletteFilteredCommands[paletteSelectedIndex].action();
+      }
+    } else if (e.key === 'Escape') {
+      closeCommandPalette();
+    }
+  });
+}
+
+function toggleCommandPalette() {
+  var overlay = document.getElementById('command-palette-overlay');
+  if (overlay.hidden) {
+    openCommandPalette();
+  } else {
+    closeCommandPalette();
+  }
+}
+
+function openCommandPalette() {
+  var overlay = document.getElementById('command-palette-overlay');
+  var search = document.getElementById('command-palette-search');
+  overlay.hidden = false;
+  search.value = '';
+  paletteFilteredCommands = PALETTE_COMMANDS;
+  paletteSelectedIndex = 0;
+  renderPaletteList();
+  setTimeout(function() { search.focus(); }, 50);
+}
+
+function closeCommandPalette() {
+  document.getElementById('command-palette-overlay').hidden = true;
+}
+
+function renderPaletteList() {
+  var list = document.getElementById('command-palette-list');
+  if (paletteFilteredCommands.length === 0) {
+    list.innerHTML = '<div class="command-palette-empty">No matching commands</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < paletteFilteredCommands.length; i++) {
+    var cmd = paletteFilteredCommands[i];
+    var sel = i === paletteSelectedIndex ? ' selected' : '';
+    html += '<div class="command-palette-item' + sel + '" data-idx="' + i + '">' +
+      '<span class="cp-icon">' + cmd.icon + '</span>' +
+      '<span class="cp-name">' + esc(cmd.name) + '</span>' +
+      (cmd.key ? '<span class="cp-shortcut">' + cmd.key + '</span>' : '') +
+      '</div>';
+  }
+  list.innerHTML = html;
+
+  // Click handlers
+  list.querySelectorAll('.command-palette-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(el.getAttribute('data-idx'));
+      closeCommandPalette();
+      paletteFilteredCommands[idx].action();
+    });
+  });
+
+  // Scroll selected into view
+  var selected = list.querySelector('.selected');
+  if (selected) selected.scrollIntoView({ block: 'nearest' });
+}
+
+// ════════════════════════════════════════════
+//  CLAUDE CODE BRIDGE (Phase 9)
+// ════════════════════════════════════════════
+
+function loadClaudeBridgeStatus() {
+  fetch('/api/claude/status').then(function(r) { return r.json(); })
+  .then(function(data) {
+    var statusEl = document.getElementById('claude-bridge-status');
+    if (!statusEl) return;
+
+    var bridgeOn = data.bridgeEnabled;
+    var installed = data.installed;
+
+    if (!bridgeOn) {
+      statusEl.style.display = 'none';
+      return;
+    }
+
+    var msg = '';
+    if (!installed) {
+      msg = '⚠️ Claude Code not detected (~/.claude/ not found)';
+    } else if (data.bridgeFresh) {
+      msg = '<span class="claude-bridge-dot"></span> Bridge active';
+      if (data.snapshot) {
+        msg += ' · 5h: ' + data.snapshot.fiveHourPct.toFixed(1) + '% used';
+      }
+    } else if (data.snapshot) {
+      msg = '<span class="claude-bridge-dot stale"></span> Last data: ' + formatTimeAgo(data.snapshot.capturedAt);
+    } else {
+      msg = '<span class="claude-bridge-dot off"></span> Waiting for Claude Code statusline data...';
+    }
+
+    statusEl.innerHTML = msg;
+    statusEl.style.display = '';
+  }).catch(function() {});
+}
+
+function renderClaudeCodeCard() {
+  return '<div class="claude-card" id="claude-code-card">' +
+    '<h3>🔗 Claude Code</h3>' +
+    '<div id="claude-card-body"><div class="empty-hint">Loading...</div></div>' +
+    '</div>';
+}
+
+function loadClaudeCardData() {
+  fetch('/api/claude/status').then(function(r) { return r.json(); })
+  .then(function(data) {
+    var body = document.getElementById('claude-card-body');
+    if (!body) return;
+
+    if (!data.snapshot) {
+      body.innerHTML = '<div class="empty-hint">No Claude Code data yet. Start a Claude Code session to see rate limits.</div>';
+      return;
+    }
+
+    var snap = data.snapshot;
+    var html = '';
+
+    // 5-hour meter
+    var fiveColor = meterColor(snap.fiveHourPct);
+    var fiveReset = snap.fiveHourReset ? '↻ ' + formatResetTime(snap.fiveHourReset) : '';
+    html += '<div class="claude-meter">' +
+      '<span class="claude-meter-label">5-Hour</span>' +
+      '<div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.fiveHourPct + '%;background:' + fiveColor + '"></div></div>' +
+      '<span class="claude-meter-pct" style="color:' + fiveColor + '">' + snap.fiveHourPct.toFixed(1) + '%</span>' +
+      '<span class="claude-meter-reset">' + fiveReset + '</span>' +
+      '</div>';
+
+    // 7-day meter (if available)
+    if (snap.sevenDayPct !== undefined) {
+      var sevenColor = meterColor(snap.sevenDayPct);
+      var sevenReset = snap.sevenDayReset ? '↻ ' + formatResetTime(snap.sevenDayReset) : '';
+      html += '<div class="claude-meter">' +
+        '<span class="claude-meter-label">7-Day</span>' +
+        '<div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.sevenDayPct + '%;background:' + sevenColor + '"></div></div>' +
+        '<span class="claude-meter-pct" style="color:' + sevenColor + '">' + snap.sevenDayPct.toFixed(1) + '%</span>' +
+        '<span class="claude-meter-reset">' + sevenReset + '</span>' +
+        '</div>';
+    }
+
+    // Bridge status badge
+    var dotCls = data.bridgeFresh ? '' : 'stale';
+    var agoStr = formatTimeAgo(snap.capturedAt);
+    html += '<div class="claude-bridge-badge">' +
+      '<span class="claude-bridge-dot ' + dotCls + '"></span>' +
+      'Bridge ' + (data.bridgeFresh ? 'active' : 'stale') + ' · Last: ' + agoStr +
+      '</div>';
+
+    body.innerHTML = html;
+  }).catch(function() {});
+}
+
+function meterColor(pct) {
+  if (pct >= 80) return 'var(--red)';
+  if (pct >= 50) return 'var(--amber)';
+  return 'var(--green)';
+}
+
+function formatResetTime(isoStr) {
+  if (!isoStr) return '';
+  var d = new Date(isoStr);
+  var now = new Date();
+  var diffMs = d - now;
+  if (diffMs <= 0) return 'now';
+  var hours = Math.floor(diffMs / 3600000);
+  var mins = Math.floor((diffMs % 3600000) / 60000);
+  if (hours >= 24) return Math.floor(hours / 24) + 'd';
+  if (hours > 0) return hours + 'h';
+  return mins + 'm';
+}

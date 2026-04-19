@@ -219,6 +219,15 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 - [ ] Open CSV: columns match (Platform, Category, Plan, Status, Monthly Cost, ...)
 - [ ] All subscriptions present in the file
 
+### 4.9 Budget Forecast (Phase 7)
+- [ ] If budget is set ($200) and subscriptions exist → **Budget Forecast** card appears
+- [ ] Shows burn rate (e.g., "$3.33/day")
+- [ ] Shows day of month (e.g., "Day 18 of 30")
+- [ ] Shows current spend total
+- [ ] If projected < budget → green styling, "On track" message
+- [ ] If projected > budget → red styling, "Over budget" with exhaustion day
+- [ ] If no budget set → Budget Forecast card does not appear
+
 ---
 
 ## 5. Settings Tab
@@ -508,8 +517,225 @@ Test each shortcut from the Quotas tab with no modal open:
 | 13. Provenance & Audit | | | |
 | 14. DB Migration | | | |
 | 15. Auto-Capture Agent | | | |
+| 16. Cycle Tracking | | | |
+| 17. MCP Server | | | |
 
 **Tester:** _______________  
 **Date:** _______________  
 **Build:** `niyantra.exe` from commit _______________
 
+---
+
+## 16. Cycle Tracking & Usage Intelligence (Phase 7)
+
+### 16.1 Schema Migration (v3→v4)
+- [ ] Start server with existing v3 database → no errors
+- [ ] Check SQLite: `SELECT * FROM antigravity_reset_cycles` works (empty table)
+- [ ] `PRAGMA user_version` returns `4`
+
+### 16.2 Cycle Creation
+- [ ] Enable auto-capture → first poll creates cycles for each model
+- [ ] Server log shows: `Created new cycle model=... initialUsage=X.X`
+- [ ] Manual snap also creates/updates cycles
+
+### 16.3 Reset Detection
+- [ ] Wait for a natural model reset (5h cycle) or observe during active use
+- [ ] Server log shows: `Detected model reset model=... reason="reset_time shifted"`
+- [ ] Activity log shows `model_reset` event with purple badge
+- [ ] Old cycle is closed, new cycle is created
+
+### 16.4 `/api/usage` Endpoint
+- [ ] `GET /api/usage` returns JSON with `models` array and `budgetForecast`
+- [ ] Each model has: `modelId`, `label`, `group`, `remainingFraction`, `usagePercent`
+- [ ] Each model has: `resetTime`, `timeUntilReset`, `cycleAge`, `cycleSnapshots`
+- [ ] `hasIntelligence` is `false` until 30+ min of tracking data
+- [ ] `completedCycles` increments after each detected reset
+- [ ] `peakCycle` tracks the highest usage observed in any cycle
+- [ ] `GET /api/usage?account=1` filters by account ID
+
+### 16.5 Rate Intelligence (requires 30+ min of auto-capture)
+- [ ] After 30+ minutes: `hasIntelligence` becomes `true`
+- [ ] `currentRate` shows non-zero value (usage fraction per hour)
+- [ ] `projectedUsage` shows estimated usage at reset
+- [ ] If projected > 95%: `projectedExhaustion` is non-null
+
+### 16.6 Intelligence Badges (Quota Cards)
+- [ ] Expand a model detail row → if `hasIntelligence = true`:
+  - [ ] Blue **rate badge** appears: `X.X%/hr`
+  - [ ] Green/amber/red **projection badge**: `→XX%`
+  - [ ] If approaching exhaustion: pulsing red **exhaustion badge**: `⚠ Xh`
+- [ ] If `hasIntelligence = false` (< 30 min data): no intelligence badges shown
+- [ ] Badges update on page reload and after each snap
+
+### 16.7 Budget Forecast
+- [ ] Set budget to $200 in Settings
+- [ ] Navigate to Overview tab → **Budget Forecast** card shows
+- [ ] Shows: burn rate/day, day X of Y, current spend
+- [ ] Green styling when on track, red when over budget
+- [ ] Remove budget (set to 0) → Budget Forecast card disappears
+
+### 16.8 Tracker + Agent Integration
+- [ ] Enable auto-capture → tracker processes each poll automatically
+- [ ] Disable auto-capture → tracker still processes manual snaps
+- [ ] Restart server → tracker reinstantiates, resumes from DB state
+- [ ] Multiple accounts → each account tracks cycles independently
+
+---
+
+## 17. MCP Server (Phase 8)
+
+### 17.1 CLI Subcommand
+- [ ] `niyantra mcp` starts without error (logs "MCP server starting" to stderr)
+- [ ] `niyantra --help` lists `mcp` command
+- [ ] Ctrl+C gracefully shuts down the MCP server
+
+### 17.2 Initialize Handshake
+- [ ] Send JSON-RPC initialize request → receive response with `serverInfo.name: "niyantra"`
+- [ ] Response includes `capabilities.tools.listChanged: true`
+- [ ] Protocol version `2025-03-26` in response
+
+### 17.3 Tools List
+- [ ] `tools/list` returns exactly 5 tools:
+  - [ ] `quota_status`
+  - [ ] `model_availability`
+  - [ ] `usage_intelligence`
+  - [ ] `budget_forecast`
+  - [ ] `best_model`
+- [ ] Each tool has a non-empty description
+- [ ] `model_availability` has input schema with `model` field
+- [ ] `best_model` has input schema with `group` field
+
+### 17.4 quota_status Tool
+- [ ] Returns all tracked accounts with email, plan, readiness
+- [ ] Each account has groups with name, remaining percent, reset timer
+- [ ] Exhausted groups show `isExhausted: true`
+
+### 17.5 model_availability Tool
+- [ ] `{"model": "Claude Sonnet"}` → finds matching model with remaining %
+- [ ] `{"model": "nonexistent"}` → returns `found: false` with helpful message
+- [ ] Empty model → error message asking to provide model name
+
+### 17.6 usage_intelligence Tool
+- [ ] Returns all models with group, remaining, reset time
+- [ ] `hasIntelligence` correctly reflects 30-min threshold
+- [ ] When intelligence available: shows rate, projection, cycle info
+
+### 17.7 budget_forecast Tool
+- [ ] With budget set: returns burn rate, projected spend, on-track status
+- [ ] Without budget: returns `hasBudget: false` with setup instructions
+
+### 17.8 best_model Tool
+- [ ] `{"group": "claude_gpt"}` → recommends model with highest remaining
+- [ ] Shows alternatives with their remaining percentages
+- [ ] `{"group": "invalid"}` → returns `found: false` with valid group list
+- [ ] Empty group → error message listing available groups
+
+### 17.9 Client Integration
+- [ ] Add to Claude Desktop config:
+  ```json
+  {"mcpServers":{"niyantra":{"command":"path/to/niyantra.exe","args":["mcp"]}}}
+  ```
+- [ ] Restart Claude Desktop → niyantra tools appear in tool list
+- [ ] Ask "What's my Windsurf quota?" → Claude invokes `quota_status`
+- [ ] Ask "Which model should I use?" → Claude invokes `best_model`
+
+---
+
+## 18. Claude Code Bridge (Phase 9)
+
+### 18.1 Settings Toggle
+- [ ] Settings tab shows "🔗 Claude Code Bridge" section
+- [ ] Toggle off (default) → no bridge activity
+- [ ] Toggle on → toast confirms "Claude Code bridge enabled"
+- [ ] Status indicator appears: "Bridge active" / "Claude Code not detected" / "Waiting..."
+
+### 18.2 Bridge Functionality
+- [ ] Enabling bridge patches `~/.claude/settings.json` with statusline command
+- [ ] Starting a Claude Code session → `~/.niyantra/data/claude-statusline.json` created
+- [ ] Agent poll picks up data → `GET /api/claude/status` returns snapshot
+- [ ] Disabling bridge → settings.json restored, data file cleaned
+
+### 18.3 Dashboard Integration
+- [ ] Overview tab shows Claude Code card when bridge enabled
+- [ ] Card shows 5-hour meter with color-coded bar and percentage
+- [ ] Card shows 7-day meter (if available)
+- [ ] Bridge status badge: green dot = active, amber = stale
+
+### 18.4 Windows Specific
+- [ ] Without WSL/Git Bash → graceful skip with log "requires bash"
+- [ ] With Git Bash → bridge installs and works correctly
+
+---
+
+## 19. Notifications (Phase 9)
+
+### 19.1 Settings
+- [ ] Settings tab shows "🔔 Notifications" section
+- [ ] Toggle off (default) → threshold/test hidden
+- [ ] Toggle on → threshold input and test button appear
+- [ ] Threshold accepts values 5-50%
+
+### 19.2 Test Notification
+- [ ] Click "🔔 Test" → OS notification appears
+- [ ] Toast confirms "Test notification sent!"
+- [ ] On unsupported platform → error toast
+
+### 19.3 Quota Alerts
+- [ ] Set threshold to 50%, enable notifications
+- [ ] Snap when model below 50% → OS notification fires
+- [ ] Snap again → no duplicate (once-per-cycle guard)
+- [ ] After model resets → notification can fire again next time
+
+---
+
+## 20. Backup & Restore (Phase 9)
+
+### 20.1 CLI Backup
+- [ ] `niyantra backup` → creates `~/.niyantra/niyantra-YYYY-MM-DD-HHMMSS.db.bak`
+- [ ] Success message shows byte count
+- [ ] Missing database → error "Database not found"
+
+### 20.2 CLI Restore
+- [ ] `niyantra restore <file>` → prompts for confirmation
+- [ ] Type "yes" → database replaced, success message
+- [ ] Type anything else → "Restore cancelled"
+- [ ] Invalid backup file → error "Invalid backup file"
+
+### 20.3 Web Backup
+- [ ] Settings > Data Management: 💾 Backup button visible
+- [ ] Click → downloads `niyantra-YYYY-MM-DD.db` file
+- [ ] Download is valid SQLite database
+
+---
+
+## 21. Command Palette (Phase 9)
+
+### 21.1 Open/Close
+- [ ] `Ctrl+K` → palette opens with blurred overlay
+- [ ] `Esc` → palette closes
+- [ ] Click outside palette → closes
+- [ ] `Ctrl+K` again while open → closes (toggle)
+
+### 21.2 Search & Filter
+- [ ] All 12 commands visible initially
+- [ ] Type "snap" → filters to "Snap Now"
+- [ ] Type "back" → shows "Download Backup"
+- [ ] Clear search → all commands restore
+- [ ] "No matching commands" shown for zero results
+
+### 21.3 Navigation
+- [ ] Arrow Down → moves selection highlight
+- [ ] Arrow Up → moves selection up
+- [ ] Enter → executes selected command and closes palette
+- [ ] Click on command → executes and closes
+
+### 21.4 Command Execution
+- [ ] "Snap Now" → triggers quota capture
+- [ ] "Show Quotas/Subscriptions/Overview/Settings" → switches tab
+- [ ] "New Subscription" → opens subscription modal
+- [ ] "Toggle Auto-Capture" → toggles the auto-capture setting
+- [ ] "Export CSV" → downloads CSV file
+- [ ] "Download Backup" → downloads database
+- [ ] "Search Subscriptions" → focuses search input on Subscriptions tab
+- [ ] "Set Budget" → opens budget modal
+- [ ] "Toggle Theme" → switches dark/light

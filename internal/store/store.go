@@ -204,6 +204,64 @@ func (s *Store) migrate() error {
 		s.setUserVersion(3)
 	}
 
+	// ── v4: Reset cycle tracking ──────────────────────────────────
+	if s.getUserVersion() < 4 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS antigravity_reset_cycles (
+				id             INTEGER PRIMARY KEY AUTOINCREMENT,
+				model_id       TEXT     NOT NULL,
+				account_id     INTEGER  NOT NULL DEFAULT 0,
+				cycle_start    DATETIME NOT NULL,
+				cycle_end      DATETIME,
+				reset_time     DATETIME,
+				peak_usage     REAL     NOT NULL DEFAULT 0,
+				total_delta    REAL     NOT NULL DEFAULT 0,
+				snapshot_count INTEGER  NOT NULL DEFAULT 0,
+				FOREIGN KEY (account_id) REFERENCES accounts(id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_cycles_model_start
+				ON antigravity_reset_cycles(model_id, cycle_start);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_cycles_active
+				ON antigravity_reset_cycles(model_id, account_id)
+				WHERE cycle_end IS NULL;
+		`); err != nil {
+			return err
+		}
+
+		s.setUserVersion(4)
+	}
+
+	// ── v5: Claude Code snapshots + notifications config ──────────
+	if s.getUserVersion() < 5 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS claude_snapshots (
+				id              INTEGER PRIMARY KEY AUTOINCREMENT,
+				five_hour_pct   REAL NOT NULL,
+				seven_day_pct   REAL,
+				five_hour_reset DATETIME,
+				seven_day_reset DATETIME,
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				source          TEXT DEFAULT 'statusline'
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_claude_snapshots_time
+				ON claude_snapshots(captured_at DESC);
+
+			-- Claude Code bridge + notification config
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('claude_bridge',     'false', 'bool',  'capture',      'Claude Code Bridge',   'Enable Claude Code statusline bridge for rate limit tracking'),
+				('notify_enabled',    'false', 'bool',  'notification', 'Notifications',        'Enable desktop notifications for quota alerts'),
+				('notify_threshold',  '10',    'float', 'notification', 'Alert Threshold (%)',   'Alert when model has less than this % remaining');
+
+			-- Update Claude Code data source type
+			UPDATE data_sources SET source_type = 'statusline_bridge' WHERE id = 'claude_code';
+		`); err != nil {
+			return err
+		}
+
+		s.setUserVersion(5)
+	}
+
 	return nil
 }
 

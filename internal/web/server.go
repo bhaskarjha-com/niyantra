@@ -4,17 +4,23 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/agent"
+	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
+	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
 //go:embed static/*
@@ -25,6 +31,8 @@ type Server struct {
 	logger   *slog.Logger
 	store    *store.Store
 	client   *client.Client
+	tracker  *tracker.Tracker
+	notifier *notify.Engine
 	port     int
 	auth     string // "user:pass" or ""
 	agentMgr *agent.Manager
@@ -36,9 +44,24 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		logger:   logger,
 		store:    s,
 		client:   c,
+		tracker:  tracker.New(s, logger),
+		notifier: notify.NewEngine(logger),
 		port:     port,
 		auth:     auth,
 		agentMgr: agent.NewManager(logger),
+	}
+
+	// Configure notification engine from stored settings
+	srv.notifier.Configure(
+		s.GetConfigBool("notify_enabled"),
+		s.GetConfigFloat("notify_threshold", 10),
+	)
+
+	// Setup Claude Code bridge if enabled
+	if s.GetConfigBool("claude_bridge") {
+		if err := claudebridge.SetupBridge(logger); err != nil {
+			logger.Warn("Claude Code bridge setup failed", "error", err)
+		}
 	}
 
 	// Auto-start polling agent if config says so
@@ -56,10 +79,11 @@ func (s *Server) startPollingAgent() {
 		interval = 30
 	}
 
-	ag := agent.NewPollingAgent(s.client, s.store, time.Duration(interval)*time.Second, s.logger)
+	ag := agent.NewPollingAgent(s.client, s.store, s.tracker, time.Duration(interval)*time.Second, s.logger)
 	ag.SetPollingCheck(func() bool {
 		return s.store.GetConfigBool("auto_capture")
 	})
+	ag.SetNotifier(s.notifier)
 
 	s.agentMgr.Start(ag)
 	s.logger.Info("Auto-capture started", "interval", interval)
@@ -96,6 +120,12 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/activity", s.handleActivity)
 	mux.HandleFunc("/api/mode", s.handleMode)
+	mux.HandleFunc("/api/usage", s.handleUsage)
+
+	// Phase 9 routes
+	mux.HandleFunc("/api/claude/status", s.handleClaudeStatus)
+	mux.HandleFunc("/api/backup", s.handleBackup)
+	mux.HandleFunc("/api/notify/test", s.handleNotifyTest)
 
 	// Static files (embedded)
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -212,6 +242,13 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 			s.logger.Warn("auto-link subscription failed", "error", err, "email", snap.Email)
 		} else {
 			s.logger.Info("auto-linked subscription", "email", snap.Email, "plan", snap.PlanName)
+		}
+	}
+
+	// Feed tracker for cycle intelligence (also works for manual snaps)
+	if s.tracker != nil {
+		if err := s.tracker.Process(snap, accountID); err != nil {
+			s.logger.Warn("tracker error on manual snap", "error", err)
 		}
 	}
 
@@ -341,6 +378,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			s.startPollingAgent()
 		}
 
+		// React to bridge/notification config changes
+		s.onConfigChanged(req.Key, req.Value)
+
 		entries, _ := s.store.AllConfig("")
 		writeJSON(w, map[string]interface{}{"config": entries})
 
@@ -414,6 +454,53 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// handleUsage returns per-model usage intelligence and budget forecast.
+func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var accountID int64
+	if v := r.URL.Query().Get("account"); v != "" {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+			accountID = id
+		}
+	}
+
+	result := map[string]interface{}{
+		"models":         nil,
+		"budgetForecast": nil,
+	}
+
+	// Get latest snapshot for the account
+	snapshots, _ := s.store.LatestPerAccount()
+	for _, snap := range snapshots {
+		if accountID > 0 && snap.AccountID != accountID {
+			continue
+		}
+
+		if s.tracker != nil {
+			summaries, err := s.tracker.AllUsageSummaries(snap, snap.AccountID)
+			if err != nil {
+				s.logger.Warn("usage summary error", "error", err)
+			}
+			if summaries != nil {
+				result["models"] = summaries
+			}
+		}
+		break // Use the first matching account
+	}
+
+	// Budget forecast
+	forecast := tracker.ComputeBudgetForecast(s.store)
+	if forecast != nil {
+		result["budgetForecast"] = forecast
+	}
+
+	writeJSON(w, result)
+}
+
 // basicAuth wraps a handler with HTTP basic authentication.
 func (s *Server) basicAuth(next http.Handler) http.Handler {
 	parts := strings.SplitN(s.auth, ":", 2)
@@ -443,3 +530,126 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
+
+// ── Phase 9 Handlers ─────────────────────────────────────────────
+
+// handleClaudeStatus returns the current Claude Code rate limit data.
+func (s *Server) handleClaudeStatus(w http.ResponseWriter, r *http.Request) {
+	bridgeEnabled := s.store.GetConfigBool("claude_bridge")
+	installed := claudebridge.IsClaudeCodeInstalled()
+	fresh := claudebridge.IsFresh(claudebridge.DefaultStaleness)
+
+	result := map[string]interface{}{
+		"installed":     installed,
+		"bridgeEnabled": bridgeEnabled,
+		"bridgeFresh":   fresh,
+		"supported":     notify.IsSupported(),
+	}
+
+	// Get latest snapshot from DB
+	snap, err := s.store.LatestClaudeSnapshot()
+	if err != nil {
+		s.logger.Error("Failed to get Claude snapshot", "error", err)
+	}
+	if snap != nil {
+		snapMap := map[string]interface{}{
+			"fiveHourPct": snap.FiveHourPct,
+			"capturedAt":  snap.CapturedAt.Format(time.RFC3339),
+			"source":      snap.Source,
+		}
+		if snap.SevenDayPct != nil {
+			snapMap["sevenDayPct"] = *snap.SevenDayPct
+		}
+		if snap.FiveHourReset != nil {
+			snapMap["fiveHourReset"] = snap.FiveHourReset.Format(time.RFC3339)
+		}
+		if snap.SevenDayReset != nil {
+			snapMap["sevenDayReset"] = snap.SevenDayReset.Format(time.RFC3339)
+		}
+		result["snapshot"] = snapMap
+	}
+
+	writeJSON(w, result)
+}
+
+// handleBackup serves the database file as a download.
+func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	dbPath := s.store.Path()
+	f, err := os.Open(dbPath)
+	if err != nil {
+		jsonError(w, "cannot open database", http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		jsonError(w, "cannot stat database", http.StatusInternalServerError)
+		return
+	}
+
+	filename := fmt.Sprintf("niyantra-%s.db", time.Now().Format("2006-01-02"))
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	io.Copy(w, f)
+}
+
+// handleNotifyTest sends a test notification.
+func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !notify.IsSupported() {
+		jsonError(w, "notifications not supported on this platform", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.notifier.SendTest(); err != nil {
+		jsonError(w, fmt.Sprintf("notification failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "sent"})
+}
+
+// onConfigChanged is called after a config key is updated via the API.
+// Handles side effects for bridge and notification settings.
+func (s *Server) onConfigChanged(key, value string) {
+	switch key {
+	case "claude_bridge":
+		if value == "true" {
+			if err := claudebridge.SetupBridge(s.logger); err != nil {
+				s.logger.Warn("Claude Code bridge setup failed", "error", err)
+			}
+		} else {
+			if err := claudebridge.DisableBridge(s.logger); err != nil {
+				s.logger.Warn("Claude Code bridge disable failed", "error", err)
+			}
+		}
+	case "notify_enabled", "notify_threshold":
+		s.notifier.Configure(
+			s.store.GetConfigBool("notify_enabled"),
+			s.store.GetConfigFloat("notify_threshold", 10),
+		)
+	}
+}
+
+// dbSize returns the database file size in bytes, or -1 on error.
+func (s *Server) dbSize() int64 {
+	info, err := os.Stat(s.store.Path())
+	if err != nil {
+		return -1
+	}
+	return info.Size()
+}
+
+// _ ensures imports are used
+var _ = filepath.Base

@@ -8,19 +8,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
+	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
 // PollingAgent polls the Antigravity language server at a configurable interval.
 type PollingAgent struct {
 	client   *client.Client
 	store    *store.Store
+	tracker  *tracker.Tracker
 	interval time.Duration
 	logger   *slog.Logger
 
 	// pollingCheck is called before each tick; return false to skip.
 	pollingCheck func() bool
+
+	notifier *notify.Engine
 
 	// Backoff state for consecutive failures
 	mu            sync.Mutex
@@ -31,10 +37,11 @@ type PollingAgent struct {
 }
 
 // NewPollingAgent creates a new auto-capture agent.
-func NewPollingAgent(c *client.Client, s *store.Store, interval time.Duration, logger *slog.Logger) *PollingAgent {
+func NewPollingAgent(c *client.Client, s *store.Store, t *tracker.Tracker, interval time.Duration, logger *slog.Logger) *PollingAgent {
 	return &PollingAgent{
 		client:   c,
 		store:    s,
+		tracker:  t,
 		interval: interval,
 		logger:   logger,
 		maxFails: 3,
@@ -44,6 +51,11 @@ func NewPollingAgent(c *client.Client, s *store.Store, interval time.Duration, l
 // SetPollingCheck sets the function called before each poll to check if polling is enabled.
 func (a *PollingAgent) SetPollingCheck(fn func() bool) {
 	a.pollingCheck = fn
+}
+
+// SetNotifier sets the notification engine for quota alerts.
+func (a *PollingAgent) SetNotifier(n *notify.Engine) {
+	a.notifier = n
 }
 
 // LastPollTime returns the time of the last poll attempt.
@@ -168,6 +180,23 @@ func (a *PollingAgent) poll(ctx context.Context) {
 	// Auto-link subscription if needed
 	a.autoLink(*snap, accountID)
 
+	// Feed tracker for cycle detection
+	if a.tracker != nil {
+		if err := a.tracker.Process(snap, accountID); err != nil {
+			a.logger.Warn("Tracker error", "error", err)
+		}
+	}
+
+	// Check notification thresholds for each model
+	if a.notifier != nil {
+		for _, m := range snap.Models {
+			a.notifier.CheckQuota(m.ModelID, m.RemainingPercent)
+		}
+	}
+
+	// Claude Code bridge: read statusline data if bridge is enabled
+	a.pollClaudeBridge()
+
 	a.logger.Info("Auto-capture complete",
 		"email", snap.Email,
 		"plan", snap.PlanName,
@@ -218,4 +247,69 @@ func (a *PollingAgent) autoLink(snap client.Snapshot, accountID int64) {
 		})
 		a.logger.Info("Auto-linked subscription", "email", snap.Email, "plan", snap.PlanName)
 	}
+}
+
+// pollClaudeBridge reads Claude Code statusline data and stores a snapshot.
+// Called alongside each Antigravity poll when the bridge is enabled.
+func (a *PollingAgent) pollClaudeBridge() {
+	if !a.store.GetConfigBool("claude_bridge") {
+		return
+	}
+
+	if !claudebridge.IsFresh(claudebridge.DefaultStaleness) {
+		return
+	}
+
+	rl, err := claudebridge.ReadData()
+	if err != nil {
+		a.logger.Debug("Claude bridge read error", "error", err)
+		return
+	}
+	if !claudebridge.IsValid(rl) {
+		return
+	}
+
+	// Build snapshot values
+	var fiveHourPct float64
+	var sevenDayPct *float64
+	var fiveReset, sevenReset *time.Time
+
+	if rl.FiveHour != nil {
+		fiveHourPct = rl.FiveHour.UsedPercentage
+		if rl.FiveHour.ResetsAt > 0 {
+			t := time.Unix(rl.FiveHour.ResetsAt, 0).UTC()
+			fiveReset = &t
+		}
+	}
+	if rl.SevenDay != nil {
+		v := rl.SevenDay.UsedPercentage
+		sevenDayPct = &v
+		if rl.SevenDay.ResetsAt > 0 {
+			t := time.Unix(rl.SevenDay.ResetsAt, 0).UTC()
+			sevenReset = &t
+		}
+	}
+
+	if _, err := a.store.InsertClaudeSnapshot(fiveHourPct, sevenDayPct, fiveReset, sevenReset, "statusline"); err != nil {
+		a.logger.Error("Failed to store Claude Code snapshot", "error", err)
+		return
+	}
+
+	// Update data source bookkeeping
+	a.store.UpdateSourceCapture("claude_code")
+
+	// Check Claude notification thresholds
+	if a.notifier != nil {
+		a.notifier.CheckClaudeQuota("five_hour", fiveHourPct)
+		if sevenDayPct != nil {
+			a.notifier.CheckClaudeQuota("seven_day", *sevenDayPct)
+		}
+	}
+
+	// Ensure bridge is still healthy
+	claudebridge.EnsureBridge(a.logger)
+
+	a.logger.Debug("Claude Code bridge snapshot stored",
+		"five_hour_pct", fiveHourPct,
+		"seven_day_pct", sevenDayPct)
 }

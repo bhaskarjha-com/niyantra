@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -12,8 +14,10 @@ import (
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/mcpserver"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
+	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 	"github.com/bhaskarjha-com/niyantra/internal/web"
 )
 
@@ -49,6 +53,16 @@ func main() {
 		cmdStatus(logger, *dbPath)
 	case "serve":
 		cmdServe(logger, *dbPath, *port, *auth)
+	case "mcp":
+		cmdMCP(logger, *dbPath)
+	case "backup":
+		cmdBackup(logger, *dbPath)
+	case "restore":
+		if fs.NArg() < 1 {
+			fmt.Fprintln(os.Stderr, "Usage: niyantra restore <backup-file>")
+			os.Exit(1)
+		}
+		cmdRestore(logger, *dbPath, fs.Arg(0))
 	case "version":
 		fmt.Printf("niyantra %s\n", version)
 	case "help", "--help", "-h":
@@ -278,6 +292,119 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 	}
 }
 
+// cmdMCP starts the MCP server over stdio for AI agent integration.
+func cmdMCP(logger *slog.Logger, dbPath string) {
+	// Open store read-only (MCP server only queries data)
+	s, err := store.Open(dbPath)
+	if err != nil {
+		logger.Error("failed to open database", "error", err)
+		os.Exit(1)
+	}
+	defer s.Close()
+
+	t := tracker.New(s, logger)
+	srv := mcpserver.New(s, t, logger)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	if err := srv.Run(ctx); err != nil {
+		logger.Error("MCP server error", "error", err)
+		os.Exit(1)
+	}
+}
+
+// cmdBackup creates a timestamped backup of the database file.
+func cmdBackup(logger *slog.Logger, dbPath string) {
+	// Check source exists
+	info, err := os.Stat(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Database not found: %s\n", dbPath)
+		os.Exit(1)
+	}
+
+	dir := filepath.Dir(dbPath)
+	backupName := fmt.Sprintf("niyantra-%s.db.bak", time.Now().Format("2006-01-02-150405"))
+	backupPath := filepath.Join(dir, backupName)
+
+	// Copy file
+	src, err := os.Open(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot open database: %v\n", err)
+		os.Exit(1)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(backupPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot create backup: %v\n", err)
+		os.Exit(1)
+	}
+	defer dst.Close()
+
+	written, err := io.Copy(dst, src)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ Backup created: %s (%d bytes, source: %d bytes)\n", backupPath, written, info.Size())
+}
+
+// cmdRestore restores a database from a backup file.
+func cmdRestore(logger *slog.Logger, dbPath, backupPath string) {
+	// Validate backup exists
+	backupInfo, err := os.Stat(backupPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Backup file not found: %s\n", backupPath)
+		os.Exit(1)
+	}
+
+	// Validate backup is a valid Niyantra database by checking schema version
+	backupStore, err := store.Open(backupPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid backup file: %v\n", err)
+		os.Exit(1)
+	}
+	backupStore.Close()
+
+	// Confirm with user
+	fmt.Printf("⚠️  This will replace your current database with:\n")
+	fmt.Printf("   %s (%d bytes)\n", backupPath, backupInfo.Size())
+	fmt.Printf("   Current DB: %s\n", dbPath)
+	fmt.Print("\nType 'yes' to confirm: ")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	if strings.TrimSpace(scanner.Text()) != "yes" {
+		fmt.Println("Restore cancelled.")
+		return
+	}
+
+	// Copy backup over current DB
+	src, err := os.Open(backupPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot open backup: %v\n", err)
+		os.Exit(1)
+	}
+	defer src.Close()
+
+	dst, err := os.Create(dbPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot write database: %v\n", err)
+		os.Exit(1)
+	}
+	defer dst.Close()
+
+	written, err := io.Copy(dst, src)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Restore failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✅ Database restored: %d bytes written to %s\n", written, dbPath)
+}
+
 func printUsage() {
 	fmt.Println(`Niyantra — Multi-account quota ledger for Antigravity
 
@@ -288,6 +415,9 @@ Commands:
   snap       Capture current account's quota (1 API call)
   status     Show all accounts' readiness (0 network calls)
   serve      Start the web dashboard
+  mcp        Start MCP server (stdio) for AI agent integration
+  backup     Create a database backup
+  restore    Restore database from a backup file
   version    Print version information
 
 Flags:

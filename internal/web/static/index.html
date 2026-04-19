@@ -163,6 +163,23 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>🔗 Claude Code Bridge</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Enable Bridge</strong>
+                                <span>Track Claude Code rate limits via statusline integration</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-claude-bridge">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="claude-bridge-status" class="polling-status" style="display:none"></div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>🎨 Budget &amp; Display</h3>
                         <div class="settings-row">
                             <div class="settings-label">
@@ -208,6 +225,41 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>🔔 Notifications</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Desktop Notifications</strong>
+                                <span>Alert when model quotas drop below threshold</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-notify-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="settings-row" id="notify-threshold-row" style="display:none">
+                            <div class="settings-label">
+                                <strong>Alert Threshold</strong>
+                                <span>Notify when remaining drops below this %</span>
+                            </div>
+                            <div class="settings-control">
+                                <input type="number" id="s-notify-threshold" class="form-input" min="5" max="50" style="width:80px">
+                                <span style="color:var(--text-muted);font-size:12px;margin-left:4px">%</span>
+                            </div>
+                        </div>
+                        <div class="settings-row" id="notify-test-row" style="display:none">
+                            <div class="settings-label">
+                                <strong>Test</strong>
+                                <span>Send a test notification to verify</span>
+                            </div>
+                            <div class="settings-control">
+                                <button class="btn-add" id="notify-test-btn" style="padding:6px 12px;font-size:12px">🔔 Test</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>💾 Data Management</h3>
                         <div class="settings-row">
                             <div class="settings-label">
@@ -232,6 +284,10 @@
                             <div class="settings-label">
                                 <strong>Database</strong>
                                 <span id="s-db-path">~/.niyantra/niyantra.db</span>
+                            </div>
+                            <div class="settings-control">
+                                <span id="s-db-size" style="color:var(--text-muted);font-size:12px;margin-right:8px"></span>
+                                <a class="btn-add" href="/api/backup" download style="text-decoration:none;display:inline-flex;padding:6px 10px;font-size:12px">💾 Backup</a>
                             </div>
                         </div>
                     </div>
@@ -263,6 +319,7 @@
                             <div class="shortcut-item"><kbd>N</kbd> New subscription</div>
                             <div class="shortcut-item"><kbd>S</kbd> Snap quota</div>
                             <div class="shortcut-item"><kbd>/</kbd> Search</div>
+                            <div class="shortcut-item"><kbd>Ctrl+K</kbd> Command palette</div>
                             <div class="shortcut-item"><kbd>Esc</kbd> Close modal</div>
                         </div>
                     </div>
@@ -453,6 +510,16 @@
             <span>Niyantra — AI subscription & quota dashboard</span>
             <span id="snap-count"></span>
         </footer>
+    </div>
+
+    <!-- Command Palette -->
+    <div class="command-palette-overlay" id="command-palette-overlay" hidden>
+        <div class="command-palette" id="command-palette">
+            <div class="command-palette-header">
+                <input type="text" class="command-palette-search" id="command-palette-search" placeholder="Type a command..." autocomplete="off">
+            </div>
+            <div class="command-palette-list" id="command-palette-list"></div>
+        </div>
     </div>
 
     <script src="app.js"></script>
