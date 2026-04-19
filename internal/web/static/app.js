@@ -1099,6 +1099,7 @@ function renderOverviewEnhanced(data, subs, usageData) {
   var renewals = data.renewals || [];
   var links = data.quickLinks || [];
   var quotas = data.quotaSummary;
+  var serverInsights = data.insights || [];
 
   // ── Budget Alert ──
   var budgetHTML = renderBudgetAlert(stats.totalMonthlySpend);
@@ -1110,9 +1111,11 @@ function renderOverviewEnhanced(data, subs, usageData) {
       '</div>';
   }
 
-  // ── Insights ──
-  var insights = generateInsights(stats, renewals, subs);
-  var insightsHTML = renderInsightChips(insights);
+  // ── Phase 10: Server-Computed Insights ──
+  var insightsHTML = renderServerInsights(serverInsights);
+
+  // ── Phase 10: Advisor Card placeholder ──
+  var advisorHTML = '<div id="advisor-card-container"></div>';
 
   // ── Spend card ──
   var spendHTML = '<div class="overview-card">' +
@@ -1140,22 +1143,8 @@ function renderOverviewEnhanced(data, subs, usageData) {
   }
   catHTML += '</div>';
 
-  // ── Renewals ──
-  var renewHTML = '<div class="overview-card full-width"><h3>Upcoming Renewals</h3>';
-  if (renewals.length === 0) {
-    renewHTML += '<div class="empty-hint">No upcoming renewals</div>';
-  } else {
-    for (var r = 0; r < renewals.length; r++) {
-      var ren = renewals[r];
-      var daysCls = ren.daysUntil <= 7 ? 'soon' : 'distant';
-      renewHTML += '<div class="renewal-item">' +
-        '<span class="renewal-name">' + esc(ren.platform) + '</span>' +
-        '<span class="renewal-date">' + ren.nextRenewal + '</span>' +
-        '<span class="renewal-days ' + daysCls + '">' + ren.daysUntil + ' days</span>' +
-        '</div>';
-    }
-  }
-  renewHTML += '</div>';
+  // ── Phase 10: Renewal Calendar ──
+  var calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
 
   // ── Quick Links ──
   var linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3>';
@@ -1171,12 +1160,14 @@ function renderOverviewEnhanced(data, subs, usageData) {
   }
   linksHTML += '</div>';
 
-  // ── CSV Export ──
+  // ── Export ──
   var exportHTML = '<div class="overview-card full-width"><h3>Export</h3>' +
     '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">' +
-    'Download all subscriptions as CSV for expense tracking or tax reports.</p>' +
-    '<a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex">📥 Export CSV</a>' +
-    '</div>';
+    'Download your data for expense tracking, tax reports, or backup.</p>' +
+    '<div style="display:flex;gap:8px">' +
+    '<a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📥 CSV</a>' +
+    '<a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📦 JSON</a>' +
+    '</div></div>';
 
   // ── Ready Now ──
   var readyHTML = '';
@@ -1236,12 +1227,22 @@ function renderOverviewEnhanced(data, subs, usageData) {
     claudeHTML = renderClaudeCodeCard();
   }
 
-  el.innerHTML = budgetHTML + insightsHTML + forecastHTML + claudeHTML + spendHTML + catHTML + renewHTML + linksHTML + exportHTML + readyHTML;
+  el.innerHTML = budgetHTML + advisorHTML + insightsHTML + forecastHTML + claudeHTML + spendHTML + catHTML + calendarHTML + linksHTML + exportHTML + readyHTML;
 
   // Async load Claude Code data
   if (serverConfig['claude_bridge'] === 'true') {
     loadClaudeCardData();
   }
+
+  // Async load advisor card
+  loadAdvisorCard();
+
+  // Render calendar with renewal data
+  renderRenewalCalendar(renewals, subs);
+
+  // Phase 11: Codex card + Sessions timeline (async)
+  renderCodexCard(el);
+  renderSessionsTimeline(el);
 }
 
 // ════════════════════════════════════════════
@@ -1378,6 +1379,66 @@ function initSettings() {
             else showToast('🔔 Test notification sent!', 'success');
           })
           .catch(function() { showToast('❌ Failed to send test', 'error'); });
+      });
+    }
+
+    // ── Phase 11: Codex Capture Toggle ──
+    var codexCaptureEl = document.getElementById('s-codex-capture');
+    if (codexCaptureEl) {
+      codexCaptureEl.checked = cfg['codex_capture'] === 'true';
+      codexCaptureEl.addEventListener('change', function() {
+        var val = codexCaptureEl.checked ? 'true' : 'false';
+        updateConfig('codex_capture', val).then(function() {
+          showToast(codexCaptureEl.checked ? '🤖 Codex capture enabled' : '🤖 Codex capture disabled', 'success');
+          loadCodexSettingsStatus();
+        });
+      });
+      loadCodexSettingsStatus();
+    }
+
+    // ── Phase 11: JSON Import ──
+    var importBtn = document.getElementById('import-json-btn');
+    var importFile = document.getElementById('import-file');
+    if (importBtn && importFile) {
+      importBtn.addEventListener('click', function() { importFile.click(); });
+      importFile.addEventListener('change', function() {
+        if (!importFile.files || !importFile.files[0]) return;
+        var file = importFile.files[0];
+        showToast('📥 Importing ' + file.name + '...', 'info');
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          fetch('/api/import/json', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: e.target.result
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) {
+              showToast('❌ Import failed: ' + data.error, 'error');
+              return;
+            }
+            var msg = '✅ Imported: ' + (data.accountsCreated || 0) + ' accounts, ' +
+                      (data.subsCreated || 0) + ' subs, ' +
+                      (data.snapshotsImported || 0) + ' snapshots';
+            showToast(msg, 'success');
+            var resultEl = document.getElementById('import-result');
+            if (resultEl) {
+              resultEl.style.display = '';
+              resultEl.innerHTML = '<span style="color:var(--accent)">' + msg + '</span>' +
+                (data.accountsSkipped ? '<br>Accounts skipped (existing): ' + data.accountsSkipped : '') +
+                (data.subsSkipped ? '<br>Subs skipped (existing): ' + data.subsSkipped : '') +
+                (data.snapshotsDuped ? '<br>Snapshots deduped: ' + data.snapshotsDuped : '') +
+                (data.errors && data.errors.length ? '<br>⚠️ Errors: ' + data.errors.length : '');
+            }
+            // Refresh data
+            fetchStatus().then(renderAccounts);
+            loadSubscriptions();
+          })
+          .catch(function() { showToast('❌ Import failed', 'error'); });
+        };
+        reader.readAsText(file);
+        importFile.value = ''; // reset for re-import
       });
     }
   });
@@ -1736,6 +1797,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Init command palette
   initCommandPalette();
 
+  // Phase 10: Load system alerts
+  loadSystemAlerts();
+
   // Auto-capture polling is handled server-side by the agent.
   // Manual data refreshes on snap or page reload.
 });
@@ -1756,6 +1820,7 @@ var PALETTE_COMMANDS = [
     if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change')); }
   }},
   { name: 'Export CSV',                       icon: '📥', action: function() { window.location.href = '/api/export/csv'; } },
+  { name: 'Export JSON',                      icon: '📦', action: function() { window.location.href = '/api/export/json'; } },
   { name: 'Download Backup',                  icon: '💾', action: function() { window.location.href = '/api/backup'; } },
   { name: 'Search Subscriptions', key: '/',   icon: '🔍', action: function() {
     switchToTab('subscriptions');
@@ -1769,6 +1834,11 @@ var PALETTE_COMMANDS = [
     localStorage.setItem('niyantra-theme', next);
     var themeEl = document.getElementById('s-theme');
     if (themeEl) themeEl.value = next;
+  }},
+  { name: 'Codex Snap',                        icon: '🤖', action: function() { handleCodexSnap(); } },
+  { name: 'Import JSON',                       icon: '📥', action: function() {
+    var f = document.getElementById('import-file');
+    if (f) f.click();
   }},
 ];
 
@@ -1980,3 +2050,465 @@ function formatResetTime(isoStr) {
   if (hours > 0) return hours + 'h';
   return mins + 'm';
 }
+
+// ════════════════════════════════════════════
+//  Phase 10: SYSTEM ALERTS
+// ════════════════════════════════════════════
+
+function loadSystemAlerts() {
+  fetch('/api/alerts').then(function(r) { return r.json(); })
+  .then(function(data) {
+    var container = document.getElementById('alert-banner-container');
+    if (!container) return;
+    var alerts = data.alerts || [];
+    if (alerts.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    var html = '';
+    var shown = Math.min(alerts.length, 3);
+    for (var i = 0; i < shown; i++) {
+      var a = alerts[i];
+      var icon = a.severity === 'critical' ? '🚨' : (a.severity === 'warning' ? '⚠️' : 'ℹ️');
+      html += '<div class="alert-banner ' + esc(a.severity) + '">' +
+        '<span class="alert-banner-icon">' + icon + '</span>' +
+        '<div class="alert-banner-content">' +
+        '<div class="alert-banner-title">' + esc(a.category) + '</div>' +
+        '<div class="alert-banner-msg">' + esc(a.message) + '</div>' +
+        '</div>' +
+        '<button class="alert-banner-dismiss" onclick="dismissAlert(' + a.id + ')" title="Dismiss">&times;</button>' +
+        '</div>';
+    }
+    if (alerts.length > 3) {
+      html += '<div class="alert-more-link" onclick="switchToTab(\'overview\')">' +
+        '+ ' + (alerts.length - 3) + ' more alert(s)</div>';
+    }
+    container.innerHTML = html;
+  }).catch(function() {});
+}
+
+function dismissAlert(id) {
+  fetch('/api/alerts/dismiss', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: id })
+  }).then(function() {
+    loadSystemAlerts();
+    showToast('Alert dismissed', 'success');
+  }).catch(function() {
+    showToast('Failed to dismiss alert', 'error');
+  });
+}
+
+// ════════════════════════════════════════════
+//  Phase 10: SERVER-COMPUTED INSIGHTS
+// ════════════════════════════════════════════
+
+function renderServerInsights(insights) {
+  if (!insights || insights.length === 0) return '';
+
+  var html = '<div class="insight-panel"><h3>🧠 Intelligence Insights</h3><div class="insight-list">';
+
+  var iconMap = {
+    renewal_imminent: '🔴',
+    trial_expiring: '⏳',
+    unused_subscription: '💤',
+    spending_anomaly: '📈',
+    category_overlap: '🔁',
+    annual_savings: '💡',
+    budget_exceeded: '🚨'
+  };
+
+  for (var i = 0; i < insights.length; i++) {
+    var ins = insights[i];
+    var icon = iconMap[ins.type] || '💡';
+    var cls = ins.severity === 'critical' ? 'critical' : (ins.severity === 'warning' ? 'warning' : 'info');
+    html += '<div class="insight-item ' + cls + '">' +
+      '<span class="insight-item-icon">' + icon + '</span>' +
+      '<div class="insight-item-content">' +
+      '<div class="insight-item-title">' + esc(ins.type.replace(/_/g, ' ')) + '</div>' +
+      '<div class="insight-item-msg">' + esc(ins.message) + '</div>' +
+      '</div></div>';
+  }
+  html += '</div></div>';
+  return html;
+}
+
+// ════════════════════════════════════════════
+//  Phase 10: ADVISOR CARD
+// ════════════════════════════════════════════
+
+function loadAdvisorCard() {
+  var container = document.getElementById('advisor-card-container');
+  if (!container) return;
+
+  fetch('/api/advisor').then(function(r) { return r.json(); })
+  .then(function(rec) {
+    if (!rec || !rec.bestAccount) {
+      container.innerHTML = '';
+      return;
+    }
+
+    var actionIcon = rec.action === 'switch' ? '⚡' : (rec.action === 'wait' ? '⏳' : '✅');
+    var actionLabel = rec.action.toUpperCase();
+
+    var html = '<div class="advisor-card">' +
+      '<h3>🎯 Switch Advisor</h3>' +
+      '<div class="advisor-action ' + esc(rec.action) + '">' + actionIcon + ' ' + actionLabel + '</div>' +
+      '<div class="advisor-reason">' + esc(rec.reason) + '</div>';
+
+    // Score bars
+    var allScores = [rec.bestAccount];
+    if (rec.alternatives) {
+      for (var i = 0; i < rec.alternatives.length; i++) {
+        allScores.push(rec.alternatives[i]);
+      }
+    }
+
+    if (allScores.length > 0) {
+      html += '<div class="advisor-scores">';
+      for (var s = 0; s < allScores.length; s++) {
+        var acct = allScores[s];
+        var isBest = s === 0;
+        var pct = Math.min(100, Math.max(0, acct.score));
+        html += '<div class="advisor-score-row' + (isBest ? ' best' : '') + '">' +
+          '<span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span>' +
+          '<div class="advisor-score-bar"><div class="advisor-score-fill" style="width:' + pct + '%"></div></div>' +
+          '<span class="advisor-score-val">' + acct.score.toFixed(0) + '</span>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }).catch(function() {
+    container.innerHTML = '';
+  });
+}
+
+// ════════════════════════════════════════════
+//  Phase 10: RENEWAL CALENDAR
+// ════════════════════════════════════════════
+
+var calendarViewDate = new Date();
+
+function renderRenewalCalendar(renewals, subs) {
+  var container = document.getElementById('renewal-calendar-container');
+  if (!container) return;
+
+  // Build a map of date -> [{ platform, category }]
+  var renewalMap = {};
+  if (renewals) {
+    for (var i = 0; i < renewals.length; i++) {
+      var r = renewals[i];
+      var dateKey = r.nextRenewal; // "YYYY-MM-DD"
+      if (!renewalMap[dateKey]) renewalMap[dateKey] = [];
+      // Find category for this platform
+      var cat = 'other';
+      if (subs) {
+        for (var s = 0; s < subs.length; s++) {
+          if (subs[s].platform === r.platform && subs[s].category) {
+            cat = subs[s].category;
+            break;
+          }
+        }
+      }
+      renewalMap[dateKey].push({ platform: r.platform, category: cat, daysUntil: r.daysUntil });
+    }
+  }
+
+  var year = calendarViewDate.getFullYear();
+  var month = calendarViewDate.getMonth();
+  var today = new Date();
+  var todayKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+  var monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  var firstDay = new Date(year, month, 1).getDay();
+  var daysInMonth = new Date(year, month + 1, 0).getDate();
+  var prevDays = new Date(year, month, 0).getDate();
+
+  var html = '<div class="calendar-container">' +
+    '<div class="calendar-header">' +
+    '<h3>📅 Renewal Calendar</h3>' +
+    '<div class="calendar-nav">' +
+    '<button class="calendar-nav-btn" onclick="calendarNav(-1)">‹</button>' +
+    '<span class="calendar-month-label">' + monthNames[month] + ' ' + year + '</span>' +
+    '<button class="calendar-nav-btn" onclick="calendarNav(1)">›</button>' +
+    '</div></div>';
+
+  // Weekday headers
+  html += '<div class="calendar-weekdays">';
+  for (var d = 0; d < 7; d++) {
+    html += '<div class="calendar-weekday">' + dayNames[d] + '</div>';
+  }
+  html += '</div>';
+
+  // Calendar grid
+  html += '<div class="calendar-grid">';
+
+  // Previous month's trailing days
+  for (var p = firstDay - 1; p >= 0; p--) {
+    html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + (prevDays - p) + '</span></div>';
+  }
+
+  // Current month days
+  for (var day = 1; day <= daysInMonth; day++) {
+    var dateKey = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    var isToday = dateKey === todayKey;
+    var dayClass = isToday ? 'calendar-day today' : 'calendar-day';
+    var events = renewalMap[dateKey];
+
+    html += '<div class="' + dayClass + '"';
+
+    // Tooltip
+    if (events && events.length > 0) {
+      var tooltipText = events.map(function(e) { return e.platform; }).join(', ');
+      html += ' title="' + esc(tooltipText) + '"';
+    }
+    html += '>';
+
+    html += '<span class="calendar-day-num">' + day + '</span>';
+
+    // Renewal pins
+    if (events && events.length > 0) {
+      html += '<div class="calendar-pins">';
+      for (var e = 0; e < Math.min(events.length, 4); e++) {
+        html += '<span class="calendar-pin ' + esc(events[e].category) + '"></span>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Fill remaining cells in last week
+  var totalCells = firstDay + daysInMonth;
+  var remaining = 7 - (totalCells % 7);
+  if (remaining < 7) {
+    for (var n = 1; n <= remaining; n++) {
+      html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + n + '</span></div>';
+    }
+  }
+
+  html += '</div>';
+
+  // Legend
+  var categories = {};
+  for (var key in renewalMap) {
+    for (var ci = 0; ci < renewalMap[key].length; ci++) {
+      categories[renewalMap[key][ci].category] = true;
+    }
+  }
+  var catKeys = Object.keys(categories);
+  if (catKeys.length > 0) {
+    html += '<div class="calendar-legend">';
+    for (var cl = 0; cl < catKeys.length; cl++) {
+      html += '<div class="calendar-legend-item">' +
+        '<span class="calendar-legend-dot ' + esc(catKeys[cl]) + '"></span>' +
+        esc(catKeys[cl]) + '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function calendarNav(delta) {
+  calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
+  // Re-render with cached data
+  var el = document.getElementById('renewal-calendar-container');
+  if (el) {
+    // Reload overview to get fresh data
+    loadOverview();
+  }
+}
+
+// ════════════════════════════════════════════
+//  PHASE 11: CODEX & SESSIONS
+// ════════════════════════════════════════════
+
+// ── Codex Settings Status ──
+function loadCodexSettingsStatus() {
+  var statusEl = document.getElementById('codex-status-settings');
+  if (!statusEl) return;
+
+  fetch('/api/codex/status').then(function(r) { return r.json(); })
+  .then(function(data) {
+    statusEl.style.display = '';
+    if (!data.installed) {
+      statusEl.innerHTML = '<span style="color:var(--text-muted)">⚠️ Codex CLI not detected. ' +
+        'Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> ' +
+        'and run <code>codex auth</code> to enable.</span>';
+      return;
+    }
+    var tokenStatus = data.tokenExpired ?
+      '<span style="color:var(--warning)">⚠️ Token expired — will auto-refresh on next poll</span>' :
+      '<span style="color:var(--success)">✅ Token valid (expires ' + (data.tokenExpiresIn || '?') + ')</span>';
+    statusEl.innerHTML =
+      '🤖 Codex detected · Account: <strong>' + esc(data.accountId || 'unknown') + '</strong><br>' +
+      tokenStatus;
+    if (data.snapshot) {
+      statusEl.innerHTML += '<br>Latest: <strong>' + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) · ' +
+        '<span style="color:var(--text-muted)">' + timeAgo(new Date(data.snapshot.capturedAt)) + '</span>';
+    }
+  })
+  .catch(function() {
+    statusEl.style.display = 'none';
+  });
+}
+
+// ── Codex Manual Snap ──
+function handleCodexSnap() {
+  showToast('🤖 Capturing Codex snapshot...', 'info');
+  fetch('/api/codex/snap', { method: 'POST' })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) {
+      showToast('❌ ' + data.error, 'error');
+      return;
+    }
+    showToast('🤖 Codex snapshot captured! Plan: ' + (data.plan || 'unknown'), 'success');
+    loadCodexSettingsStatus();
+    loadOverview();
+  })
+  .catch(function() { showToast('❌ Codex snap failed', 'error'); });
+}
+
+// ── Codex Status Card (for Overview tab) ──
+function renderCodexCard(container) {
+  fetch('/api/codex/status').then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.installed && !data.snapshot) return; // Don't show card if no Codex at all
+
+    var html = '<div class="overview-card codex-card">';
+    html += '<div class="card-header"><h3>🤖 Codex / ChatGPT</h3>';
+    html += '<button class="btn-add" onclick="handleCodexSnap()" style="padding:4px 10px;font-size:11px">📸 Snap</button>';
+    html += '</div>';
+
+    if (!data.installed) {
+      html += '<div class="card-body"><span style="color:var(--text-muted)">Codex not detected</span></div>';
+    } else if (!data.snapshot) {
+      html += '<div class="card-body"><span style="color:var(--text-muted)">No snapshots yet — click Snap to capture</span></div>';
+    } else {
+      var snap = data.snapshot;
+      var fivePct = snap.fiveHourPct || 0;
+      var sevenPct = snap.sevenDayPct || null;
+      var reviewPct = snap.codeReviewPct || null;
+      var statusClass = fivePct >= 95 ? 'critical' : fivePct >= 80 ? 'danger' : fivePct >= 50 ? 'warning' : 'healthy';
+
+      html += '<div class="card-body">';
+      // 5-hour quota bar
+      html += '<div class="codex-quota">';
+      html += '<div class="codex-quota-label">5-Hour Window</div>';
+      html += '<div class="quota-bar-track"><div class="quota-bar-fill ' + statusClass + '" style="width:' + Math.min(fivePct, 100) + '%"></div></div>';
+      html += '<div class="codex-quota-value ' + statusClass + '">' + fivePct.toFixed(1) + '% used</div>';
+      html += '</div>';
+
+      // 7-day quota bar (optional)
+      if (sevenPct !== null) {
+        var sevenClass = sevenPct >= 95 ? 'critical' : sevenPct >= 80 ? 'danger' : sevenPct >= 50 ? 'warning' : 'healthy';
+        html += '<div class="codex-quota">';
+        html += '<div class="codex-quota-label">7-Day Window</div>';
+        html += '<div class="quota-bar-track"><div class="quota-bar-fill ' + sevenClass + '" style="width:' + Math.min(sevenPct, 100) + '%"></div></div>';
+        html += '<div class="codex-quota-value ' + sevenClass + '">' + sevenPct.toFixed(1) + '% used</div>';
+        html += '</div>';
+      }
+
+      // Code review bar (optional)
+      if (reviewPct !== null) {
+        var revClass = reviewPct >= 95 ? 'critical' : reviewPct >= 80 ? 'danger' : reviewPct >= 50 ? 'warning' : 'healthy';
+        html += '<div class="codex-quota">';
+        html += '<div class="codex-quota-label">Code Review</div>';
+        html += '<div class="quota-bar-track"><div class="quota-bar-fill ' + revClass + '" style="width:' + Math.min(reviewPct, 100) + '%"></div></div>';
+        html += '<div class="codex-quota-value ' + revClass + '">' + reviewPct.toFixed(1) + '% used</div>';
+        html += '</div>';
+      }
+
+      // Meta info
+      html += '<div class="codex-meta">';
+      html += '<span>Plan: <strong>' + esc(snap.planType || '—') + '</strong></span>';
+      if (snap.creditsBalance !== null && snap.creditsBalance !== undefined) {
+        html += '<span>Credits: <strong>' + snap.creditsBalance.toFixed(2) + '</strong></span>';
+      }
+      html += '<span>Captured: ' + timeAgo(new Date(snap.capturedAt)) + '</span>';
+      html += '<span class="codex-provenance">' + esc(snap.captureMethod) + '/' + esc(snap.captureSource) + '</span>';
+      html += '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    // Insert before the calendar or at end
+    var existing = container.querySelector('.codex-card');
+    if (existing) {
+      existing.outerHTML = html;
+    } else {
+      container.insertAdjacentHTML('afterbegin', html);
+    }
+  })
+  .catch(function() {}); // Silently fail
+}
+
+// ── Sessions Timeline (for Overview tab) ──
+function renderSessionsTimeline(container) {
+  fetch('/api/sessions?limit=10').then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.sessions || data.sessions.length === 0) return;
+
+    var html = '<div class="overview-card sessions-card">';
+    html += '<div class="card-header"><h3>⏱️ Usage Sessions</h3>';
+    html += '<span class="card-count">' + data.count + ' sessions</span>';
+    html += '</div>';
+    html += '<div class="card-body">';
+    html += '<div class="session-timeline">';
+
+    for (var i = 0; i < data.sessions.length; i++) {
+      var sess = data.sessions[i];
+      var isActive = !sess.endedAt;
+      var duration = isActive ?
+        formatDurationSec(Math.floor((Date.now() - new Date(sess.startedAt).getTime()) / 1000)) :
+        formatDurationSec(sess.durationSec);
+      var providerIcon = sess.provider === 'codex' ? '🤖' :
+                         sess.provider === 'claude' ? '🔮' : '⚡';
+
+      html += '<div class="session-item' + (isActive ? ' active' : '') + '">';
+      html += '<div class="session-dot' + (isActive ? ' pulse' : '') + '"></div>';
+      html += '<div class="session-content">';
+      html += '<div class="session-top">';
+      html += '<span class="session-provider">' + providerIcon + ' ' + esc(sess.provider) + '</span>';
+      html += '<span class="session-duration">' + duration + '</span>';
+      html += '</div>';
+      html += '<div class="session-bottom">';
+      html += '<span class="session-time">' + timeAgo(new Date(sess.startedAt)) + '</span>';
+      html += '<span class="session-snaps">' + sess.snapCount + ' snaps</span>';
+      if (isActive) html += '<span class="session-active-badge">LIVE</span>';
+      html += '</div>';
+      html += '</div></div>';
+    }
+
+    html += '</div></div></div>';
+
+    // Insert after codex card or at start
+    var codexCard = container.querySelector('.codex-card');
+    var existing = container.querySelector('.sessions-card');
+    if (existing) {
+      existing.outerHTML = html;
+    } else if (codexCard) {
+      codexCard.insertAdjacentHTML('afterend', html);
+    } else {
+      container.insertAdjacentHTML('afterbegin', html);
+    }
+  })
+  .catch(function() {});
+}
+
+function formatDurationSec(sec) {
+  if (!sec || sec <= 0) return '0m';
+  var h = Math.floor(sec / 3600);
+  var m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return h + 'h ' + m + 'm';
+  return m + 'm';
+}
+

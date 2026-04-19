@@ -39,6 +39,9 @@
             </div>
         </header>
 
+        <!-- System Alert Banner -->
+        <div id="alert-banner-container" class="alert-banner-container"></div>
+
         <!-- Tab Navigation -->
         <nav class="tab-nav" id="tab-nav">
             <button class="tab-btn active" data-tab="quotas">Quotas</button>
@@ -180,6 +183,23 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>🤖 Codex / ChatGPT</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Enable Codex Capture</strong>
+                                <span>Track ChatGPT/Codex quotas via OAuth API (~/.codex/auth.json)</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-codex-capture">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="codex-status-settings" class="polling-status" style="display:none"></div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>🎨 Budget &amp; Display</h3>
                         <div class="settings-row">
                             <div class="settings-label">
@@ -274,10 +294,11 @@
                         <div class="settings-row">
                             <div class="settings-label">
                                 <strong>Export All Data</strong>
-                                <span>Download subscriptions as CSV</span>
+                                <span>Download subscriptions and data</span>
                             </div>
-                            <div class="settings-control">
-                                <a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex">📥 Export CSV</a>
+                            <div class="settings-control" style="display:flex;gap:6px">
+                                <a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 10px;font-size:12px">📥 CSV</a>
+                                <a class="btn-add" href="/api/export/json" download id="export-json-btn" style="text-decoration:none;display:inline-flex;padding:6px 10px;font-size:12px">📦 JSON</a>
                             </div>
                         </div>
                         <div class="settings-row">
@@ -290,6 +311,17 @@
                                 <a class="btn-add" href="/api/backup" download style="text-decoration:none;display:inline-flex;padding:6px 10px;font-size:12px">💾 Backup</a>
                             </div>
                         </div>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Import Data</strong>
+                                <span>Import from Niyantra JSON export (additive merge, no overwrite)</span>
+                            </div>
+                            <div class="settings-control">
+                                <input type="file" id="import-file" accept=".json" style="display:none">
+                                <button class="btn-add" id="import-json-btn" style="padding:6px 10px;font-size:12px">📥 Import JSON</button>
+                            </div>
+                        </div>
+                        <div id="import-result" class="polling-status" style="display:none"></div>
                     </div>
 
                     <div class="settings-section">

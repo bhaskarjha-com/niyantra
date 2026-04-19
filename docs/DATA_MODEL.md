@@ -15,6 +15,7 @@
 | v3 | `config`, `activity_log`, `data_sources` + snapshot provenance | Infrastructure: config, audit trail, multi-source |
 | v4 | `model_cycles` | Cycle intelligence — per-model reset detection and usage tracking |
 | v5 | `claude_snapshots` + config keys | Claude Code rate limits, notifications, bridge config |
+| v6 | `system_alerts` | System-level alerts with hybrid TTL, advisor integration |
 
 ---
 
@@ -336,6 +337,38 @@ CREATE INDEX IF NOT EXISTS idx_claude_snapshots_time
 
 ---
 
+### `system_alerts` (v6)
+
+System-level alerts for quota warnings, budget overages, and bridge errors. Uses a hybrid TTL strategy: critical/warning alerts persist until manually dismissed; info alerts auto-expire after 24 hours.
+
+```sql
+CREATE TABLE IF NOT EXISTS system_alerts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    severity   TEXT NOT NULL DEFAULT 'info',
+    category   TEXT NOT NULL DEFAULT 'system',
+    message    TEXT NOT NULL,
+    dismissed  INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT (datetime('now')),
+    expires_at DATETIME
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER | PK, AUTO |
+| `severity` | TEXT | `critical`, `warning`, or `info` |
+| `category` | TEXT | Alert category: `quota`, `budget`, `bridge`, `system` |
+| `message` | TEXT | Human-readable alert message |
+| `dismissed` | INTEGER | 0 = active, 1 = dismissed |
+| `created_at` | DATETIME | When the alert was created |
+| `expires_at` | DATETIME | Auto-expiry time (NULL = never expires) |
+
+**Hybrid TTL Rules:**
+- `critical` / `warning`: `expires_at = NULL` — persist until dismissed
+- `info`: `expires_at = created_at + 24h` — auto-cleaned by agent poll
+
+---
+
 ## `models_json` Format
 
 Each snapshot stores per-model quota data as a JSON array:
@@ -528,3 +561,67 @@ Only **visual preferences** that have zero server impact stay in localStorage:
 | `niyantra-theme` | enum | (absent) | `dark`, `light`, or absent (system preference) |
 
 > **Note:** In v3, `budget` and `currency` moved from localStorage to the SQLite `config` table because they're needed server-side (CSV export headers, future MCP queries, CLI report formatting). A one-time JavaScript migration moves existing localStorage values to SQLite on first load after the v3 upgrade.
+
+---
+
+## Schema v7 — Phase 11: Codex & Sessions
+
+### `codex_snapshots`
+
+Stores Codex/ChatGPT usage snapshots with multi-quota support.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `account_id` | TEXT | OpenAI account UUID (from JWT `id_token`) |
+| `captured_at` | DATETIME | UTC timestamp |
+| `five_hour_pct` | REAL | 5-hour rolling window utilization (0-100) |
+| `seven_day_pct` | REAL NULL | 7-day rolling window utilization |
+| `code_review_pct` | REAL NULL | Code review quota utilization |
+| `five_hour_reset` | DATETIME NULL | 5-hour window reset time |
+| `seven_day_reset` | DATETIME NULL | 7-day window reset time |
+| `plan_type` | TEXT | Plan tier (free, plus, pro, team) |
+| `credits_balance` | REAL NULL | Remaining API credits |
+| `capture_method` | TEXT | `manual` or `auto` |
+| `capture_source` | TEXT | `ui` or `server` |
+
+**Indexes:** `idx_codex_snap_account_time` on `(account_id, captured_at DESC)`
+
+### `usage_sessions`
+
+Tracks detected usage sessions across all providers.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `provider` | TEXT | `antigravity`, `codex`, or `claude` |
+| `started_at` | DATETIME | Session start time |
+| `ended_at` | DATETIME NULL | Session end time (NULL = active) |
+| `duration_sec` | INTEGER | Duration in seconds (updated on close) |
+| `snap_count` | INTEGER | Number of snapshots in this session |
+| `created_at` | DATETIME | Record creation time |
+
+**Indexes:** `idx_session_provider_time` on `(provider, started_at DESC)`
+
+### `usage_logs`
+
+Manual usage log entries linked to subscriptions.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `subscription_id` | INTEGER FK | Foreign key to subscriptions |
+| `logged_at` | DATETIME | When usage was logged |
+| `usage_amount` | REAL | Amount of usage |
+| `usage_unit` | TEXT | Unit (requests, tokens, credits, minutes, hours, etc.) |
+| `notes` | TEXT | Optional notes |
+
+**Indexes:** `idx_usage_log_sub` on `(subscription_id, logged_at DESC)`
+
+### New Config Keys (v7)
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `codex_capture` | `false` | Enable Codex auto-polling |
+| `session_idle_timeout` | `1200` | Seconds of idle before session closes |
+

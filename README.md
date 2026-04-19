@@ -2,7 +2,7 @@
 
 **Local-first AI operations dashboard.**
 
-Niyantra (Sanskrit: नियन्त्र, "controller") is a single-binary dashboard that gives developers complete visibility into their AI tool ecosystem. It **auto-captures Antigravity quotas** from the local language server, **tracks subscriptions** for 26+ AI platforms, and provides **budget alerts, usage insights, and a full activity log** with provenance on every data point.
+Niyantra (Sanskrit: नियन्त्र, "controller") is a single-binary dashboard that gives developers complete visibility into their AI tool ecosystem. It **auto-captures Antigravity quotas** from the local language server, **tracks Codex/ChatGPT usage** via OAuth API, **monitors Claude Code rate limits** via statusline bridge, **tracks subscriptions** for 26+ AI platforms, and provides **budget alerts, usage insights, switch recommendations, and a full activity log** with provenance on every data point.
 
 > **Zero daemon by default. Full provenance. All local.**
 
@@ -92,21 +92,24 @@ Card-based view of all AI subscriptions:
 ### Overview Tab
 
 - **Budget alert** — ok/warning/danger states when spend approaches your monthly budget
+- **Smart switch advisor** — cross-account routing: "switch", "stay", or "wait" with scores
+- **Codex / ChatGPT card** — multi-quota bars (5h window, 7d window, code review) with manual snap
+- **Sessions timeline** — usage sessions across all providers with live indicators
 - **Smart insights** — trial warnings, top spending category, renewal alerts, annual savings potential
 - **Monthly/annual spend** with category breakdown
-- **Upcoming renewals** with countdown
-- **Quick Links Hub** — clickable grid of all your AI tool dashboards
-- **Ready Now advisor** — shows which auto-tracked tools have quota right now
+- **Renewal calendar** — month-view with pin markers on renewal dates
 - **Budget forecast** — burn rate per day, projected monthly spend, on-track/over-budget
-- **CSV Export** — download all subscriptions for tax/expense reports
+- **System alerts** — persistent dismissible banners for quota warnings
+- **CSV/JSON Export** — download all data for tax/expense reports or data portability
 
 ### Settings Tab
 
 - **Capture & Sources** — auto-capture toggle, poll interval, auto-link toggle, data sources list
 - **Claude Code Bridge** — statusline integration for real-time Claude Code rate limits (5h/7d windows)
+- **Codex / ChatGPT** — enable Codex capture toggle with OAuth status display
 - **Budget & Display** — monthly spending threshold with alerts, default currency, theme
 - **Notifications** — OS-native desktop alerts when quota drops below threshold
-- **Data Management** — snapshot retention, CSV export, database backup, database location
+- **Data Management** — snapshot retention, CSV/JSON export, database backup, JSON import (additive merge)
 - **Activity Log** — structured event log with filters (snaps, config changes, server starts)
 - **Keyboard shortcuts** — reference grid
 - **About** — version, schema, mode, active sources
@@ -210,11 +213,11 @@ The **"AI Credits: 1000"** shown in Antigravity's Agent Manager is served by a *
 ```
 niyantra/
 ├── cmd/niyantra/              # CLI entrypoint + command dispatch
-│   └── main.go                # snap, status, serve, mcp, version
+│   └── main.go                # snap, status, serve, mcp, version, backup, restore
 │
 ├── internal/
-│   ├── agent/                # Auto-capture polling (Phase 6)
-│   │   ├── agent.go          # PollingAgent: ticker + backoff
+│   ├── agent/                # Auto-capture polling (Phase 6+11)
+│   │   ├── agent.go          # PollingAgent: multi-source polling + session managers
 │   │   └── manager.go        # Start/Stop lifecycle
 │   │
 │   ├── client/                # Antigravity language server client
@@ -226,39 +229,58 @@ niyantra/
 │   │   ├── types.go           # API response structs + Snapshot
 │   │   └── helpers.go         # Model grouping logic
 │   │
-│   ├── tracker/               # Cycle intelligence (Phase 7)
+│   ├── codex/                 # Codex/ChatGPT integration (Phase 11)
+│   │   └── codex.go           # OAuth client, credential detection, usage API
+│   │
+│   ├── tracker/               # Cycle intelligence (Phase 7+11)
 │   │   ├── tracker.go         # 3-method reset detection + cycles
-│   │   └── summary.go         # UsageSummary + BudgetForecast
+│   │   ├── summary.go         # UsageSummary + BudgetForecast
+│   │   └── session.go         # SessionManager: usage-change detection
 │   │
-│   ├── mcpserver/             # MCP server (Phase 8)
-│   │   └── mcpserver.go       # 5 tools over stdio for AI agents
+│   ├── advisor/               # Switch Advisor (Phase 10)
+│   │   └── advisor.go         # Stateless multi-factor account scoring
 │   │
-│   ├── store/                 # SQLite persistence (v4 schema)
-│   │   ├── store.go           # Open, migrate (v1→v2→v3→v4), close
+│   ├── mcpserver/             # MCP server (Phase 8+10+11)
+│   │   └── mcpserver.go       # 8 tools over stdio for AI agents
+│   │
+│   ├── claudebridge/          # Claude Code bridge (Phase 9)
+│   │   └── claudebridge.go    # Statusline patcher, rate limit reader
+│   │
+│   ├── notify/                # OS-native notifications (Phase 9)
+│   │   └── notify.go          # Cross-platform toast, once-per-cycle guard
+│   │
+│   ├── store/                 # SQLite persistence (v7 schema)
+│   │   ├── store.go           # Open, migrate (v1→v7), close
 │   │   ├── snapshots.go       # Insert (with provenance), LatestPerAccount, History
 │   │   ├── accounts.go        # GetOrCreateAccount (upsert by email)
 │   │   ├── subscriptions.go   # Subscription CRUD, overview stats, renewals
+│   │   ├── alerts.go          # System alerts CRUD (Phase 10)
 │   │   ├── presets.go         # 26 platform preset templates
 │   │   ├── config.go          # Server config CRUD (typed key-value)
 │   │   ├── activity_log.go    # Structured activity log CRUD
 │   │   ├── data_sources.go    # Data sources registry CRUD
-│   │   └── cycles.go          # Reset cycle CRUD (Phase 7)
+│   │   ├── cycles.go          # Reset cycle CRUD (Phase 7)
+│   │   ├── claude_snapshots.go # Claude Code rate limit snapshots (Phase 9)
+│   │   ├── codex_snapshots.go # Codex/ChatGPT usage snapshots (Phase 11)
+│   │   ├── sessions.go        # Usage session CRUD (Phase 11)
+│   │   ├── usage_logs.go      # Manual usage log CRUD (Phase 11)
+│   │   └── import.go          # JSON import with merge/dedup (Phase 11)
 │   │
 │   ├── readiness/             # Pure computation engine (zero I/O)
 │   │   └── readiness.go       # Calculate readiness from snapshots
 │   │
 │   └── web/                   # HTTP server + embedded dashboard
-│       ├── server.go          # Quota/config/activity/mode/usage handlers
+│       ├── server.go          # 27 REST handlers, agent management
 │       ├── handlers_subscriptions.go  # Subscription CRUD, overview, presets, CSV
 │       └── static/            # Embedded via Go embed.FS
 │           ├── index.html     # 4-tab dashboard
-│           ├── style.css      # Design system
-│           ├── app.js         # Dashboard logic
+│           ├── style.css      # Design system (~2500 lines)
+│           ├── app.js         # Dashboard logic (~2500 lines)
 │           └── manifest.json  # PWA manifest
 │
 ├── docs/
 │   ├── VISION.md, ARCHITECTURE.md, API_SPEC.md
-│   ├── DATA_MODEL.md, TESTING.md, knowledge_base.md
+│   ├── DATA_MODEL.md, TESTING.md
 │
 ├── go.mod / go.sum
 ├── .gitignore
@@ -279,7 +301,7 @@ niyantra/
 
 Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-**5 tools available:**
+**8 tools available:**
 
 | Tool | What it does |
 |------|--------------|
@@ -288,6 +310,9 @@ Niyantra exposes quota intelligence to AI coding agents via the [Model Context P
 | `usage_intelligence` | Consumption rates and projections |
 | `budget_forecast` | Burn rate and monthly projection |
 | `best_model` | Recommend least-exhausted model |
+| `analyze_spending` | Spending analysis with savings detection |
+| `switch_recommendation` | Cross-account routing recommendation |
+| `codex_status` | Codex/ChatGPT detection and quota status |
 
 **Setup** — add to Claude Desktop's `claude_desktop_config.json`:
 ```json
@@ -301,15 +326,15 @@ Niyantra exposes quota intelligence to AI coding agents via the [Model Context P
 }
 ```
 
-Then ask: *"What's my Windsurf quota?"* or *"Which model should I use?"*
+Then ask: *"What's my Windsurf quota?"* or *"Which model should I use?"* or *"What's my Codex status?"*
 
 ## Stats
 
-- **~8,700 lines** of code (Go + JS + CSS + HTML)
-- **~16 MB** compiled binary (includes embedded SQLite engine + Chart.js loaded from CDN)
+- **~13,000 lines** of code (Go + JS + CSS + HTML)
+- **~18 MB** compiled binary (includes embedded SQLite engine + Chart.js loaded from CDN)
 - **0** external runtime dependencies
-- **16 REST endpoints + 5 MCP tools**
-- **170+ manual test cases**
+- **27 REST endpoints + 8 MCP tools**
+- **200+ manual test cases**
 - **PWA installable** — add to home screen / install as app
 
 ## License

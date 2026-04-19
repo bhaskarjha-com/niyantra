@@ -281,11 +281,18 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		links = []quickLink{}
 	}
 
+	// Phase 10: Server-computed insights
+	insights, _ := s.store.GenerateInsights()
+	if insights == nil {
+		insights = []store.Insight{}
+	}
+
 	writeJSON(w, map[string]interface{}{
 		"stats":         stats,
 		"renewals":      renewalItems,
 		"quotaSummary":  quotaSummary,
 		"quickLinks":    links,
+		"insights":      insights,
 		"subscriptionCount": s.store.SubscriptionCount(),
 	})
 }

@@ -33,3 +33,6 @@ coverage.html
 # Build
 dist/
 build/
+
+# Private drafts (internal research, deferred plans)
+draft/

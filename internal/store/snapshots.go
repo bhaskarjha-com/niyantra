@@ -102,6 +102,32 @@ func (s *Store) SnapshotCount() int {
 	return count
 }
 
+// DeleteSnapshotsOlderThan removes snapshots older than the given number of days.
+// Also cleans up old Claude snapshots with the same retention policy.
+// Returns the total number of deleted rows.
+func (s *Store) DeleteSnapshotsOlderThan(days int) (int64, error) {
+	cutoff := fmt.Sprintf("-%d days", days)
+
+	result, err := s.db.Exec(
+		`DELETE FROM snapshots WHERE captured_at < datetime('now', ?)`, cutoff,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("store: delete old snapshots: %w", err)
+	}
+	deleted, _ := result.RowsAffected()
+
+	// Also clean up old Claude snapshots
+	result2, err := s.db.Exec(
+		`DELETE FROM claude_snapshots WHERE captured_at < datetime('now', ?)`, cutoff,
+	)
+	if err == nil {
+		d2, _ := result2.RowsAffected()
+		deleted += d2
+	}
+
+	return deleted, nil
+}
+
 // scanSnapshots reads snapshot rows into Snapshot structs.
 func scanSnapshots(rows interface {
 	Next() bool

@@ -262,6 +262,93 @@ func (s *Store) migrate() error {
 		s.setUserVersion(5)
 	}
 
+	// ── v6: System alerts ────────────────────────────────────────────
+	if s.getUserVersion() < 6 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS system_alerts (
+				id           INTEGER PRIMARY KEY AUTOINCREMENT,
+				alert_type   TEXT    NOT NULL,
+				severity     TEXT    NOT NULL DEFAULT 'info',
+				title        TEXT    NOT NULL,
+				message      TEXT    NOT NULL,
+				context_json TEXT    DEFAULT '{}',
+				dismissed    INTEGER NOT NULL DEFAULT 0,
+				created_at   DATETIME DEFAULT (datetime('now')),
+				dismissed_at DATETIME,
+				expires_at   DATETIME
+			);
+			CREATE INDEX IF NOT EXISTS idx_alerts_active
+				ON system_alerts(dismissed, created_at DESC);
+		`); err != nil {
+			return err
+		}
+
+		s.setUserVersion(6)
+	}
+
+	// ── v7: Codex snapshots + usage sessions + usage logs ──────────
+	if s.getUserVersion() < 7 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS codex_snapshots (
+				id              INTEGER PRIMARY KEY AUTOINCREMENT,
+				account_id      TEXT    DEFAULT '',
+				five_hour_pct   REAL    NOT NULL,
+				seven_day_pct   REAL,
+				code_review_pct REAL,
+				five_hour_reset DATETIME,
+				seven_day_reset DATETIME,
+				plan_type       TEXT    DEFAULT '',
+				credits_balance REAL,
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				capture_method  TEXT    DEFAULT 'manual',
+				capture_source  TEXT    DEFAULT 'ui'
+			);
+			CREATE INDEX IF NOT EXISTS idx_codex_snapshots_time
+				ON codex_snapshots(captured_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_codex_snapshots_account
+				ON codex_snapshots(account_id, captured_at DESC);
+
+			CREATE TABLE IF NOT EXISTS usage_sessions (
+				id           INTEGER PRIMARY KEY AUTOINCREMENT,
+				provider     TEXT    NOT NULL,
+				started_at   DATETIME NOT NULL,
+				ended_at     DATETIME,
+				duration_sec INTEGER DEFAULT 0,
+				snap_count   INTEGER DEFAULT 0,
+				start_values TEXT    DEFAULT '[]',
+				peak_values  TEXT    DEFAULT '[]',
+				cost_hint    REAL,
+				notes        TEXT    DEFAULT ''
+			);
+			CREATE INDEX IF NOT EXISTS idx_usage_sessions_provider
+				ON usage_sessions(provider, started_at DESC);
+
+			CREATE TABLE IF NOT EXISTS usage_logs (
+				id              INTEGER PRIMARY KEY AUTOINCREMENT,
+				subscription_id INTEGER NOT NULL,
+				logged_at       DATETIME DEFAULT (datetime('now')),
+				usage_amount    REAL    NOT NULL,
+				usage_unit      TEXT    NOT NULL,
+				notes           TEXT    DEFAULT '',
+				FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE
+			);
+			CREATE INDEX IF NOT EXISTS idx_usage_logs_sub
+				ON usage_logs(subscription_id, logged_at DESC);
+
+			-- Codex + session config keys
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('codex_capture',        'false', 'bool', 'capture', 'Codex Capture',          'Enable Codex quota tracking via OAuth API'),
+				('session_idle_timeout', '1200',  'int',  'capture', 'Session Idle Timeout (s)', 'Seconds of inactivity before usage session ends (default 20 min)');
+
+			-- Update Codex data source
+			UPDATE data_sources SET source_type = 'oauth_api' WHERE id = 'codex';
+		`); err != nil {
+			return err
+		}
+
+		s.setUserVersion(7)
+	}
+
 	return nil
 }
 

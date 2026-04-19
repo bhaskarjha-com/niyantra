@@ -14,9 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bhaskarjha-com/niyantra/internal/advisor"
 	"github.com/bhaskarjha-com/niyantra/internal/agent"
 	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/codex"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -85,8 +87,12 @@ func (s *Server) startPollingAgent() {
 	})
 	ag.SetNotifier(s.notifier)
 
+	// Initialize session managers with configurable idle timeout
+	idleTimeout := time.Duration(s.store.GetConfigInt("session_idle_timeout", 1200)) * time.Second
+	ag.SetSessionManagers(idleTimeout)
+
 	s.agentMgr.Start(ag)
-	s.logger.Info("Auto-capture started", "interval", interval)
+	s.logger.Info("Auto-capture started", "interval", interval, "sessionIdleTimeout", idleTimeout)
 }
 
 // stopPollingAgent stops the auto-capture polling agent.
@@ -126,6 +132,20 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/claude/status", s.handleClaudeStatus)
 	mux.HandleFunc("/api/backup", s.handleBackup)
 	mux.HandleFunc("/api/notify/test", s.handleNotifyTest)
+
+	// Phase 10 routes
+	mux.HandleFunc("/api/export/json", s.handleExportJSON)
+	mux.HandleFunc("/api/alerts", s.handleAlerts)
+	mux.HandleFunc("/api/alerts/dismiss", s.handleDismissAlert)
+	mux.HandleFunc("/api/advisor", s.handleAdvisor)
+
+	// Phase 11 routes
+	mux.HandleFunc("/api/codex/status", s.handleCodexStatus)
+	mux.HandleFunc("/api/codex/snap", s.handleCodexSnap)
+	mux.HandleFunc("/api/sessions", s.handleSessions)
+	mux.HandleFunc("/api/usage-logs", s.handleUsageLogs)
+	mux.HandleFunc("/api/usage-logs/", s.handleUsageLogByID)
+	mux.HandleFunc("/api/import/json", s.handleImportJSON)
 
 	// Static files (embedded)
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -651,5 +671,421 @@ func (s *Server) dbSize() int64 {
 	return info.Size()
 }
 
+// ── Phase 10 Handlers ────────────────────────────────────────────
+
+// handleExportJSON exports all data as a JSON file for full portability.
+func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	export := map[string]interface{}{
+		"version":        "1.0",
+		"exportedAt":     time.Now().UTC().Format(time.RFC3339),
+		"niyantraVersion": "1.0.0",
+	}
+
+	// Accounts
+	accounts, _ := s.store.AllAccounts()
+	if accounts == nil {
+		accounts = []*store.Account{}
+	}
+	export["accounts"] = accounts
+
+	// Subscriptions
+	subs, _ := s.store.ListSubscriptions("", "")
+	if subs == nil {
+		subs = []*store.Subscription{}
+	}
+	export["subscriptions"] = subs
+
+	// Recent snapshots (last 1000)
+	snapshots, _ := s.store.History(0, 1000)
+	export["snapshots"] = snapshots
+
+	// Claude snapshots (last 500)
+	claudeSnaps, _ := s.store.ClaudeSnapshotHistory(500)
+	export["claudeSnapshots"] = claudeSnaps
+
+	// Config
+	config, _ := s.store.AllConfig("")
+	export["config"] = config
+
+	// Activity log (last 500)
+	activity, _ := s.store.RecentActivity(500, "")
+	export["activityLog"] = activity
+
+	// Log the export event
+	s.store.LogInfo("ui", "export", "", map[string]interface{}{
+		"format": "json",
+	})
+
+	filename := fmt.Sprintf("niyantra-export-%s.json", time.Now().Format("2006-01-02"))
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	json.NewEncoder(w).Encode(export)
+}
+
+// handleAlerts returns active system alerts.
+func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	alerts, err := s.store.ActiveAlerts()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if alerts == nil {
+		alerts = []*store.SystemAlert{}
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"alerts": alerts,
+		"count":  len(alerts),
+	})
+}
+
+// handleDismissAlert dismisses a system alert by ID.
+func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.ID <= 0 {
+		jsonError(w, "alert ID required", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.DismissAlert(req.ID); err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"message": "dismissed"})
+}
+
+// handleAdvisor returns account switching recommendation.
+func (s *Server) handleAdvisor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	snapshots, err := s.store.LatestPerAccount()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Build per-account usage summaries for burn rate intelligence
+	summariesByAccount := make(map[int64][]*tracker.UsageSummary)
+	if s.tracker != nil {
+		for _, snap := range snapshots {
+			summaries, err := s.tracker.AllUsageSummaries(snap, snap.AccountID)
+			if err == nil && len(summaries) > 0 {
+				summariesByAccount[snap.AccountID] = summaries
+			}
+		}
+	}
+
+	rec := advisor.Recommend(snapshots, summariesByAccount)
+	writeJSON(w, rec)
+}
+
 // _ ensures imports are used
 var _ = filepath.Base
+
+// ── Phase 11 Handlers ────────────────────────────────────────────
+
+// handleCodexStatus returns Codex detection state and latest snapshot.
+func (s *Server) handleCodexStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	result := map[string]interface{}{
+		"installed":      false,
+		"captureEnabled": s.store.GetConfigBool("codex_capture"),
+	}
+
+	// Detect credentials
+	creds, err := codex.DetectCredentials(s.logger)
+	if err == nil && creds != nil {
+		result["installed"] = true
+		result["accountId"] = creds.AccountID
+		result["planExpiry"] = nil
+		if !creds.ExpiresAt.IsZero() {
+			result["tokenExpiry"] = creds.ExpiresAt.Format(time.RFC3339)
+			result["tokenExpiresIn"] = creds.ExpiresIn.Round(time.Minute).String()
+			result["tokenExpired"] = creds.IsExpired()
+		}
+	}
+
+	// Latest snapshot
+	snap, err := s.store.LatestCodexSnapshot()
+	if err != nil {
+		s.logger.Error("Failed to get Codex snapshot", "error", err)
+	}
+	if snap != nil {
+		result["snapshot"] = snap
+	}
+
+	writeJSON(w, result)
+}
+
+// handleCodexSnap triggers a manual Codex usage snapshot.
+func (s *Server) handleCodexSnap(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	creds, err := codex.DetectCredentials(s.logger)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("Codex not detected: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Refresh token if expired
+	if creds.IsExpired() && creds.RefreshToken != "" {
+		s.logger.Info("Codex token expired, refreshing for manual snap")
+		newTokens, refreshErr := codex.RefreshToken(r.Context(), creds.RefreshToken)
+		if refreshErr != nil {
+			jsonError(w, fmt.Sprintf("Token refresh failed: %v", refreshErr), http.StatusBadGateway)
+			return
+		}
+		if err := codex.WriteCredentials(newTokens.AccessToken, newTokens.RefreshToken, newTokens.IDToken); err != nil {
+			s.logger.Error("Failed to save refreshed Codex tokens", "error", err)
+		}
+		creds.AccessToken = newTokens.AccessToken
+	}
+
+	// Fetch usage
+	client := codex.NewClient(creds.AccessToken, creds.AccountID, s.logger)
+	usage, err := client.FetchUsage(r.Context())
+	if err != nil {
+		jsonError(w, fmt.Sprintf("Codex API error: %v", err), http.StatusBadGateway)
+		return
+	}
+
+	// Build and store snapshot
+	snap := &store.CodexSnapshot{
+		AccountID:     creds.AccountID,
+		FiveHourPct:   0,
+		PlanType:      usage.PlanType,
+		CreditsBalance: usage.CreditsBalance,
+		CaptureMethod: "manual",
+		CaptureSource: "ui",
+	}
+
+	for _, q := range usage.Quotas {
+		switch q.Name {
+		case "five_hour":
+			snap.FiveHourPct = q.Utilization
+			snap.FiveHourReset = q.ResetsAt
+		case "seven_day":
+			v := q.Utilization
+			snap.SevenDayPct = &v
+			snap.SevenDayReset = q.ResetsAt
+		case "code_review":
+			v := q.Utilization
+			snap.CodeReviewPct = &v
+		}
+	}
+
+	snapID, err := s.store.InsertCodexSnapshot(snap)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Update data source bookkeeping
+	s.store.UpdateSourceCapture("codex")
+
+	// Log the snap
+	s.store.LogInfo("ui", "codex_snap", creds.AccountID, map[string]interface{}{
+		"plan": usage.PlanType, "method": "manual",
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message":    "Codex snapshot captured",
+		"snapshotId": snapID,
+		"plan":       usage.PlanType,
+		"quotas":     usage.Quotas,
+	})
+}
+
+// handleSessions returns recent usage sessions.
+func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	provider := r.URL.Query().Get("provider")
+	limit := 50
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
+			limit = n
+		}
+	}
+
+	sessions, err := s.store.RecentSessions(provider, limit)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if sessions == nil {
+		sessions = []*store.UsageSession{}
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"sessions": sessions,
+		"count":    len(sessions),
+	})
+}
+
+// handleUsageLogs handles GET (list) and POST (create) for usage logs.
+func (s *Server) handleUsageLogs(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		subIDStr := r.URL.Query().Get("subscriptionId")
+		if subIDStr == "" {
+			jsonError(w, "subscriptionId required", http.StatusBadRequest)
+			return
+		}
+		subID, err := strconv.ParseInt(subIDStr, 10, 64)
+		if err != nil {
+			jsonError(w, "invalid subscriptionId", http.StatusBadRequest)
+			return
+		}
+
+		limit := 50
+		if v := r.URL.Query().Get("limit"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil && n > 0 {
+				limit = n
+			}
+		}
+
+		logs, err := s.store.UsageLogsForSubscription(subID, limit)
+		if err != nil {
+			jsonError(w, "database error", http.StatusInternalServerError)
+			return
+		}
+		if logs == nil {
+			logs = []*store.UsageLog{}
+		}
+
+		summary, _ := s.store.UsageLogSummaryFor(subID)
+
+		writeJSON(w, map[string]interface{}{
+			"logs":    logs,
+			"summary": summary,
+		})
+
+	case http.MethodPost:
+		var req struct {
+			SubscriptionID int64   `json:"subscriptionId"`
+			UsageAmount    float64 `json:"usageAmount"`
+			UsageUnit      string  `json:"usageUnit"`
+			Notes          string  `json:"notes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonError(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if req.SubscriptionID <= 0 || req.UsageAmount <= 0 || req.UsageUnit == "" {
+			jsonError(w, "subscriptionId, usageAmount, and usageUnit are required", http.StatusBadRequest)
+			return
+		}
+
+		id, err := s.store.InsertUsageLog(req.SubscriptionID, req.UsageAmount, req.UsageUnit, req.Notes)
+		if err != nil {
+			jsonError(w, "database error", http.StatusInternalServerError)
+			return
+		}
+
+		writeJSON(w, map[string]interface{}{
+			"message": "usage logged",
+			"id":      id,
+		})
+
+	default:
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleUsageLogByID handles DELETE for a specific usage log.
+func (s *Server) handleUsageLogByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract ID from URL: /api/usage-logs/{id}
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/usage-logs/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		jsonError(w, "invalid usage log ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.DeleteUsageLog(id); err != nil {
+		jsonError(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	writeJSON(w, map[string]string{"message": "deleted"})
+}
+
+// handleImportJSON handles JSON data import with merge strategy.
+func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read request body (limit to 50MB)
+	body, err := io.ReadAll(io.LimitReader(r.Body, 50<<20))
+	if err != nil {
+		jsonError(w, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+	if len(body) == 0 {
+		jsonError(w, "empty request body", http.StatusBadRequest)
+		return
+	}
+
+	result, err := s.store.ImportJSON(body)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("import failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// Log the import
+	s.store.LogInfo("ui", "import", "", map[string]interface{}{
+		"accountsCreated":   result.AccountsCreated,
+		"accountsSkipped":   result.AccountsSkipped,
+		"subsCreated":       result.SubsCreated,
+		"subsSkipped":       result.SubsSkipped,
+		"snapshotsImported": result.SnapshotsImported,
+		"snapshotsDuped":    result.SnapshotsDuped,
+		"errors":            len(result.Errors),
+	})
+
+	writeJSON(w, result)
+}
+

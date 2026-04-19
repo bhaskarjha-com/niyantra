@@ -32,3 +32,31 @@ func (s *Store) AccountCount() int {
 	s.db.QueryRow("SELECT COUNT(*) FROM accounts").Scan(&count)
 	return count
 }
+
+// Account represents a tracked email account.
+type Account struct {
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	PlanName  string `json:"planName"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// AllAccounts returns all tracked accounts.
+func (s *Store) AllAccounts() ([]*Account, error) {
+	rows, err := s.db.Query(`SELECT id, email, plan_name, created_at, updated_at FROM accounts ORDER BY email`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []*Account
+	for rows.Next() {
+		a := &Account{}
+		if err := rows.Scan(&a.ID, &a.Email, &a.PlanName, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			continue
+		}
+		accounts = append(accounts, a)
+	}
+	return accounts, nil
+}

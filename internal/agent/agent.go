@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/codex"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
@@ -27,6 +29,15 @@ type PollingAgent struct {
 	pollingCheck func() bool
 
 	notifier *notify.Engine
+
+	// Session managers for usage detection
+	antigravitySM *tracker.SessionManager
+	codexSM       *tracker.SessionManager
+	claudeSM      *tracker.SessionManager
+
+	// Codex state
+	codexClient    *codex.Client
+	codexAuthFails int
 
 	// Backoff state for consecutive failures
 	mu            sync.Mutex
@@ -58,6 +69,13 @@ func (a *PollingAgent) SetNotifier(n *notify.Engine) {
 	a.notifier = n
 }
 
+// SetSessionManagers initializes session detection for all providers.
+func (a *PollingAgent) SetSessionManagers(idleTimeout time.Duration) {
+	a.antigravitySM = tracker.NewSessionManager(a.store, "antigravity", idleTimeout, a.logger)
+	a.codexSM = tracker.NewSessionManager(a.store, "codex", idleTimeout, a.logger)
+	a.claudeSM = tracker.NewSessionManager(a.store, "claude", idleTimeout, a.logger)
+}
+
 // LastPollTime returns the time of the last poll attempt.
 func (a *PollingAgent) LastPollTime() time.Time {
 	a.mu.Lock()
@@ -75,7 +93,13 @@ func (a *PollingAgent) LastPollOK() bool {
 // Run starts the polling loop. Blocks until ctx is cancelled.
 func (a *PollingAgent) Run(ctx context.Context) error {
 	a.logger.Info("Auto-capture agent started", "interval", a.interval)
-	defer a.logger.Info("Auto-capture agent stopped")
+	defer func() {
+		// Close any active sessions on shutdown
+		if a.antigravitySM != nil { a.antigravitySM.Close() }
+		if a.codexSM != nil { a.codexSM.Close() }
+		if a.claudeSM != nil { a.claudeSM.Close() }
+		a.logger.Info("Auto-capture agent stopped")
+	}()
 
 	// Poll immediately on start
 	a.poll(ctx)
@@ -194,8 +218,23 @@ func (a *PollingAgent) poll(ctx context.Context) {
 		}
 	}
 
+	// Feed session manager with model remaining fractions
+	if a.antigravitySM != nil {
+		var vals []float64
+		for _, m := range snap.Models {
+			vals = append(vals, m.RemainingFraction)
+		}
+		a.antigravitySM.ReportPoll(vals)
+	}
+
 	// Claude Code bridge: read statusline data if bridge is enabled
 	a.pollClaudeBridge()
+
+	// Codex polling: if codex_capture is enabled
+	a.pollCodex(ctx)
+
+	// Data retention cleanup: delete snapshots older than retention_days
+	a.cleanupOldSnapshots()
 
 	a.logger.Info("Auto-capture complete",
 		"email", snap.Email,
@@ -309,7 +348,156 @@ func (a *PollingAgent) pollClaudeBridge() {
 	// Ensure bridge is still healthy
 	claudebridge.EnsureBridge(a.logger)
 
+	// Feed Claude session manager
+	if a.claudeSM != nil {
+		vals := []float64{fiveHourPct}
+		if sevenDayPct != nil {
+			vals = append(vals, *sevenDayPct)
+		}
+		a.claudeSM.ReportPoll(vals)
+	}
+
 	a.logger.Debug("Claude Code bridge snapshot stored",
 		"five_hour_pct", fiveHourPct,
 		"seven_day_pct", sevenDayPct)
+}
+
+// cleanupOldSnapshots enforces the retention_days config by deleting old data.
+func (a *PollingAgent) cleanupOldSnapshots() {
+	retentionDays := a.store.GetConfigInt("retention_days", 365)
+	if retentionDays <= 0 {
+		return // disabled
+	}
+
+	deleted, err := a.store.DeleteSnapshotsOlderThan(retentionDays)
+	if err != nil {
+		a.logger.Warn("Retention cleanup failed", "error", err)
+		return
+	}
+	if deleted > 0 {
+		a.logger.Info("Retention cleanup", "deleted", deleted, "retentionDays", retentionDays)
+		a.store.LogInfo("server", "retention_cleanup", "", map[string]interface{}{
+			"deleted": deleted, "retentionDays": retentionDays,
+		})
+	}
+
+	// Also clean up expired/dismissed alerts
+	a.store.CleanupExpiredAlerts()
+}
+
+// pollCodex polls Codex usage if codex_capture is enabled.
+// Runs alongside Antigravity on each tick with independent auth backoff.
+func (a *PollingAgent) pollCodex(ctx context.Context) {
+	if !a.store.GetConfigBool("codex_capture") {
+		return
+	}
+
+	// Auth failure backoff (independent of Antigravity)
+	if a.codexAuthFails >= 3 {
+		a.logger.Debug("Codex polling paused (auth failures)", "failures", a.codexAuthFails)
+		return
+	}
+
+	// Detect credentials and create/refresh client
+	creds, err := codex.DetectCredentials(a.logger)
+	if err != nil {
+		if errors.Is(err, codex.ErrNotInstalled) {
+			return // Codex not installed, silently skip
+		}
+		a.logger.Debug("Codex credential detection failed", "error", err)
+		return
+	}
+
+	// Proactive token refresh: if token expires within 6 hours
+	if creds.IsExpiringSoon(6 * time.Hour) && creds.RefreshToken != "" {
+		a.logger.Info("Codex token expiring soon, refreshing")
+		newTokens, err := codex.RefreshToken(ctx, creds.RefreshToken)
+		if err != nil {
+			if errors.Is(err, codex.ErrRefreshTokenReused) {
+				a.codexAuthFails = 3 // permanent pause until re-auth
+				a.logger.Error("Codex refresh token reused — re-authenticate via 'codex auth'")
+				return
+			}
+			a.logger.Warn("Codex token refresh failed", "error", err)
+		} else {
+			// CRITICAL: Save new tokens immediately (rotation = one-time-use)
+			if err := codex.WriteCredentials(newTokens.AccessToken, newTokens.RefreshToken, newTokens.IDToken); err != nil {
+				a.logger.Error("Failed to save refreshed Codex credentials", "error", err)
+			} else {
+				creds.AccessToken = newTokens.AccessToken
+				a.logger.Info("Codex token refreshed")
+			}
+		}
+	}
+
+	// Create client with current token
+	if a.codexClient == nil || a.codexClient != nil {
+		a.codexClient = codex.NewClient(creds.AccessToken, creds.AccountID, a.logger)
+	}
+	a.codexClient.SetToken(creds.AccessToken)
+
+	// Fetch usage
+	usage, err := a.codexClient.FetchUsage(ctx)
+	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
+		if errors.Is(err, codex.ErrUnauthorized) || errors.Is(err, codex.ErrForbidden) {
+			a.codexAuthFails++
+			a.logger.Warn("Codex auth error", "error", err, "failures", a.codexAuthFails)
+		} else {
+			a.logger.Warn("Codex poll failed", "error", err)
+		}
+		return
+	}
+
+	// Success — reset auth failures
+	a.codexAuthFails = 0
+
+	// Build and store snapshot
+	snap := &store.CodexSnapshot{
+		AccountID:     creds.AccountID,
+		FiveHourPct:   0,
+		PlanType:      usage.PlanType,
+		CreditsBalance: usage.CreditsBalance,
+		CaptureMethod: "auto",
+		CaptureSource: "server",
+	}
+
+	for _, q := range usage.Quotas {
+		switch q.Name {
+		case "five_hour":
+			snap.FiveHourPct = q.Utilization
+			snap.FiveHourReset = q.ResetsAt
+		case "seven_day":
+			v := q.Utilization
+			snap.SevenDayPct = &v
+			snap.SevenDayReset = q.ResetsAt
+		case "code_review":
+			v := q.Utilization
+			snap.CodeReviewPct = &v
+		}
+	}
+
+	if _, err := a.store.InsertCodexSnapshot(snap); err != nil {
+		a.logger.Error("Failed to store Codex snapshot", "error", err)
+		return
+	}
+
+	// Update data source bookkeeping
+	a.store.UpdateSourceCapture("codex")
+
+	// Feed session manager
+	if a.codexSM != nil {
+		var vals []float64
+		for _, q := range usage.Quotas {
+			vals = append(vals, q.Utilization)
+		}
+		a.codexSM.ReportPoll(vals)
+	}
+
+	a.logger.Info("Codex poll complete",
+		"plan", usage.PlanType,
+		"quotas", len(usage.Quotas),
+		"account_id", creds.AccountID)
 }

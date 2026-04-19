@@ -540,7 +540,7 @@ Add to Claude Desktop `claude_desktop_config.json`:
 }
 ```
 
-### Tools (5 total)
+### Tools (7 total)
 
 | Tool | Input | Description |
 |------|-------|-------------|
@@ -549,6 +549,8 @@ Add to Claude Desktop `claude_desktop_config.json`:
 | `usage_intelligence` | none | Per-model rates, projections, exhaustion, cycle history |
 | `budget_forecast` | none | Monthly burn rate, projected spend, on-track status |
 | `best_model` | `group` (string) | Recommend least-exhausted model in a quota group |
+| `analyze_spending` | none | Category breakdown, budget status, savings detection, insights |
+| `switch_recommendation` | none | Account switch advice (stay/switch/wait) with scores |
 
 ### Protocol
 
@@ -608,3 +610,221 @@ Sends a test OS-native desktop notification.
 ```
 
 **Error:** `400 Bad Request` if notifications not supported on the platform.
+
+---
+
+## Phase 10 Endpoints
+
+### `GET /api/export/json`
+
+Full JSON export of all data (accounts, subscriptions, snapshots, claude data, config).
+
+**Response:** `200 OK` — JSON file download
+
+```json
+{
+  "exportedAt": "2026-04-18T21:00:00Z",
+  "version": "niyantra-export-v1",
+  "accounts": [...],
+  "subscriptions": [...],
+  "snapshots": [...],
+  "claudeSnapshots": [...],
+  "activityLog": [...],
+  "config": [...]
+}
+```
+
+---
+
+### `GET /api/alerts`
+
+Returns active (non-dismissed) system alerts, ordered by severity.
+
+**Response:** `200 OK`
+
+```json
+{
+  "alerts": [
+    {
+      "id": 1,
+      "severity": "critical",
+      "category": "quota",
+      "message": "All Claude+GPT quota exhausted on 3 accounts",
+      "createdAt": "2026-04-18T21:00:00Z",
+      "expiresAt": null
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/alerts/dismiss`
+
+Dismiss an alert by ID.
+
+**Request Body:**
+
+```json
+{ "id": 1 }
+```
+
+**Response:** `200 OK` `{ "status": "ok" }`
+
+---
+
+### `GET /api/advisor`
+
+Returns the switch advisor recommendation based on current account health.
+
+**Response:** `200 OK`
+
+```json
+{
+  "action": "stay",
+  "reason": "Best account is user@gmail.com with 87% remaining (score 72). No significant advantage in switching.",
+  "bestAccount": {
+    "email": "user@gmail.com",
+    "score": 72,
+    "remainingPct": 87,
+    "burnRate": 0,
+    "minutesToReset": 280
+  },
+  "alternatives": [
+    {
+      "email": "other@gmail.com",
+      "score": 64,
+      "remainingPct": 60,
+      "burnRate": 0.5,
+      "minutesToReset": 180
+    }
+  ]
+}
+```
+
+**Actions:**
+- `stay` — Current account is best or comparable
+- `switch` — Another account has significantly better score (≥15 point gap)
+- `wait` — All accounts exhausted; shows shortest reset time
+
+---
+
+## Phase 11: Codex & Sessions
+
+### `GET /api/codex/status`
+
+Returns Codex CLI detection state, account info, token expiry, and latest snapshot.
+
+```json
+{
+  "installed": true,
+  "captureEnabled": false,
+  "accountId": "1dd7f5aa-c097-44b4-a70f-3b8cd6ee128e",
+  "tokenExpiry": "2026-04-20T01:37:00Z",
+  "tokenExpiresIn": "12h0m",
+  "tokenExpired": false,
+  "snapshot": { "fiveHourPct": 23.5, "planType": "plus", ... }
+}
+```
+
+---
+
+### `POST /api/codex/snap`
+
+Triggers a manual Codex usage snapshot. Auto-refreshes expired tokens.
+
+**Response:** `200 OK`
+
+```json
+{
+  "message": "Codex snapshot captured",
+  "snapshotId": 42,
+  "plan": "plus",
+  "quotas": [{ "name": "five_hour", "utilization": 23.5 }]
+}
+```
+
+---
+
+### `GET /api/sessions`
+
+Returns recent usage sessions. Optional `?provider=codex|antigravity|claude&limit=50`.
+
+```json
+{
+  "sessions": [
+    { "id": 1, "provider": "antigravity", "startedAt": "...", "endedAt": "...", "durationSec": 1800, "snapCount": 6 }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### `GET /api/usage-logs?subscriptionId=1`
+
+Returns usage logs for a subscription. Required: `subscriptionId`. Optional: `limit`.
+
+```json
+{
+  "logs": [{ "id": 1, "subscriptionId": 1, "usageAmount": 50, "usageUnit": "requests", "notes": "..." }],
+  "summary": { "totalAmount": 150, "logCount": 3, "lastUnit": "requests" }
+}
+```
+
+---
+
+### `POST /api/usage-logs`
+
+Creates a manual usage log entry.
+
+**Body:**
+```json
+{ "subscriptionId": 1, "usageAmount": 50, "usageUnit": "requests", "notes": "Daily API usage" }
+```
+
+---
+
+### `DELETE /api/usage-logs/{id}`
+
+Deletes a usage log entry by ID.
+
+---
+
+### `POST /api/import/json`
+
+Imports data from a Niyantra JSON export with additive merge strategy.
+
+**Body:** Raw JSON export file content.
+
+**Response:** `200 OK`
+
+```json
+{
+  "accountsCreated": 1,
+  "accountsSkipped": 0,
+  "subsCreated": 3,
+  "subsSkipped": 1,
+  "snapshotsImported": 45,
+  "snapshotsDuped": 2,
+  "errors": []
+}
+```
+
+---
+
+### MCP Tool: `codex_status`
+
+Returns Codex detection state, token info, and latest snapshot for AI agents.
+
+```json
+{
+  "installed": true,
+  "captureEnabled": false,
+  "accountId": "...",
+  "tokenExpired": false,
+  "snapshot": { "fiveHourPct": 23.5, "planType": "plus" },
+  "message": "Codex active (account ...). 5h: 23.5% used, plan: plus."
+}
+```
+
