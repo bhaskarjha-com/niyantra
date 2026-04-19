@@ -1,0 +1,35 @@
+# Binaries
+/niyantra
+/niyantra.exe
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Go
+vendor/
+*.test
+*.out
+coverage.html
+
+# Build
+dist/
+build/
