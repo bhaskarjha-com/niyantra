@@ -29,13 +29,14 @@ Developers in 2026 spend **$200-600/month** across 8+ AI tools. Each has its own
 curl -fsSL https://raw.githubusercontent.com/bhaskarjha-com/niyantra/main/install.sh | sh
 ```
 
-### Quick Install (Windows)
+### Quick Install (Windows PowerShell)
 
 ```powershell
-# Download latest release binary
-Invoke-WebRequest -Uri "https://github.com/bhaskarjha-com/niyantra/releases/latest/download/niyantra_windows_amd64.exe" -OutFile "$env:LOCALAPPDATA\niyantra.exe"
+# Download and extract latest release
+Invoke-WebRequest -Uri "https://github.com/bhaskarjha-com/niyantra/releases/latest/download/niyantra_0.12.0_windows_amd64.zip" -OutFile "$env:TEMP\niyantra.zip"
+Expand-Archive -Path "$env:TEMP\niyantra.zip" -DestinationPath "$env:LOCALAPPDATA\niyantra" -Force
 # Add to PATH (run once)
-$p = [Environment]::GetEnvironmentVariable("Path","User"); if ($p -notlike "*$env:LOCALAPPDATA*") { [Environment]::SetEnvironmentVariable("Path","$p;$env:LOCALAPPDATA","User") }
+$p = [Environment]::GetEnvironmentVariable("Path","User"); if ($p -notlike "*niyantra*") { [Environment]::SetEnvironmentVariable("Path","$p;$env:LOCALAPPDATA\niyantra","User") }
 ```
 
 ### Go Install (all platforms)
