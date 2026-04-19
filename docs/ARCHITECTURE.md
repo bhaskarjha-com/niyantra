@@ -126,7 +126,7 @@ For each group:
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### Endpoints (27 REST)
+### Endpoints (30 REST)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -156,6 +156,10 @@ Serves a 4-tab dashboard with embedded static assets and a REST API.
 | GET/POST | /api/usage-logs | Usage log CRUD |
 | DELETE | /api/usage-logs/:id | Delete usage log |
 | POST | /api/import/json | Import JSON with merge/dedup |
+| GET | /api/accounts | List all tracked accounts |
+| DELETE | /api/accounts/:id | Cascade delete account + all data |
+| DELETE | /api/accounts/:id/snapshots | Clear snapshots only |
+| DELETE | /api/snapshots/:id | Delete single snapshot |
 
 Stack: Go embed.FS + vanilla HTML/CSS/JS. No frameworks, no bundler, no npm.
 

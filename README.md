@@ -104,7 +104,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 | **Quotas** | Per-account readiness grid, per-model progress bars, reset countdowns, history chart |
 | **Subscriptions** | Card view of all AI subs, search, 26 platform presets, CSV export |
 | **Overview** | Monthly budget vs actual, switch advisor, Codex status, sessions timeline, renewal calendar |
-| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore |
+| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, account management |
 
 ---
 
@@ -206,7 +206,7 @@ No web frameworks. No ORMs. No npm. Chart.js loaded from CDN for visualization.
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap, use cases |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (27 endpoints) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v7 (11 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
 | [TESTING.md](docs/TESTING.md) | Test cases |

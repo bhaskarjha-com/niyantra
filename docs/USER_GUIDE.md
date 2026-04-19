@@ -105,6 +105,8 @@ The default view showing all tracked Antigravity accounts.
 - Per-model progress bars with exact percentages
 - Reset countdowns (e.g., "resets in 2h 15m")
 - Prompt credits badge
+- **Clear Snapshots** button — deletes all quota history for the account (keeps the account)
+- **Remove Account** button — permanently deletes the account and all associated data
 
 **Quota History Chart**: Below the grid. Shows quota trends over time as a line chart.
 - Filter by account using the dropdown
@@ -184,6 +186,10 @@ The intelligence hub combining data from all sources.
 - Restore: Upload a backup file
 - JSON Export: Download all data as JSON
 - JSON Import: Upload and merge data from another Niyantra instance
+
+**Account Management** (via Quotas tab):
+- Expand any account row → **Clear Snapshots** or **Remove Account**
+- Both actions require confirmation and are logged to the activity log
 
 ---
 
@@ -449,6 +455,26 @@ The restore command validates the schema before replacing your database.
 - Subscriptions are matched by platform + email
 - Snapshots are matched by account + timestamp
 - Existing data is never overwritten or deleted
+
+### Clear Snapshots
+
+To clear all quota history for a specific account:
+1. Go to **Quotas** tab
+2. Click the account row to expand it
+3. Click **Clear Snapshots**
+4. Confirm in the dialog
+
+The account itself remains — only snapshot history is deleted.
+
+### Remove Account
+
+To permanently delete a tracked account and all its data:
+1. Go to **Quotas** tab
+2. Click the account row to expand it
+3. Click **Remove Account**
+4. Confirm in the dialog
+
+This cascade-deletes the account, all snapshots, reset cycles, and codex snapshots. The next time you `snap` with this email, it will be re-created as a fresh account.
 
 ---
 

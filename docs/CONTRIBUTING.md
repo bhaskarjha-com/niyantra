@@ -98,7 +98,7 @@ internal/
     server.go                         8 tools: quota, models, usage, budget, best_model, spending, switch, codex
 
   web/                             ← HTTP server + embedded dashboard
-    server.go                         Setup, handlers (27 REST endpoints)
+    server.go                         Setup, handlers (30 REST endpoints)
     static/                           Embedded via Go embed.FS
       index.html                       Single-page dashboard shell
       style.css                        Design system (CSS variables, dark/light themes)
