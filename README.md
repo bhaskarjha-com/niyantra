@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/bhaskarjha-com/niyantra/ci.yml?style=flat-square&label=CI)](https://github.com/bhaskarjha-com/niyantra/actions)
 [![Release](https://img.shields.io/github/v/release/bhaskarjha-com/niyantra?style=flat-square)](https://github.com/bhaskarjha-com/niyantra/releases)
-[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-grey?style=flat-square)]()
+[![Platform](https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-grey?style=flat-square)](#install)
 
 > Local-first. Zero daemon by default. Full provenance on every data point. MIT licensed.
 
