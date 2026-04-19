@@ -260,7 +260,11 @@ function renderAccounts(data) {
           '</div>';
       }
       var expandedCls = isExpanded ? ' is-expanded' : '';
-      modelsHTML = '<div class="model-details' + expandedCls + '" id="' + accId + '">' + modelRows + '</div>';
+      modelsHTML = '<div class="model-details' + expandedCls + '" id="' + accId + '">' + modelRows +
+        '<div class="account-actions">' +
+        '<button class="btn-clear-snaps" data-clear-account="' + acc.accountId + '" data-clear-email="' + esc(acc.email) + '" title="Delete all snapshots for this account">Clear Snapshots</button>' +
+        '<button class="btn-delete-account" data-delete-account="' + acc.accountId + '" data-delete-email="' + esc(acc.email) + '" title="Remove account and all its data">Remove Account</button>' +
+        '</div></div>';
     }
 
     var chevronCls = isExpanded ? 'chevron expanded' : 'chevron';
@@ -445,6 +449,46 @@ function setupToggle() {
   if (!grid) return;
 
   grid.addEventListener('click', function(e) {
+    // Handle clear snapshots button
+    var clearBtn = e.target.closest('[data-clear-account]');
+    if (clearBtn) {
+      e.stopPropagation();
+      var accountId = clearBtn.getAttribute('data-clear-account');
+      var email = clearBtn.getAttribute('data-clear-email');
+      if (confirm('Clear all snapshots for ' + email + '?\n\nThe account will remain but all quota history will be deleted. This cannot be undone.')) {
+        fetch('/api/accounts/' + accountId + '/snapshots', { method: 'DELETE' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            showToast('✅ Cleared ' + (data.snapshotsDeleted || 0) + ' snapshots for ' + email, 'success');
+            fetchStatus().then(renderAccounts);
+            loadHistoryChart();
+          })
+          .catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+      }
+      return;
+    }
+
+    // Handle delete account button
+    var deleteBtn = e.target.closest('[data-delete-account]');
+    if (deleteBtn) {
+      e.stopPropagation();
+      var accountId2 = deleteBtn.getAttribute('data-delete-account');
+      var email2 = deleteBtn.getAttribute('data-delete-email');
+      if (confirm('Remove account ' + email2 + '?\n\nThis will permanently delete the account and ALL associated data (snapshots, cycles, codex data). This cannot be undone.')) {
+        fetch('/api/accounts/' + accountId2, { method: 'DELETE' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            showToast('✅ Removed ' + email2 + ' (' + (data.totalDeleted || 0) + ' records deleted)', 'success');
+            expandedAccounts.delete('acc-' + accountId2);
+            fetchStatus().then(renderAccounts);
+            loadHistoryChart();
+          })
+          .catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+      }
+      return;
+    }
+
+    // Handle row toggle (existing)
     var row = e.target.closest('.account-row[data-toggle]');
     if (!row) return;
     var id = row.getAttribute('data-toggle');

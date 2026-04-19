@@ -60,3 +60,54 @@ func (s *Store) AllAccounts() ([]*Account, error) {
 	}
 	return accounts, nil
 }
+
+// DeleteAccount removes an account and all its associated data (snapshots, cycles, sessions, codex snapshots).
+// Returns the total number of deleted rows across all tables.
+func (s *Store) DeleteAccount(accountID int64) (int64, error) {
+	var totalDeleted int64
+
+	// Delete in dependency order: children first
+	tables := []struct {
+		query string
+		col   string
+	}{
+		{"DELETE FROM snapshots WHERE account_id = ?", "snapshots"},
+		{"DELETE FROM antigravity_reset_cycles WHERE account_id = ?", "reset_cycles"},
+		{"DELETE FROM codex_snapshots WHERE account_id = ?", "codex_snapshots"},
+		{"DELETE FROM accounts WHERE id = ?", "accounts"},
+	}
+
+	for _, t := range tables {
+		result, err := s.db.Exec(t.query, accountID)
+		if err != nil {
+			return totalDeleted, fmt.Errorf("store: delete %s for account %d: %w", t.col, accountID, err)
+		}
+		n, _ := result.RowsAffected()
+		totalDeleted += n
+	}
+
+	return totalDeleted, nil
+}
+
+// DeleteAccountSnapshots removes all snapshots for a specific account but keeps the account itself.
+func (s *Store) DeleteAccountSnapshots(accountID int64) (int64, error) {
+	result, err := s.db.Exec("DELETE FROM snapshots WHERE account_id = ?", accountID)
+	if err != nil {
+		return 0, fmt.Errorf("store: delete snapshots for account %d: %w", accountID, err)
+	}
+	return result.RowsAffected()
+}
+
+// DeleteSnapshot removes a single snapshot by ID.
+func (s *Store) DeleteSnapshot(snapshotID int64) error {
+	result, err := s.db.Exec("DELETE FROM snapshots WHERE id = ?", snapshotID)
+	if err != nil {
+		return fmt.Errorf("store: delete snapshot %d: %w", snapshotID, err)
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("store: snapshot %d not found", snapshotID)
+	}
+	return nil
+}
+

@@ -427,6 +427,45 @@ body {
 
 .model-reset { width: 65px; text-align: right; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 
+/* ── Account Management Actions ── */
+
+.account-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 4px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.account-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.account-actions button:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+  border-color: var(--border-hover);
+}
+
+.btn-clear-snaps:hover {
+  color: var(--amber) !important;
+  border-color: var(--amber) !important;
+}
+
+.btn-delete-account:hover {
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+}
+
 /* ════════════════════════════════════════════
    SUBSCRIPTIONS TAB
    ════════════════════════════════════════════ */

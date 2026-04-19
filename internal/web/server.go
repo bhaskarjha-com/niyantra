@@ -147,6 +147,11 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/usage-logs/", s.handleUsageLogByID)
 	mux.HandleFunc("/api/import/json", s.handleImportJSON)
 
+	// Data management routes
+	mux.HandleFunc("/api/accounts", s.handleAccounts)
+	mux.HandleFunc("/api/accounts/", s.handleAccountByID)
+	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID)
+
 	// Static files (embedded)
 	staticFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
@@ -1089,3 +1094,106 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// ── Data Management Handlers ─────────────────────────────────────
+
+// handleAccounts returns all tracked accounts.
+func (s *Server) handleAccounts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	accounts, err := s.store.AllAccounts()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if accounts == nil {
+		accounts = []*store.Account{}
+	}
+
+	writeJSON(w, map[string]interface{}{"accounts": accounts})
+}
+
+// handleAccountByID handles DELETE /api/accounts/:id and DELETE /api/accounts/:id/snapshots
+func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse path: /api/accounts/123 or /api/accounts/123/snapshots
+	path := strings.TrimPrefix(r.URL.Path, "/api/accounts/")
+	parts := strings.SplitN(path, "/", 2)
+
+	accountID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || accountID <= 0 {
+		jsonError(w, "invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check if clear-snapshots-only mode
+	clearSnapshotsOnly := len(parts) > 1 && parts[1] == "snapshots"
+
+	if clearSnapshotsOnly {
+		// Delete snapshots only, keep account
+		deleted, err := s.store.DeleteAccountSnapshots(accountID)
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.store.LogInfo("ui", "snapshots_cleared", "", map[string]interface{}{
+			"accountId":       accountID,
+			"snapshotsDeleted": deleted,
+		})
+
+		writeJSON(w, map[string]interface{}{
+			"message":          "snapshots cleared",
+			"snapshotsDeleted": deleted,
+		})
+	} else {
+		// Full cascade delete: account + all data
+		deleted, err := s.store.DeleteAccount(accountID)
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.store.LogInfo("ui", "account_deleted", "", map[string]interface{}{
+			"accountId":    accountID,
+			"totalDeleted": deleted,
+		})
+
+		writeJSON(w, map[string]interface{}{
+			"message":      "account deleted",
+			"totalDeleted": deleted,
+		})
+	}
+}
+
+// handleSnapshotByID handles DELETE /api/snapshots/:id
+func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/snapshots/")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		jsonError(w, "invalid snapshot ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.DeleteSnapshot(id); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "snapshot_deleted", "", map[string]interface{}{
+		"snapshotId": id,
+	})
+
+	writeJSON(w, map[string]string{"message": "snapshot deleted"})
+}
