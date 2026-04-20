@@ -372,14 +372,14 @@ type UsageResponse struct {
 // Quota represents one normalized Codex quota window.
 type Quota struct {
 	Name        string     `json:"name"`        // "five_hour", "seven_day", "code_review"
-	Utilization float64    `json:"utilization"`  // 0-100
-	ResetsAt    *time.Time `json:"resets_at"`    // when window resets
-	Status      string     `json:"status"`       // healthy/warning/danger/critical
+	Utilization float64    `json:"utilization"` // 0-100
+	ResetsAt    *time.Time `json:"resets_at"`   // when window resets
+	Status      string     `json:"status"`      // healthy/warning/danger/critical
 }
 
 // rawUsageResponse matches the actual API response shape.
 type rawUsageResponse struct {
-	PlanType            string      `json:"plan_type"`
+	PlanType            string       `json:"plan_type"`
 	RateLimit           rawRateLimit `json:"rate_limit"`
 	CodeReviewRateLimit rawRateLimit `json:"code_review_rate_limit,omitempty"`
 	Credits             *struct {

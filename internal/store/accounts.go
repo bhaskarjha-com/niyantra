@@ -110,4 +110,3 @@ func (s *Store) DeleteSnapshot(snapshotID int64) error {
 	}
 	return nil
 }
-

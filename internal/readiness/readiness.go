@@ -10,17 +10,18 @@ import (
 
 // AccountReadiness represents the readiness state of a single account.
 type AccountReadiness struct {
-	AccountID      int64           `json:"accountId"`
-	Email          string          `json:"email"`
-	PlanName       string          `json:"planName"`
-	LastSeen       time.Time       `json:"lastSeen"`
-	Staleness      time.Duration   `json:"-"`
-	StalenessLabel string          `json:"stalenessLabel"`
-	IsReady        bool            `json:"isReady"`
-	Groups         []GroupReadiness `json:"groups"`
-	Models         []ModelDetail   `json:"models"`
-	PromptCredits  float64         `json:"promptCredits"`
-	MonthlyCredits int             `json:"monthlyCredits"`
+	AccountID      int64             `json:"accountId"`
+	Email          string            `json:"email"`
+	PlanName       string            `json:"planName"`
+	LastSeen       time.Time         `json:"lastSeen"`
+	Staleness      time.Duration     `json:"-"`
+	StalenessLabel string            `json:"stalenessLabel"`
+	IsReady        bool              `json:"isReady"`
+	Groups         []GroupReadiness  `json:"groups"`
+	Models         []ModelDetail     `json:"models"`
+	PromptCredits  float64           `json:"promptCredits"`
+	MonthlyCredits int               `json:"monthlyCredits"`
+	AICredits      []client.AICredit `json:"aiCredits"`
 }
 
 // ModelDetail is a per-model quota entry for the dashboard.
@@ -35,14 +36,14 @@ type ModelDetail struct {
 
 // GroupReadiness represents the readiness state of a single quota group.
 type GroupReadiness struct {
-	GroupKey           string     `json:"groupKey"`
-	DisplayName        string     `json:"displayName"`
-	RemainingPercent   float64    `json:"remainingPercent"`
-	IsExhausted        bool       `json:"isExhausted"`
-	IsReady            bool       `json:"isReady"`
-	Color              string     `json:"color"`
-	ResetTime          *time.Time `json:"resetTime,omitempty"`
-	TimeUntilResetSec  float64    `json:"timeUntilResetSec"`
+	GroupKey          string     `json:"groupKey"`
+	DisplayName       string     `json:"displayName"`
+	RemainingPercent  float64    `json:"remainingPercent"`
+	IsExhausted       bool       `json:"isExhausted"`
+	IsReady           bool       `json:"isReady"`
+	Color             string     `json:"color"`
+	ResetTime         *time.Time `json:"resetTime,omitempty"`
+	TimeUntilResetSec float64    `json:"timeUntilResetSec"`
 }
 
 // Calculate computes readiness for all accounts from their latest snapshots.
@@ -67,6 +68,7 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 			IsReady:        true,
 			PromptCredits:  snap.PromptCredits,
 			MonthlyCredits: snap.MonthlyCredits,
+			AICredits:      snap.AICredits,
 		}
 
 		// Per-model details

@@ -53,13 +53,26 @@
         <main class="main">
             <!-- Tab: Quotas (existing auto-tracked) -->
             <section class="tab-panel active" id="panel-quotas">
+                <div class="quota-toolbar">
+                    <input type="text" id="quota-search" class="search-input" placeholder="Search accounts..." autocomplete="off">
+                    <div class="quota-filters">
+                        <select id="quota-filter-status" class="filter-select">
+                            <option value="all">All Status</option>
+                            <option value="ready">Ready</option>
+                            <option value="low">Low</option>
+                            <option value="empty">Empty</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="grid-section">
                     <div class="grid-header">
-                        <div class="grid-col-account">Account</div>
-                        <div class="grid-col-group">Claude + GPT</div>
-                        <div class="grid-col-group">Gemini Pro</div>
-                        <div class="grid-col-group">Gemini Flash</div>
-                        <div class="grid-col-status">Status</div>
+                        <div class="grid-col-account sortable sort-active" data-sort="account">Account <span class="sort-indicator">▾</span></div>
+                        <div class="grid-col-group sortable" data-sort="claude_gpt">Claude + GPT <span class="sort-indicator"></span></div>
+                        <div class="grid-col-group sortable" data-sort="gemini_pro">Gemini Pro <span class="sort-indicator"></span></div>
+                        <div class="grid-col-group sortable" data-sort="gemini_flash">Gemini Flash <span class="sort-indicator"></span></div>
+                        <div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div>
+                        <div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div>
                     </div>
                     <div id="account-grid" class="account-grid"></div>
                 </div>

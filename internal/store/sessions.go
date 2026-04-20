@@ -13,7 +13,7 @@ type UsageSession struct {
 	Provider    string     `json:"provider"`
 	StartedAt   time.Time  `json:"startedAt"`
 	EndedAt     *time.Time `json:"endedAt"`
-	DurationSec int       `json:"durationSec"`
+	DurationSec int        `json:"durationSec"`
 	SnapCount   int        `json:"snapCount"`
 	StartValues string     `json:"startValues"` // JSON array
 	PeakValues  string     `json:"peakValues"`  // JSON array

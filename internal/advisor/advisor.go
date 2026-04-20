@@ -17,7 +17,7 @@ import (
 
 // Recommendation is the advisor's output.
 type Recommendation struct {
-	Action       string         `json:"action"`       // "switch", "stay", "wait"
+	Action       string         `json:"action"` // "switch", "stay", "wait"
 	BestAccount  *AccountScore  `json:"bestAccount"`
 	Alternatives []AccountScore `json:"alternatives"`
 	Reason       string         `json:"reason"`

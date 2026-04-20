@@ -12,8 +12,8 @@ import (
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
-	threshold float64            // alert when remaining% drops below this (default 10)
-	guard     map[string]bool    // model → has been notified this cycle
+	threshold float64         // alert when remaining% drops below this (default 10)
+	guard     map[string]bool // model → has been notified this cycle
 	logger    *slog.Logger
 }
 

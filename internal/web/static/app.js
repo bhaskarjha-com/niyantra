@@ -142,10 +142,91 @@ function fetchUsage(accountId) {
 }
 
 // ════════════════════════════════════════════
-//  RENDER — Quotas Tab (existing)
+//  RENDER — Quotas Tab
 // ════════════════════════════════════════════
 
+var quotaSortState = { column: 'account', direction: 'asc' };
+var latestQuotaData = null;
+
+function getGroupPct(acc, groupKey) {
+  if (!acc.groups) return -1;
+  for (var i = 0; i < acc.groups.length; i++) {
+    if (acc.groups[i].groupKey === groupKey) return acc.groups[i].remainingPercent;
+  }
+  return -1;
+}
+
+function getAICredits(acc) {
+  if (acc.aiCredits && acc.aiCredits.length > 0) return acc.aiCredits[0].creditAmount;
+  return -1;
+}
+
+function allExhausted(acc) {
+  var grps = acc.groups || [];
+  if (grps.length === 0) return false;
+  for (var i = 0; i < grps.length; i++) {
+    if (!grps[i].isExhausted && grps[i].remainingPercent > 0) return false;
+  }
+  return true;
+}
+
+function sortAccountsArray(accounts) {
+  var col = quotaSortState.column;
+  var dir = quotaSortState.direction;
+  return accounts.slice().sort(function(a, b) {
+    var va, vb;
+    switch (col) {
+      case 'account': va = a.email; vb = b.email; break;
+      case 'claude_gpt':
+      case 'gemini_pro':
+      case 'gemini_flash':
+        va = getGroupPct(a, col); vb = getGroupPct(b, col); break;
+      case 'credits':
+        va = getAICredits(a); vb = getAICredits(b); break;
+      case 'status':
+        va = a.isReady ? 1 : 0; vb = b.isReady ? 1 : 0; break;
+      default: va = a.email; vb = b.email; break;
+    }
+    if (va === vb) return 0;
+    var res = va > vb ? 1 : -1;
+    return dir === 'asc' ? res : -res;
+  });
+}
+
+function filterAccountsArray(accounts) {
+  var searchInput = document.getElementById('quota-search');
+  var statusFilter = document.getElementById('quota-filter-status');
+  var query = searchInput ? searchInput.value.toLowerCase() : '';
+  var status = statusFilter ? statusFilter.value : 'all';
+
+  return accounts.filter(function(acc) {
+    var matchesSearch = !query ||
+      acc.email.toLowerCase().includes(query) ||
+      (acc.planName || '').toLowerCase().includes(query);
+
+    var matchesStatus = true;
+    if (status === 'ready') matchesStatus = acc.isReady;
+    else if (status === 'low') matchesStatus = !acc.isReady && !allExhausted(acc);
+    else if (status === 'empty') matchesStatus = allExhausted(acc);
+
+    return matchesSearch && matchesStatus;
+  });
+}
+
+function updateSortHeaders() {
+  document.querySelectorAll('.grid-header .sortable').forEach(function(el) {
+    el.classList.remove('sort-active');
+    var span = el.querySelector('.sort-indicator');
+    if (span) span.textContent = '';
+    if (el.dataset.sort === quotaSortState.column) {
+      el.classList.add('sort-active');
+      if (span) span.textContent = quotaSortState.direction === 'asc' ? '▾' : '▴';
+    }
+  });
+}
+
 function renderAccounts(data) {
+  latestQuotaData = data;
   var grid = document.getElementById('account-grid');
   var countBadge = document.getElementById('account-count');
   var snapCount = document.getElementById('snap-count');
@@ -166,9 +247,12 @@ function renderAccounts(data) {
   countBadge.textContent = count + ' account' + (count !== 1 ? 's' : '');
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
+  var filtered = filterAccountsArray(data.accounts);
+  var sorted = sortAccountsArray(filtered);
+
   var html = '';
-  for (var i = 0; i < data.accounts.length; i++) {
-    var acc = data.accounts[i];
+  for (var i = 0; i < sorted.length; i++) {
+    var acc = sorted[i];
     var accId = 'acc-' + acc.accountId;
     var isExpanded = expandedAccounts.has(accId);
 
@@ -198,19 +282,21 @@ function renderAccounts(data) {
         reset + '</div>';
     }
 
-    var allExhausted = true;
-    var grps = acc.groups || [];
-    for (var ei = 0; ei < grps.length; ei++) {
-      if (!grps[ei].isExhausted && grps[ei].remainingPercent > 0) { allExhausted = false; break; }
-    }
+
     var badgeCls = acc.isReady ? 'ready' : 'partial';
     var badgeText = acc.isReady ? 'Ready' : 'Low';
-    if (allExhausted) { badgeCls = 'exhausted'; badgeText = 'Empty'; }
+    if (allExhausted(acc)) { badgeCls = 'exhausted'; badgeText = 'Empty'; }
 
-    var creditsHTML = '';
-    if (acc.promptCredits > 0) {
-      creditsHTML = '<span class="credits-badge" title="Prompt credits remaining">✦ ' + formatCredits(acc.promptCredits) + '</span>';
+    var creditsCell = '<div class="credits-cell">';
+    if (acc.aiCredits && acc.aiCredits.length > 0) {
+      var credits = acc.aiCredits[0].creditAmount;
+      var creditCls = credits > 500 ? 'good' : credits > 100 ? 'ok' : 'warning';
+      creditsCell += '<span class="credit-amount ' + creditCls + '" title="AI Credits">✦ ' +
+        formatCredits(credits) + '</span>';
+    } else {
+      creditsCell += '<span class="credit-amount muted">—</span>';
     }
+    creditsCell += '</div>';
 
     var modelsHTML = '';
     if (acc.models && acc.models.length > 0) {
@@ -274,10 +360,10 @@ function renderAccounts(data) {
       '<div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">▸</span> ' + esc(acc.email) + '</div>' +
       '<div class="account-meta">' +
       (acc.planName ? '<span class="plan-badge">' + esc(acc.planName) + '</span>' : '') +
-      creditsHTML +
       '<span class="staleness">' + esc(acc.stalenessLabel) + '</span>' +
       '</div></div>' +
       groupCells +
+      creditsCell +
       '<div style="text-align:center"><span class="status-badge ' + badgeCls + '">' + badgeText + '</span></div>' +
       '</div>' +
       modelsHTML +
@@ -848,8 +934,12 @@ function renderHistoryChart(snapshots) {
     }
   }
 
+  var aiCreditsData = [];
+  var hasAICredits = false;
+
   for (var i = 0; i < snapshots.length; i++) {
-    var groups = snapshots[i].groups || [];
+    var snap = snapshots[i];
+    var groups = snap.groups || [];
     var seen = {};
     for (var j = 0; j < groups.length; j++) {
       var g = groups[j];
@@ -862,6 +952,14 @@ function renderHistoryChart(snapshots) {
     for (var k = 0; k < keys.length; k++) {
       if (!seen[keys[k]]) groupData[keys[k]].push(null);
     }
+
+    // Capture AI credits
+    if (snap.aiCredits && snap.aiCredits.length > 0) {
+      aiCreditsData.push(snap.aiCredits[0].creditAmount);
+      hasAICredits = true;
+    } else {
+      aiCreditsData.push(null);
+    }
   }
 
   var datasets = [];
@@ -873,11 +971,28 @@ function renderHistoryChart(snapshots) {
       data: groupData[key],
       borderColor: groupColors[key] || '#94a3b8',
       backgroundColor: (groupColors[key] || '#94a3b8') + '20',
+      yAxisID: 'y',
       fill: true,
       tension: 0.3,
       pointRadius: 3,
       pointHoverRadius: 6,
       borderWidth: 2,
+    });
+  }
+
+  if (hasAICredits) {
+    datasets.push({
+      label: 'AI Credits',
+      data: aiCreditsData,
+      borderColor: '#fbbf24', // Amber
+      backgroundColor: 'transparent',
+      yAxisID: 'yCredits',
+      borderDash: [5, 5],
+      tension: 0.3,
+      pointRadius: 4,
+      pointBackgroundColor: '#fbbf24',
+      pointHoverRadius: 6,
+      borderWidth: 3,
     });
   }
 
@@ -913,15 +1028,29 @@ function renderHistoryChart(snapshots) {
           titleFont: { family: "'Inter', sans-serif", weight: '600' },
           bodyFont: { family: "'Inter', sans-serif" },
           callbacks: {
-            label: function(ctx) { return ctx.dataset.label + ': ' + ctx.parsed.y + '%'; }
+            label: function(ctx) {
+              if (ctx.dataset.yAxisID === 'yCredits') return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString();
+              return ctx.dataset.label + ': ' + ctx.parsed.y + '%';
+            }
           }
         }
       },
       scales: {
         y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
           min: 0, max: 100,
           grid: { color: gridColor },
           ticks: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 }, callback: function(v) { return v + '%'; } },
+          border: { display: false }
+        },
+        yCredits: {
+          type: 'linear',
+          display: hasAICredits,
+          position: 'right',
+          grid: { display: false },
+          ticks: { color: isDark ? '#fbbf24' : '#d97706', font: { family: "'Inter', sans-serif", size: 11 } },
           border: { display: false }
         },
         x: {
@@ -1797,9 +1926,39 @@ function switchToTab(tabName) {
 //  INIT
 // ════════════════════════════════════════════
 
+function initQuotas() {
+  var qSearch = document.getElementById('quota-search');
+  var qStatus = document.getElementById('quota-filter-status');
+  if (qSearch) {
+    qSearch.addEventListener('input', function() {
+      if (latestQuotaData) renderAccounts(latestQuotaData);
+    });
+  }
+  if (qStatus) {
+    qStatus.addEventListener('change', function() {
+      if (latestQuotaData) renderAccounts(latestQuotaData);
+    });
+  }
+
+  document.querySelectorAll('.grid-header .sortable').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var col = el.dataset.sort;
+      if (quotaSortState.column === col) {
+        quotaSortState.direction = quotaSortState.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        quotaSortState.column = col;
+        quotaSortState.direction = 'asc';
+      }
+      updateSortHeaders();
+      if (latestQuotaData) renderAccounts(latestQuotaData);
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   initTheme();
   initTabs();
+  initQuotas();
   setupToggle();
   initModal();
   initBudget();

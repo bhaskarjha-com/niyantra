@@ -69,7 +69,7 @@ func (s *Server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
 	// Compute days-until-renewal for each
 	type subResponse struct {
 		*store.Subscription
-		DaysUntilRenewal *int `json:"daysUntilRenewal,omitempty"`
+		DaysUntilRenewal  *int `json:"daysUntilRenewal,omitempty"`
 		DaysUntilTrialEnd *int `json:"daysUntilTrialEnd,omitempty"`
 	}
 
@@ -228,11 +228,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Renewal response with days
 	type renewalItem struct {
-		ID           int64   `json:"id"`
-		Platform     string  `json:"platform"`
-		NextRenewal  string  `json:"nextRenewal"`
-		CostAmount   float64 `json:"costAmount"`
-		DaysUntil    int     `json:"daysUntil"`
+		ID          int64   `json:"id"`
+		Platform    string  `json:"platform"`
+		NextRenewal string  `json:"nextRenewal"`
+		CostAmount  float64 `json:"costAmount"`
+		DaysUntil   int     `json:"daysUntil"`
 	}
 	var renewalItems []renewalItem
 	now := time.Now()
@@ -288,11 +288,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]interface{}{
-		"stats":         stats,
-		"renewals":      renewalItems,
-		"quotaSummary":  quotaSummary,
-		"quickLinks":    links,
-		"insights":      insights,
+		"stats":             stats,
+		"renewals":          renewalItems,
+		"quotaSummary":      quotaSummary,
+		"quickLinks":        links,
+		"insights":          insights,
 		"subscriptionCount": s.store.SubscriptionCount(),
 	})
 }

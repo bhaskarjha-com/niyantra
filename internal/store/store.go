@@ -349,6 +349,12 @@ func (s *Store) migrate() error {
 		s.setUserVersion(7)
 	}
 
+	// ── v8: AI Credits tracking ──────────────────────────────────────
+	if s.getUserVersion() < 8 {
+		s.db.Exec(`ALTER TABLE snapshots ADD COLUMN ai_credits_json TEXT DEFAULT ''`)
+		s.setUserVersion(8)
+	}
+
 	return nil
 }
 

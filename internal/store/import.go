@@ -32,16 +32,16 @@ type importAccount struct {
 }
 
 type importSubscription struct {
-	Platform    string  `json:"platform"`
-	Email       string  `json:"email"`
-	Category    string  `json:"category"`
-	PlanName    string  `json:"plan_name"`
-	Status      string  `json:"status"`
-	CostAmount  float64 `json:"cost_amount"`
-	CostCurrency string `json:"cost_currency"`
-	BillingCycle string `json:"billing_cycle"`
-	NextRenewal  string `json:"next_renewal"`
-	Notes       string  `json:"notes"`
+	Platform     string  `json:"platform"`
+	Email        string  `json:"email"`
+	Category     string  `json:"category"`
+	PlanName     string  `json:"plan_name"`
+	Status       string  `json:"status"`
+	CostAmount   float64 `json:"cost_amount"`
+	CostCurrency string  `json:"cost_currency"`
+	BillingCycle string  `json:"billing_cycle"`
+	NextRenewal  string  `json:"next_renewal"`
+	Notes        string  `json:"notes"`
 }
 
 type importSnapshot struct {

@@ -81,7 +81,7 @@ var Presets = []Preset{
 	{
 		Platform: "Claude Code", Category: "coding",
 		Cost: 20, Cycle: "monthly",
-		LimitPeriod: "rolling_5h",
+		LimitPeriod:   "rolling_5h",
 		Notes:         "Included with Claude Pro. 5h rolling window (not calendar-based). Use /cost for session spend. /usage for limits. Max plans multiply allowance.",
 		URL:           "https://claude.ai",
 		StatusPageURL: "https://status.anthropic.com",
@@ -106,7 +106,7 @@ var Presets = []Preset{
 	{
 		Platform: "Claude Pro", Category: "chat",
 		Cost: 20, Cycle: "monthly",
-		LimitPeriod: "rolling_5h",
+		LimitPeriod:   "rolling_5h",
 		Notes:         "5h rolling window. Includes Claude Code CLI. Shared quota with claude.ai web. Use /usage in CLI to check status.",
 		URL:           "https://claude.ai/settings/billing",
 		StatusPageURL: "https://status.anthropic.com",
@@ -114,7 +114,7 @@ var Presets = []Preset{
 	{
 		Platform: "Claude Max (5x)", Category: "chat",
 		Cost: 100, Cycle: "monthly",
-		LimitPeriod: "rolling_5h",
+		LimitPeriod:   "rolling_5h",
 		Notes:         "5x Pro usage allowance. Same 5h rolling window. Best for heavy Claude Code users.",
 		URL:           "https://claude.ai/settings/billing",
 		StatusPageURL: "https://status.anthropic.com",
@@ -122,7 +122,7 @@ var Presets = []Preset{
 	{
 		Platform: "Claude Max (20x)", Category: "chat",
 		Cost: 200, Cycle: "monthly",
-		LimitPeriod: "rolling_5h",
+		LimitPeriod:   "rolling_5h",
 		Notes:         "20x Pro usage allowance. For power users who hit limits daily.",
 		URL:           "https://claude.ai/settings/billing",
 		StatusPageURL: "https://status.anthropic.com",
@@ -144,7 +144,7 @@ var Presets = []Preset{
 	{
 		Platform: "Poe", Category: "chat",
 		Cost: 20, Cycle: "monthly",
-		CreditLimit: 1000000,
+		CreditLimit:   1000000,
 		Notes:         "Multi-model aggregator. 1M credits/mo. Access ChatGPT, Claude, Gemini, and custom bots.",
 		URL:           "https://poe.com",
 		StatusPageURL: "",
@@ -191,7 +191,7 @@ var Presets = []Preset{
 	{
 		Platform: "Runway", Category: "image",
 		Cost: 12, Cycle: "monthly",
-		CreditLimit: 625,
+		CreditLimit:   625,
 		Notes:         "625 credits/mo (Standard). Video generation: ~25 credits per 5s clip.",
 		URL:           "https://app.runway.ml",
 		StatusPageURL: "",
@@ -208,7 +208,7 @@ var Presets = []Preset{
 	{
 		Platform: "Suno", Category: "audio",
 		Cost: 8, Cycle: "monthly",
-		CreditLimit: 500,
+		CreditLimit:   500,
 		Notes:         "500 credits/mo (~50 songs). Commercial use rights on paid plans.",
 		URL:           "https://suno.com",
 		StatusPageURL: "",

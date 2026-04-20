@@ -118,40 +118,41 @@ type GroupInput struct {
 
 // QuotaStatusOutput is the output of quota_status.
 type QuotaStatusOutput struct {
-	Accounts     []AccountSummary `json:"accounts"`
-	AccountCount int              `json:"accountCount"`
-	SnapshotCount int             `json:"snapshotCount"`
+	Accounts      []AccountSummary `json:"accounts"`
+	AccountCount  int              `json:"accountCount"`
+	SnapshotCount int              `json:"snapshotCount"`
 }
 
 // AccountSummary is a single account in quota_status output.
 type AccountSummary struct {
-	Email    string         `json:"email"`
-	Plan     string         `json:"plan"`
-	IsReady  bool           `json:"isReady"`
-	Staleness string        `json:"staleness"`
-	Groups   []GroupSummary `json:"groups"`
+	Email     string         `json:"email"`
+	Plan      string         `json:"plan"`
+	IsReady   bool           `json:"isReady"`
+	Staleness string         `json:"staleness"`
+	AICredits float64        `json:"aiCredits,omitempty"`
+	Groups    []GroupSummary `json:"groups"`
 }
 
 // GroupSummary is a quota group within an account.
 type GroupSummary struct {
 	Name        string `json:"name"`
-	GroupKey    string  `json:"groupKey"`
-	Remaining  int     `json:"remainingPercent"`
+	GroupKey    string `json:"groupKey"`
+	Remaining   int    `json:"remainingPercent"`
 	IsExhausted bool   `json:"isExhausted"`
-	ResetIn    string  `json:"resetIn,omitempty"`
+	ResetIn     string `json:"resetIn,omitempty"`
 }
 
 // ModelAvailOutput is the output of model_availability.
 type ModelAvailOutput struct {
-	Found     bool    `json:"found"`
-	ModelID   string  `json:"modelId,omitempty"`
-	Label     string  `json:"label,omitempty"`
-	Group     string  `json:"group,omitempty"`
-	Available bool    `json:"available"`
-	Remaining int     `json:"remainingPercent"`
-	ResetIn   string  `json:"resetIn,omitempty"`
-	Rate      string  `json:"rate,omitempty"`
-	Message   string  `json:"message"`
+	Found     bool   `json:"found"`
+	ModelID   string `json:"modelId,omitempty"`
+	Label     string `json:"label,omitempty"`
+	Group     string `json:"group,omitempty"`
+	Available bool   `json:"available"`
+	Remaining int    `json:"remainingPercent"`
+	ResetIn   string `json:"resetIn,omitempty"`
+	Rate      string `json:"rate,omitempty"`
+	Message   string `json:"message"`
 }
 
 // IntelligenceOutput wraps usage intelligence data.
@@ -162,38 +163,38 @@ type IntelligenceOutput struct {
 
 // ModelIntel is per-model intelligence data.
 type ModelIntel struct {
-	ModelID             string  `json:"modelId"`
-	Label               string  `json:"label"`
-	Group               string  `json:"group"`
-	RemainingPercent    int     `json:"remainingPercent"`
-	IsExhausted         bool    `json:"isExhausted"`
-	ResetIn             string  `json:"resetIn,omitempty"`
-	CurrentRate         string  `json:"currentRate,omitempty"`
-	ProjectedUsage      string  `json:"projectedUsage,omitempty"`
-	ProjectedExhaustion string  `json:"projectedExhaustion,omitempty"`
-	HasIntelligence     bool    `json:"hasIntelligence"`
-	CompletedCycles     int     `json:"completedCycles"`
-	CycleAge            string  `json:"cycleAge,omitempty"`
+	ModelID             string `json:"modelId"`
+	Label               string `json:"label"`
+	Group               string `json:"group"`
+	RemainingPercent    int    `json:"remainingPercent"`
+	IsExhausted         bool   `json:"isExhausted"`
+	ResetIn             string `json:"resetIn,omitempty"`
+	CurrentRate         string `json:"currentRate,omitempty"`
+	ProjectedUsage      string `json:"projectedUsage,omitempty"`
+	ProjectedExhaustion string `json:"projectedExhaustion,omitempty"`
+	HasIntelligence     bool   `json:"hasIntelligence"`
+	CompletedCycles     int    `json:"completedCycles"`
+	CycleAge            string `json:"cycleAge,omitempty"`
 }
 
 // BudgetOutput is the output of budget_forecast.
 type BudgetOutput struct {
-	HasBudget       bool    `json:"hasBudget"`
-	MonthlyBudget   float64 `json:"monthlyBudget,omitempty"`
-	CurrentSpend    float64 `json:"currentSpend,omitempty"`
-	ProjectedSpend  float64 `json:"projectedMonthlySpend,omitempty"`
-	BurnRate        float64 `json:"burnRate,omitempty"`
-	OnTrack         bool    `json:"onTrack"`
-	DaysUntilExhaust *int   `json:"daysUntilBudgetExhausted,omitempty"`
-	Message         string  `json:"message"`
+	HasBudget        bool    `json:"hasBudget"`
+	MonthlyBudget    float64 `json:"monthlyBudget,omitempty"`
+	CurrentSpend     float64 `json:"currentSpend,omitempty"`
+	ProjectedSpend   float64 `json:"projectedMonthlySpend,omitempty"`
+	BurnRate         float64 `json:"burnRate,omitempty"`
+	OnTrack          bool    `json:"onTrack"`
+	DaysUntilExhaust *int    `json:"daysUntilBudgetExhausted,omitempty"`
+	Message          string  `json:"message"`
 }
 
 // BestModelOutput is the output of best_model.
 type BestModelOutput struct {
-	Found        bool                `json:"found"`
-	Recommended  string              `json:"recommended,omitempty"`
-	Reason       string              `json:"reason"`
-	Alternatives []ModelAlternative  `json:"alternatives,omitempty"`
+	Found        bool               `json:"found"`
+	Recommended  string             `json:"recommended,omitempty"`
+	Reason       string             `json:"reason"`
+	Alternatives []ModelAlternative `json:"alternatives,omitempty"`
 }
 
 // ModelAlternative is a single model option in best_model output.
@@ -206,14 +207,14 @@ type ModelAlternative struct {
 
 // SpendingOutput is the output of analyze_spending.
 type SpendingOutput struct {
-	TotalMonthly      float64           `json:"totalMonthly"`
-	TotalAnnual       float64           `json:"totalAnnual"`
-	Currency          string            `json:"currency"`
-	SubscriptionCount int               `json:"subscriptionCount"`
-	Categories        []CategorySpend   `json:"categories"`
-	Insights          []store.Insight   `json:"insights"`
-	BudgetStatus      *BudgetStatus     `json:"budgetStatus,omitempty"`
-	Message           string            `json:"message"`
+	TotalMonthly      float64         `json:"totalMonthly"`
+	TotalAnnual       float64         `json:"totalAnnual"`
+	Currency          string          `json:"currency"`
+	SubscriptionCount int             `json:"subscriptionCount"`
+	Categories        []CategorySpend `json:"categories"`
+	Insights          []store.Insight `json:"insights"`
+	BudgetStatus      *BudgetStatus   `json:"budgetStatus,omitempty"`
+	Message           string          `json:"message"`
 }
 
 // CategorySpend is a spending breakdown by category.
@@ -233,22 +234,22 @@ type BudgetStatus struct {
 
 // SwitchOutput is the output of switch_recommendation.
 type SwitchOutput struct {
-	Action       string                  `json:"action"`
-	BestAccount  *advisor.AccountScore   `json:"bestAccount,omitempty"`
-	Alternatives []advisor.AccountScore  `json:"alternatives,omitempty"`
-	Reason       string                  `json:"reason"`
-	Message      string                  `json:"message"`
+	Action       string                 `json:"action"`
+	BestAccount  *advisor.AccountScore  `json:"bestAccount,omitempty"`
+	Alternatives []advisor.AccountScore `json:"alternatives,omitempty"`
+	Reason       string                 `json:"reason"`
+	Message      string                 `json:"message"`
 }
 
 // CodexStatusOutput is the output of codex_status.
 type CodexStatusOutput struct {
-	Installed      bool              `json:"installed"`
-	CaptureEnabled bool              `json:"captureEnabled"`
-	AccountID      string            `json:"accountId,omitempty"`
-	TokenExpired   bool              `json:"tokenExpired,omitempty"`
-	TokenExpiresIn string            `json:"tokenExpiresIn,omitempty"`
+	Installed      bool                 `json:"installed"`
+	CaptureEnabled bool                 `json:"captureEnabled"`
+	AccountID      string               `json:"accountId,omitempty"`
+	TokenExpired   bool                 `json:"tokenExpired,omitempty"`
+	TokenExpiresIn string               `json:"tokenExpiresIn,omitempty"`
 	Snapshot       *store.CodexSnapshot `json:"snapshot,omitempty"`
-	Message        string            `json:"message"`
+	Message        string               `json:"message"`
 }
 
 // ──────────────────────────────────────────
@@ -274,10 +275,13 @@ func (m *MCPServer) handleQuotaStatus(_ context.Context, _ *mcp.CallToolRequest,
 			IsReady:   acc.IsReady,
 			Staleness: acc.StalenessLabel,
 		}
+		if len(acc.AICredits) > 0 {
+			a.AICredits = acc.AICredits[0].CreditAmount
+		}
 		for _, g := range acc.Groups {
 			gs := GroupSummary{
 				Name:        g.DisplayName,
-				GroupKey:     g.GroupKey,
+				GroupKey:    g.GroupKey,
 				Remaining:   int(math.Round(g.RemainingPercent)),
 				IsExhausted: g.IsExhausted,
 			}

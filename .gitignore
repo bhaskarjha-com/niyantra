@@ -36,3 +36,6 @@ build/
 
 # Private drafts (internal research, deferred plans)
 draft/
+
+# Antigravity payload dump
+antigravity_payload_dump.json

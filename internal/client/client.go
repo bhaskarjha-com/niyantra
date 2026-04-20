@@ -157,6 +157,7 @@ func (c *Client) FetchQuotas(ctx context.Context) (*UserStatusResponse, error) {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidResponse, err)
 	}
+	out.OriginalRawJSON = string(raw)
 
 	if out.UserStatus == nil {
 		if out.Message != "" {

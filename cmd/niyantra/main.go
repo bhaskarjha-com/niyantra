@@ -431,12 +431,13 @@ func cmdDemo(logger *slog.Logger, dbPath string) {
 
 	// --- Accounts & Snapshots ---
 	type demoAccount struct {
-		email string
-		plan  string
+		email   string
+		plan    string
+		credits float64
 	}
 	accounts := []demoAccount{
-		{"alex.chen@company.com", "Pro"},
-		{"alex.personal@gmail.com", "Pro Trial"},
+		{"alex.chen@company.com", "Pro", 1000},
+		{"alex.personal@gmail.com", "Ultra", 25000},
 	}
 
 	totalSnaps := 0
@@ -486,7 +487,14 @@ func cmdDemo(logger *slog.Logger, dbPath string) {
 				CapturedAt:    capturedAt,
 				Email:         acc.email,
 				PlanName:      acc.plan,
-				PromptCredits: 500,
+				PromptCredits: 500, // Legacy fallback
+				AICredits: []client.AICredit{
+					{
+						CreditType:      "AI_CREDIT",
+						CreditAmount:    acc.credits * (1.0 - (float64(11-i) * 0.02)), // Simulate 2% burn per snapshot
+						MinimumForUsage: 0,
+					},
+				},
 				Models:        models,
 				CaptureMethod: "auto",
 				CaptureSource: "server",

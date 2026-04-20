@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -63,6 +64,27 @@ type PlanStatus struct {
 	AvailablePromptCredits float64   `json:"availablePromptCredits"`
 }
 
+// AICredit represents a single AI credit pool (e.g., Google One AI credits).
+type AICredit struct {
+	CreditType      string  `json:"creditType"`      // e.g. "GOOGLE_ONE_AI"
+	CreditAmount    float64 `json:"creditAmount"`    // parsed from API string
+	MinimumForUsage float64 `json:"minimumForUsage"` // min balance to use credits
+}
+
+// rawCredit matches the API response shape (amounts are strings).
+type rawCredit struct {
+	CreditType                  string `json:"creditType"`
+	CreditAmount                string `json:"creditAmount"`
+	MinimumCreditAmountForUsage string `json:"minimumCreditAmountForUsage"`
+}
+
+// UserTier contains the user's subscription tier and AI credit balance.
+type UserTier struct {
+	ID               string      `json:"id"`
+	Name             string      `json:"name"`
+	AvailableCredits []rawCredit `json:"availableCredits"`
+}
+
 // CascadeModelConfigData wraps the model configs array.
 type CascadeModelConfigData struct {
 	ClientModelConfigs []ModelConfig `json:"clientModelConfigs"`
@@ -74,25 +96,27 @@ type UserStatus struct {
 	Email                  string                  `json:"email"`
 	PlanStatus             *PlanStatus             `json:"planStatus,omitempty"`
 	CascadeModelConfigData *CascadeModelConfigData `json:"cascadeModelConfigData,omitempty"`
+	UserTier               *UserTier               `json:"userTier,omitempty"`
 }
 
 // UserStatusResponse is the full API response.
 type UserStatusResponse struct {
-	UserStatus *UserStatus `json:"userStatus"`
-	Message    string      `json:"message,omitempty"`
-	Code       string      `json:"code,omitempty"`
+	UserStatus      *UserStatus `json:"userStatus"`
+	Message         string      `json:"message,omitempty"`
+	Code            string      `json:"code,omitempty"`
+	OriginalRawJSON string      `json:"-"`
 }
 
 // --- Normalized types for storage ---
 
 // ModelQuota is a normalized model quota for storage.
 type ModelQuota struct {
-	ModelID           string     `json:"modelId"`
-	Label             string     `json:"label"`
-	RemainingFraction float64    `json:"remainingFraction"`
-	RemainingPercent  float64    `json:"remainingPercent"`
-	IsExhausted       bool       `json:"isExhausted"`
-	ResetTime         *time.Time `json:"resetTime,omitempty"`
+	ModelID           string        `json:"modelId"`
+	Label             string        `json:"label"`
+	RemainingFraction float64       `json:"remainingFraction"`
+	RemainingPercent  float64       `json:"remainingPercent"`
+	IsExhausted       bool          `json:"isExhausted"`
+	ResetTime         *time.Time    `json:"resetTime,omitempty"`
 	TimeUntilReset    time.Duration `json:"-"`
 }
 
@@ -106,6 +130,7 @@ type Snapshot struct {
 	PromptCredits  float64
 	MonthlyCredits int
 	Models         []ModelQuota
+	AICredits      []AICredit
 	RawJSON        string
 	CaptureMethod  string // "manual" or "auto"
 	CaptureSource  string // "cli", "ui", "watch", "parser", "import", "mcp"
@@ -178,7 +203,25 @@ func (r *UserStatusResponse) ToSnapshot(capturedAt time.Time) *Snapshot {
 		}
 	}
 
-	if raw, err := json.Marshal(r); err == nil {
+	// Parse AI credits from userTier
+	if r.UserStatus.UserTier != nil {
+		for _, rc := range r.UserStatus.UserTier.AvailableCredits {
+			if rc.CreditType == "" {
+				continue
+			}
+			amount, _ := strconv.ParseFloat(rc.CreditAmount, 64)
+			minUsage, _ := strconv.ParseFloat(rc.MinimumCreditAmountForUsage, 64)
+			snap.AICredits = append(snap.AICredits, AICredit{
+				CreditType:      rc.CreditType,
+				CreditAmount:    amount,
+				MinimumForUsage: minUsage,
+			})
+		}
+	}
+
+	if r.OriginalRawJSON != "" {
+		snap.RawJSON = r.OriginalRawJSON
+	} else if raw, err := json.Marshal(r); err == nil {
 		snap.RawJSON = string(raw)
 	}
 
@@ -219,9 +262,9 @@ func GroupForModel(modelID, label string) string {
 // GroupModels groups model quotas into logical quota groups.
 func GroupModels(models []ModelQuota) []GroupedQuota {
 	type acc struct {
-		sum          float64
-		count        int
-		anyExhausted bool
+		sum           float64
+		count         int
+		anyExhausted  bool
 		earliestReset *time.Time
 	}
 
@@ -267,11 +310,11 @@ func GroupModels(models []ModelQuota) []GroupedQuota {
 
 		g := GroupedQuota{
 			GroupKey:          key,
-			DisplayName:      GroupDisplayNames[key],
+			DisplayName:       GroupDisplayNames[key],
 			RemainingFraction: remaining,
 			RemainingPercent:  remaining * 100,
-			IsExhausted:      a != nil && (a.anyExhausted || (a.count > 0 && remaining <= 0)),
-			Color:            GroupColors[key],
+			IsExhausted:       a != nil && (a.anyExhausted || (a.count > 0 && remaining <= 0)),
+			Color:             GroupColors[key],
 		}
 
 		if a != nil && a.earliestReset != nil {

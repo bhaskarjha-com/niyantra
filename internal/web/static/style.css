@@ -241,14 +241,14 @@ body {
 
 .grid-header {
   display: grid;
-  grid-template-columns: 1fr 120px 120px 120px 80px;
+  grid-template-columns: 1fr 110px 110px 110px 100px 80px;
   gap: 12px;
   padding: 12px 20px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
 }
 
-.grid-col-account, .grid-col-group, .grid-col-status {
+.grid-col-account, .grid-col-group, .grid-col-credits, .grid-col-status {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -256,15 +256,55 @@ body {
   color: var(--text-muted);
 }
 
-.grid-col-group, .grid-col-status {
+.grid-col-group, .grid-col-credits, .grid-col-status {
   text-align: center;
 }
+
+/* ── Quota Toolbar & Utilities ── */
+
+.quota-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.search-input {
+  width: 240px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  transition: all var(--transition);
+}
+.search-input:hover { border-color: var(--border-hover); }
+.search-input:focus { border-color: var(--accent); outline: none; background: var(--bg-card); }
+.search-input::placeholder { color: var(--text-muted); }
+
+.quota-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition);
+}
+.sortable:hover { color: var(--text-secondary); }
+.sortable.sort-active { color: var(--accent); }
+.sort-indicator { display: inline-block; width: 10px; margin-left: 2px; }
 
 /* ── Account Row ── */
 
 .account-row {
   display: grid;
-  grid-template-columns: 1fr 120px 120px 120px 80px;
+  grid-template-columns: 1fr 110px 110px 110px 100px 80px;
   gap: 12px;
   padding: 16px 20px;
   align-items: center;
@@ -369,7 +409,28 @@ body {
 
 .chevron.expanded { transform: rotate(90deg); }
 
-/* ── Credits Badge ── */
+/* ── Credits Cell (AI Credits) ── */
+
+.credits-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.credit-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.credit-amount.good { background: var(--green-bg); color: var(--green); }
+.credit-amount.ok { background: var(--amber-bg); color: var(--amber); }
+.credit-amount.warning { background: var(--red-bg); color: var(--red); }
+.credit-amount.muted { color: var(--text-muted); font-weight: normal; }
+
+/* ── Legacy Prompt Credits Badge (hide if completely empty) ── */
 
 .credits-badge {
   font-size: 10px;

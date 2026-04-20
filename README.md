@@ -99,7 +99,7 @@ niyantra serve    # Dashboard shows your real data
 
 ### Know Your Quotas
 
-Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track Codex/ChatGPT via OAuth API. Monitor Claude Code rate limits via statusline bridge. See who's ready, who's exhausted, and when resets happen.
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy and track Claude Code rate limits via statusline bridge. See who's ready, who's exhausted, and when resets happen.
 
 ### Control Your Spending
 
@@ -121,7 +121,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 | Tab | What it shows |
 |-----|---------------|
-| **Quotas** | Per-account readiness grid, per-model progress bars, reset countdowns, history chart |
+| **Quotas** | 6-col sortable readiness grid, AI Credits tracking, text search & filters, per-model progress bars, twin-axis history chart |
 | **Subscriptions** | Card view of all AI subs, search, 26 platform presets, CSV export |
 | **Overview** | Monthly budget vs actual, switch advisor, Codex status, sessions timeline, renewal calendar |
 | **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, account management |

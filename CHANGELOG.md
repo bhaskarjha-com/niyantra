@@ -2,6 +2,20 @@
 
 All notable changes to Niyantra are documented here.
 
+## [0.13.0] - 2026-04-20
+
+### Added
+- Real-time Google AI Credits monitoring embedded directly into the operation dashboard.
+- Credit history stored historically (Schema v8 `ai_credits_json`) to support long-term burn rate analysis.
+- Twin-axis support in the usage intelligence visualization chart bringing usage percentages and absolute API credits to the same timeline.
+- A new interactive search bar and status filter directly above the quota table layout.
+- Standalone CLI utility (`scripts/dump_antigravity_payload.go`) for extracting deep backend API unmapped JSON payloads natively from the database.
+
+### Changed
+- Quota table upgraded to a dynamic 6-column sortable grid (Account | Claude + GPT | Gemini Pro | Gemini Flash | AI Credits | Status).
+- Replaced the static legacy "✦ 500" prompt credits indicator with live, color-coded AI Credit metrics pulled directly from the `GetUserStatus` API (`userTier.availableCredits`).
+- Fully restructured storage `Snapshot` pipeline capturing the `OriginalRawJSON` buffer dynamically inline, preventing internal schema mapping dropouts.
+
 ## [0.12.0] - 2026-04-19
 
 ### Added

@@ -54,7 +54,7 @@ You should see your account appear in the Quotas tab with per-model progress bar
 Each snapshot records:
 - **Account email** and plan name
 - **Per-model quotas**: remaining percentage, reset time, and exhaustion status
-- **Prompt credits**: available and monthly totals
+- **AI Credits**: Live Google One AI credit balances tracked alongside your limit resets
 - **Provenance**: how, when, and where the data was captured
 
 ### Models Tracked
@@ -94,9 +94,12 @@ Launch with `niyantra serve` and open `http://localhost:9222`.
 
 ### Quotas Tab
 
-The default view showing all tracked Antigravity accounts.
+The default view showing all tracked Antigravity accounts via a sortable 6-column grid layout.
 
-**Readiness grid**: Each row is an account. Color-coded status:
+**Search & Filters**: 
+Above the grid is a toolbar that lets you fuzzy search by email/plan and filter accounts by specific conditions (`Ready`, `Low`, `Empty`).
+
+**Readiness grid**: Each row is an account highlighting usage fractions across model families `(Claude + GPT | Gemini Pro | Gemini Flash)` and raw `AI Credits` count. Color-coded status:
 - **Green (Ready)**: All quota pools above threshold
 - **Yellow (Low)**: Some pools depleted
 - **Red (Exhausted)**: Account cannot be used
@@ -104,13 +107,12 @@ The default view showing all tracked Antigravity accounts.
 **Click any row** to expand and see:
 - Per-model progress bars with exact percentages
 - Reset countdowns (e.g., "resets in 2h 15m")
-- Prompt credits badge
 - **Clear Snapshots** button — deletes all quota history for the account (keeps the account)
 - **Remove Account** button — permanently deletes the account and all associated data
 
-**Quota History Chart**: Below the grid. Shows quota trends over time as a line chart.
-- Filter by account using the dropdown
-- Change the number of displayed snapshots (20, 50, 100)
+**Quota History Chart**: Below the grid. Shows quota trends over time as a twin Y-Axis line chart.
+- The left Y-Axis charts the 0-100% burnout rate across LLM models.
+- The right Y-Axis maps the absolute AI Credits token burn across time.
 - Adapts to dark/light theme automatically
 
 ### Subscriptions Tab
@@ -321,7 +323,7 @@ Add to your MCP client config:
 
 | Tool | What you can ask |
 |------|-----------------|
-| `quota_status` | "What's my Antigravity quota?" |
+| `quota_status` | "What's my Antigravity quota and AI Credits balance?" |
 | `model_availability` | "Is Claude Sonnet available?" |
 | `usage_intelligence` | "How fast am I burning quota?" |
 | `budget_forecast` | "Will I stay under budget this month?" |
@@ -455,6 +457,14 @@ The restore command validates the schema before replacing your database.
 - Subscriptions are matched by platform + email
 - Snapshots are matched by account + timestamp
 - Existing data is never overwritten or deleted
+
+### Raw API Payload Extraction
+
+To natively dump the deep, unmarshalled `RawJSON` buffers returned straight from Antigravity's Language Server, you can extract the exact unmapped dictionary directly down from the SQLite databases:
+```bash
+go run scripts/dump_antigravity_payload.go
+```
+This script dynamically parses the latest account snapshots and securely buffers the payload into a beautifully formatted `antigravity_payload_dump.json` directly within the repository root structure without throwing it indiscriminately onto stdout formats.
 
 ### Clear Snapshots
 

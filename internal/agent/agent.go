@@ -40,11 +40,11 @@ type PollingAgent struct {
 	codexAuthFails int
 
 	// Backoff state for consecutive failures
-	mu            sync.Mutex
-	failCount     int
-	maxFails      int           // pause after this many consecutive failures
-	lastPollTime  time.Time
-	lastPollOK    bool
+	mu           sync.Mutex
+	failCount    int
+	maxFails     int // pause after this many consecutive failures
+	lastPollTime time.Time
+	lastPollOK   bool
 }
 
 // NewPollingAgent creates a new auto-capture agent.
@@ -95,9 +95,15 @@ func (a *PollingAgent) Run(ctx context.Context) error {
 	a.logger.Info("Auto-capture agent started", "interval", a.interval)
 	defer func() {
 		// Close any active sessions on shutdown
-		if a.antigravitySM != nil { a.antigravitySM.Close() }
-		if a.codexSM != nil { a.codexSM.Close() }
-		if a.claudeSM != nil { a.claudeSM.Close() }
+		if a.antigravitySM != nil {
+			a.antigravitySM.Close()
+		}
+		if a.codexSM != nil {
+			a.codexSM.Close()
+		}
+		if a.claudeSM != nil {
+			a.claudeSM.Close()
+		}
 		a.logger.Info("Auto-capture agent stopped")
 	}()
 
@@ -256,19 +262,19 @@ func (a *PollingAgent) autoLink(snap client.Snapshot, accountID int64) {
 	}
 
 	autoSub := &store.Subscription{
-		Platform:     "Antigravity",
-		Category:     "coding",
-		Email:        snap.Email,
-		PlanName:     snap.PlanName,
-		Status:       "active",
-		CostCurrency: "USD",
-		BillingCycle: "monthly",
-		LimitPeriod:  "rolling_5h",
-		Notes:        "Auto-created from auto-capture. 5h sprint cycle quotas.",
-		URL:          "https://antigravity.google",
+		Platform:      "Antigravity",
+		Category:      "coding",
+		Email:         snap.Email,
+		PlanName:      snap.PlanName,
+		Status:        "active",
+		CostCurrency:  "USD",
+		BillingCycle:  "monthly",
+		LimitPeriod:   "rolling_5h",
+		Notes:         "Auto-created from auto-capture. 5h sprint cycle quotas.",
+		URL:           "https://antigravity.google",
 		StatusPageURL: "https://status.google.com",
-		AutoTracked:  true,
-		AccountID:    accountID,
+		AutoTracked:   true,
+		AccountID:     accountID,
 	}
 	switch {
 	case strings.Contains(strings.ToLower(snap.PlanName), "pro+"),
@@ -409,7 +415,7 @@ func (a *PollingAgent) pollCodex(ctx context.Context) {
 	}
 
 	// Proactive token refresh: if token expires within 6 hours
-	if creds.IsExpiringSoon(6 * time.Hour) && creds.RefreshToken != "" {
+	if creds.IsExpiringSoon(6*time.Hour) && creds.RefreshToken != "" {
 		a.logger.Info("Codex token expiring soon, refreshing")
 		newTokens, err := codex.RefreshToken(ctx, creds.RefreshToken)
 		if err != nil {
@@ -456,12 +462,12 @@ func (a *PollingAgent) pollCodex(ctx context.Context) {
 
 	// Build and store snapshot
 	snap := &store.CodexSnapshot{
-		AccountID:     creds.AccountID,
-		FiveHourPct:   0,
-		PlanType:      usage.PlanType,
+		AccountID:      creds.AccountID,
+		FiveHourPct:    0,
+		PlanType:       usage.PlanType,
 		CreditsBalance: usage.CreditsBalance,
-		CaptureMethod: "auto",
-		CaptureSource: "server",
+		CaptureMethod:  "auto",
+		CaptureSource:  "server",
 	}
 
 	for _, q := range usage.Quotas {
