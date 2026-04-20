@@ -431,7 +431,7 @@ func (a *PollingAgent) pollCodex(ctx context.Context) {
 	}
 
 	// Create client with current token
-	if a.codexClient == nil || a.codexClient != nil {
+	if a.codexClient == nil {
 		a.codexClient = codex.NewClient(creds.AccessToken, creds.AccountID, a.logger)
 	}
 	a.codexClient.SetToken(creds.AccessToken)

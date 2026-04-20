@@ -33,10 +33,13 @@ type MCPServer struct {
 }
 
 // New creates an MCPServer with all tools registered.
-func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger) *MCPServer {
+func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string) *MCPServer {
+	if version == "" {
+		version = "dev"
+	}
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "niyantra",
-		Version: "1.0.0",
+		Version: version,
 	}, nil)
 
 	m := &MCPServer{

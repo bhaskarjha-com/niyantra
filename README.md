@@ -10,8 +10,7 @@
 
 > Local-first. Zero daemon by default. Full provenance on every data point. MIT licensed.
 
-<!-- TODO: Replace with actual dashboard screenshot or GIF after UI polish -->
-<!-- ![Dashboard](docs/screenshots/dashboard-dark.png) -->
+
 
 ---
 
@@ -33,7 +32,9 @@ curl -fsSL https://raw.githubusercontent.com/bhaskarjha-com/niyantra/main/instal
 
 ```powershell
 # Download and extract latest release
-Invoke-WebRequest -Uri "https://github.com/bhaskarjha-com/niyantra/releases/latest/download/niyantra_0.12.0_windows_amd64.zip" -OutFile "$env:TEMP\niyantra.zip"
+$release = (Invoke-RestMethod "https://api.github.com/repos/bhaskarjha-com/niyantra/releases/latest").tag_name -replace '^v',''
+$url = "https://github.com/bhaskarjha-com/niyantra/releases/latest/download/niyantra_${release}_windows_amd64.zip"
+Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\niyantra.zip"
 Expand-Archive -Path "$env:TEMP\niyantra.zip" -DestinationPath "$env:LOCALAPPDATA\niyantra" -Force
 # Add to PATH (run once)
 $p = [Environment]::GetEnvironmentVariable("Path","User"); if ($p -notlike "*niyantra*") { [Environment]::SetEnvironmentVariable("Path","$p;$env:LOCALAPPDATA\niyantra","User") }

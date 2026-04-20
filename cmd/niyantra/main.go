@@ -242,7 +242,7 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 
 	c := client.New(logger)
 
-	srv := web.NewServer(logger, db, c, port, auth)
+	srv := web.NewServer(logger, db, c, port, auth, version)
 	defer srv.Shutdown()
 
 	autoCapture := db.GetConfigBool("auto_capture")
@@ -306,7 +306,7 @@ func cmdMCP(logger *slog.Logger, dbPath string) {
 	defer s.Close()
 
 	t := tracker.New(s, logger)
-	srv := mcpserver.New(s, t, logger)
+	srv := mcpserver.New(s, t, logger, version)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

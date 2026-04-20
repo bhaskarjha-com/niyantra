@@ -1558,7 +1558,7 @@ function loadMode() {
     var aboutEl = document.getElementById('s-about-info');
     if (aboutEl) {
       var srcCount = (data.sources || []).filter(function(s) { return s.enabled; }).length;
-      aboutEl.textContent = 'Schema v3 · 26 presets · Mode: ' +
+      aboutEl.textContent = 'Schema v7 · 26 presets · Mode: ' +
         (data.mode === 'auto' ? 'Auto' : 'Manual') +
         (data.isPolling ? ' (polling)' : '') +
         ' · ' + srcCount + ' active source' + (srcCount !== 1 ? 's' : '');
@@ -2396,7 +2396,7 @@ function loadCodexSettingsStatus() {
       tokenStatus;
     if (data.snapshot) {
       statusEl.innerHTML += '<br>Latest: <strong>' + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) · ' +
-        '<span style="color:var(--text-muted)">' + timeAgo(new Date(data.snapshot.capturedAt)) + '</span>';
+        '<span style="color:var(--text-muted)">' + formatTimeAgo(data.snapshot.capturedAt) + '</span>';
     }
   })
   .catch(function() {
@@ -2477,7 +2477,7 @@ function renderCodexCard(container) {
       if (snap.creditsBalance !== null && snap.creditsBalance !== undefined) {
         html += '<span>Credits: <strong>' + snap.creditsBalance.toFixed(2) + '</strong></span>';
       }
-      html += '<span>Captured: ' + timeAgo(new Date(snap.capturedAt)) + '</span>';
+      html += '<span>Captured: ' + formatTimeAgo(snap.capturedAt) + '</span>';
       html += '<span class="codex-provenance">' + esc(snap.captureMethod) + '/' + esc(snap.captureSource) + '</span>';
       html += '</div>';
       html += '</div>';
@@ -2525,7 +2525,7 @@ function renderSessionsTimeline(container) {
       html += '<span class="session-duration">' + duration + '</span>';
       html += '</div>';
       html += '<div class="session-bottom">';
-      html += '<span class="session-time">' + timeAgo(new Date(sess.startedAt)) + '</span>';
+      html += '<span class="session-time">' + formatTimeAgo(sess.startedAt) + '</span>';
       html += '<span class="session-snaps">' + sess.snapCount + ' snaps</span>';
       if (isActive) html += '<span class="session-active-badge">LIVE</span>';
       html += '</div>';

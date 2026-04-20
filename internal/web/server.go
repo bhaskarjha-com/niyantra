@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -38,10 +37,11 @@ type Server struct {
 	port     int
 	auth     string // "user:pass" or ""
 	agentMgr *agent.Manager
+	Version  string // injected at startup (e.g. "0.12.0")
 }
 
 // NewServer creates a new Niyantra web server.
-func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, auth string) *Server {
+func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, auth string, version string) *Server {
 	srv := &Server{
 		logger:   logger,
 		store:    s,
@@ -51,6 +51,7 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		port:     port,
 		auth:     auth,
 		agentMgr: agent.NewManager(logger),
+		Version:  version,
 	}
 
 	// Configure notification engine from stored settings
@@ -667,15 +668,6 @@ func (s *Server) onConfigChanged(key, value string) {
 	}
 }
 
-// dbSize returns the database file size in bytes, or -1 on error.
-func (s *Server) dbSize() int64 {
-	info, err := os.Stat(s.store.Path())
-	if err != nil {
-		return -1
-	}
-	return info.Size()
-}
-
 // ── Phase 10 Handlers ────────────────────────────────────────────
 
 // handleExportJSON exports all data as a JSON file for full portability.
@@ -688,7 +680,7 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	export := map[string]interface{}{
 		"version":        "1.0",
 		"exportedAt":     time.Now().UTC().Format(time.RFC3339),
-		"niyantraVersion": "1.0.0",
+		"niyantraVersion": s.Version,
 	}
 
 	// Accounts
@@ -808,9 +800,6 @@ func (s *Server) handleAdvisor(w http.ResponseWriter, r *http.Request) {
 	rec := advisor.Recommend(snapshots, summariesByAccount)
 	writeJSON(w, rec)
 }
-
-// _ ensures imports are used
-var _ = filepath.Base
 
 // ── Phase 11 Handlers ────────────────────────────────────────────
 
