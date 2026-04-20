@@ -515,7 +515,7 @@ func cmdDemo(logger *slog.Logger, dbPath string) {
 	}
 	subs := []demoSub{
 		{"Antigravity", "coding", "Pro", "active", "alex.chen@company.com", "monthly", "USD", 15.00,
-			"https://windsurf.com/account", "https://status.codeium.com"},
+			"https://antigravity.google", "https://statusgator.com/services/google-antigravity"},
 		{"Claude", "coding", "Pro", "active", "alex.personal@gmail.com", "monthly", "USD", 20.00,
 			"https://console.anthropic.com", "https://status.anthropic.com"},
 		{"ChatGPT", "chat", "Plus", "active", "alex.personal@gmail.com", "monthly", "USD", 20.00,
@@ -535,7 +535,7 @@ func cmdDemo(logger *slog.Logger, dbPath string) {
 			Status:        s.status,
 			CostAmount:    s.cost,
 			CostCurrency:  s.currency,
-			BillingCycle:   s.cycle,
+			BillingCycle:  s.cycle,
 			Email:         s.email,
 			NextRenewal:   renewal.Format("2006-01-02"),
 			URL:           s.dashURL,

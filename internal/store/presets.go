@@ -23,14 +23,14 @@ var Presets = []Preset{
 		Platform: "Antigravity Pro", Category: "coding",
 		Cost: 15, Cycle: "monthly",
 		Notes:         "5h sprint cycle quotas. AI Credits can be enabled in Settings > Models for overage. Multiple model pools: Claude+GPT, Gemini Pro, Gemini Flash.",
-		URL:           "https://windsurf.com",
+		URL:           "https://antigravity.google",
 		StatusPageURL: "https://status.google.com",
 	},
 	{
 		Platform: "Antigravity Pro+", Category: "coding",
 		Cost: 60, Cycle: "monthly",
 		Notes:         "Higher quotas than Pro. 5h sprint cycles. AI Credits for overage via Google One.",
-		URL:           "https://windsurf.com",
+		URL:           "https://antigravity.google",
 		StatusPageURL: "https://status.google.com",
 	},
 	{

@@ -265,7 +265,7 @@ func (a *PollingAgent) autoLink(snap client.Snapshot, accountID int64) {
 		BillingCycle: "monthly",
 		LimitPeriod:  "rolling_5h",
 		Notes:        "Auto-created from auto-capture. 5h sprint cycle quotas.",
-		URL:          "https://windsurf.com",
+		URL:          "https://antigravity.google",
 		StatusPageURL: "https://status.google.com",
 		AutoTracked:  true,
 		AccountID:    accountID,

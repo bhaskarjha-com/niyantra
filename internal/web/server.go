@@ -251,7 +251,7 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 			BillingCycle:  "monthly",
 			LimitPeriod:   "rolling_5h",
 			Notes:         "Auto-created from quota snapshot. 5h sprint cycle quotas.",
-			URL:           "https://windsurf.com",
+			URL:           "https://antigravity.google",
 			StatusPageURL: "https://status.google.com",
 			AutoTracked:   true,
 			AccountID:     accountID,
@@ -283,13 +283,13 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 	accounts := readiness.Calculate(snapshots, 0.0)
 
 	writeJSON(w, map[string]interface{}{
-		"message":      "snapshot captured",
-		"email":        snap.Email,
-		"planName":     snap.PlanName,
-		"snapshotId":   snapID,
-		"accountId":    accountID,
-		"accounts":     accounts,
-		"accountCount": s.store.AccountCount(),
+		"message":       "snapshot captured",
+		"email":         snap.Email,
+		"planName":      snap.PlanName,
+		"snapshotId":    snapID,
+		"accountId":     accountID,
+		"accounts":      accounts,
+		"accountCount":  s.store.AccountCount(),
 		"snapshotCount": s.store.SnapshotCount(),
 	})
 }
@@ -323,14 +323,14 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 
 	// Convert snapshots to API format with groups
 	type snapResponse struct {
-		ID            int64                `json:"id"`
-		AccountID     int64                `json:"accountId"`
-		Email         string               `json:"email"`
-		CapturedAt    time.Time            `json:"capturedAt"`
-		PlanName      string               `json:"planName"`
+		ID            int64                 `json:"id"`
+		AccountID     int64                 `json:"accountId"`
+		Email         string                `json:"email"`
+		CapturedAt    time.Time             `json:"capturedAt"`
+		PlanName      string                `json:"planName"`
 		Groups        []client.GroupedQuota `json:"groups"`
-		CaptureMethod string               `json:"captureMethod"`
-		CaptureSource string               `json:"captureSource"`
+		CaptureMethod string                `json:"captureMethod"`
+		CaptureSource string                `json:"captureSource"`
 	}
 
 	var items []snapResponse
@@ -678,8 +678,8 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	export := map[string]interface{}{
-		"version":        "1.0",
-		"exportedAt":     time.Now().UTC().Format(time.RFC3339),
+		"version":         "1.0",
+		"exportedAt":      time.Now().UTC().Format(time.RFC3339),
 		"niyantraVersion": s.Version,
 	}
 
@@ -877,12 +877,12 @@ func (s *Server) handleCodexSnap(w http.ResponseWriter, r *http.Request) {
 
 	// Build and store snapshot
 	snap := &store.CodexSnapshot{
-		AccountID:     creds.AccountID,
-		FiveHourPct:   0,
-		PlanType:      usage.PlanType,
+		AccountID:      creds.AccountID,
+		FiveHourPct:    0,
+		PlanType:       usage.PlanType,
 		CreditsBalance: usage.CreditsBalance,
-		CaptureMethod: "manual",
-		CaptureSource: "ui",
+		CaptureMethod:  "manual",
+		CaptureSource:  "ui",
 	}
 
 	for _, q := range usage.Quotas {
@@ -1133,7 +1133,7 @@ func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		s.store.LogInfo("ui", "snapshots_cleared", "", map[string]interface{}{
-			"accountId":       accountID,
+			"accountId":        accountID,
 			"snapshotsDeleted": deleted,
 		})
 
