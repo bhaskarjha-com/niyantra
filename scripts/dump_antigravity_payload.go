@@ -16,7 +16,7 @@ import (
 )
 
 func main() {
-	fmt.Println("🔍 Locating Niyantra database...")
+	fmt.Println("Locating Niyantra database...")
 	userProfile := os.Getenv("USERPROFILE")
 	if userProfile == "" {
 		userProfile = os.Getenv("HOME")
@@ -24,13 +24,13 @@ func main() {
 	
 	dbPath := filepath.Join(userProfile, ".niyantra", "niyantra.db")
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		fmt.Printf("❌ Database not found at %s. Please run 'niyantra snap' first.\n", dbPath)
+		fmt.Printf("Error: Database not found at %s. Please run 'niyantra snap' first.\n", dbPath)
 		os.Exit(1)
 	}
 
 	db, err := store.Open(dbPath)
 	if err != nil {
-		fmt.Printf("❌ Failed to open database: %v\n", err)
+		fmt.Printf("Error: Failed to open database: %v\n", err)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -38,12 +38,12 @@ func main() {
 	// Use LatestPerAccount (or History) to retrieve records
 	snaps, err := db.LatestPerAccount()
 	if err != nil {
-		fmt.Printf("❌ Failed to query database: %v\n", err)
+		fmt.Printf("Error: Failed to query database: %v\n", err)
 		os.Exit(1)
 	}
 
 	if len(snaps) == 0 {
-		fmt.Println("❌ No snapshots found in database.")
+		fmt.Println("Error: No snapshots found in database.")
 		os.Exit(1)
 	}
 
@@ -56,33 +56,31 @@ func main() {
 	}
 
 	if latest == nil || latest.RawJSON == "" {
-		fmt.Println("❌ No raw JSON data available in the latest snapshot.")
+		fmt.Println("Error: No raw JSON data available in the latest snapshot.")
 		// Wait, we can explain why:
 		fmt.Println("Note: Only snapshots captured from this point onwards will contain unmarshalled Raw JSON strings.")
 		fmt.Println("Run 'niyantra snap' to generate a fresh raw snapshot.")
 		os.Exit(1)
 	}
 
-	// Format pretty JSON
 	var out bytes.Buffer
 	err = json.Indent(&out, []byte(latest.RawJSON), "", "  ")
 	if err != nil {
-		fmt.Printf("❌ Failed to format JSON: %v\n", err)
+		fmt.Printf("Error: Failed to format JSON: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("\n=======================================================\n")
-	fmt.Printf(" ✅ Raw JSON For %s\n", latest.Email)
-	fmt.Printf(" 📍 Captured At: %s (%s)\n", latest.CapturedAt.Format(time.RFC1123), latest.CaptureMethod)
+	fmt.Printf("Raw JSON For %s\n", latest.Email)
+	fmt.Printf("Captured At: %s (%s)\n", latest.CapturedAt.Format(time.RFC1123), latest.CaptureMethod)
 	fmt.Printf("=======================================================\n\n")
 
 	filename := "antigravity_payload_dump.json"
 	err = os.WriteFile(filename, out.Bytes(), 0644)
 	if err != nil {
-		fmt.Printf("❌ Failed to save JSON to file: %v\n", err)
+		fmt.Printf("Error: Failed to save JSON to file: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("💾 Payload successfully saved to: %s\n", filename)
-	fmt.Printf("\n[Finished - Dump complete]\n")
+	fmt.Printf("Payload successfully saved to: %s\n", filename)
 }

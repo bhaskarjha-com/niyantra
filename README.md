@@ -201,7 +201,7 @@ Yes! Niyantra's subscription manager, budget tracking, and renewal calendar work
 
 ### "Is my data sent anywhere?"
 
-No. Niyantra makes exactly **one HTTP call** per `snap` -- to `127.0.0.1` (your local language server). No cloud APIs, no telemetry, no analytics. See [SECURITY.md](docs/SECURITY.md) for the full threat model.
+No. By default, Niyantra makes HTTP calls purely locally to `127.0.0.1` (your local Antigravity Language Server). There is no telemetry or analytics. **Note:** If you explicitly enable the optional *Codex Capture* feature, your local credentials will securely query OpenAI's authorization servers to monitor external quota balances. For detailed behavior, see [SECURITY.md](docs/SECURITY.md) for the full threat model.
 
 ### "How do I update?"
 

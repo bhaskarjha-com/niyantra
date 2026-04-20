@@ -458,13 +458,13 @@ The restore command validates the schema before replacing your database.
 - Snapshots are matched by account + timestamp
 - Existing data is never overwritten or deleted
 
-### Raw API Payload Extraction
+### API Payload Extraction
 
-To natively dump the deep, unmarshalled `RawJSON` buffers returned straight from Antigravity's Language Server, you can extract the exact unmapped dictionary directly down from the SQLite databases:
+To view the raw JSON data returned from the Antigravity Language Server, use the payload extraction script:
 ```bash
 go run scripts/dump_antigravity_payload.go
 ```
-This script dynamically parses the latest account snapshots and securely buffers the payload into a beautifully formatted `antigravity_payload_dump.json` directly within the repository root structure without throwing it indiscriminately onto stdout formats.
+This will extract the most recent unmarshalled data from the database and save it to `antigravity_payload_dump.json` in the current directory.
 
 ### Clear Snapshots
 

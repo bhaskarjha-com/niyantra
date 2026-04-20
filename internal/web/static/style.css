@@ -6,45 +6,51 @@
 [hidden] { display: none !important; }
 
 :root {
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --bg: #0a0e17;
-  --bg-card: #111827;
-  --bg-card-hover: #1a2332;
-  --bg-elevated: #1e293b;
-  --border: #1e293b;
-  --border-hover: #334155;
-  --text: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --font: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --bg-gradient-start: #0a0e17;
+  --bg-gradient-end: #0f1423;
+  --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  --bg-card: rgba(17, 24, 39, 0.45);
+  --bg-card-hover: rgba(26, 35, 50, 0.65);
+  --bg-elevated: rgba(30, 41, 59, 0.55);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --text: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
   --accent: #38bdf8;
-  --accent-glow: rgba(56, 189, 248, 0.15);
+  --accent-glow: rgba(56, 189, 248, 0.2);
   --green: #34d399;
-  --green-bg: rgba(52, 211, 153, 0.12);
+  --green-bg: rgba(52, 211, 153, 0.15);
   --amber: #fbbf24;
-  --amber-bg: rgba(251, 191, 36, 0.12);
+  --amber-bg: rgba(251, 191, 36, 0.15);
   --red: #f87171;
-  --red-bg: rgba(248, 113, 113, 0.12);
-  --purple: #a78bfa;
-  --purple-bg: rgba(167, 139, 250, 0.12);
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --transition: 200ms ease;
+  --red-bg: rgba(248, 113, 113, 0.15);
+  --purple: #c084fc;
+  --purple-bg: rgba(192, 132, 252, 0.15);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --backdrop-blur: blur(12px);
+  --transition: 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 [data-theme="light"] {
-  --bg: #f8fafc;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f1f5f9;
-  --bg-elevated: #f1f5f9;
-  --border: #e2e8f0;
-  --border-hover: #cbd5e1;
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: #e2e8f0;
+  --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  --bg-card: rgba(255, 255, 255, 0.6);
+  --bg-card-hover: rgba(255, 255, 255, 0.85);
+  --bg-elevated: rgba(241, 245, 249, 0.7);
+  --border: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.12);
   --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   --accent: #0284c7;
-  --accent-glow: rgba(2, 132, 199, 0.08);
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --accent-glow: rgba(2, 132, 199, 0.12);
+  --shadow: 0 8px 32px rgba(3, 7, 18, 0.06);
+  --backdrop-blur: blur(16px);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -237,6 +243,8 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .grid-header {
@@ -280,9 +288,11 @@ body {
   font-family: var(--font);
   font-size: 13px;
   transition: all var(--transition);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 .search-input:hover { border-color: var(--border-hover); }
-.search-input:focus { border-color: var(--accent); outline: none; background: var(--bg-card); }
+.search-input:focus { border-color: var(--accent); outline: none; background: var(--bg-card); box-shadow: 0 0 0 2px var(--accent-glow); }
 .search-input::placeholder { color: var(--text-muted); }
 
 .quota-filters {
@@ -580,11 +590,14 @@ body {
   padding: 16px 20px;
   transition: all var(--transition);
   position: relative;
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .sub-card:hover {
   border-color: var(--border-hover);
   box-shadow: var(--shadow);
+  transform: translateY(-2px);
 }
 
 .sub-card-header {
@@ -787,6 +800,13 @@ body {
   border-radius: var(--radius);
   padding: 20px;
   box-shadow: var(--shadow);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.overview-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
 }
 
 .overview-card.full-width {
