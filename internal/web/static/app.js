@@ -618,7 +618,15 @@ function renderSubCard(sub) {
     ? '<div class="sub-card-meta">' + metaParts.join(' · ') + '</div>'
     : '';
 
-  return '<div class="sub-card" data-sub-id="' + sub.id + '">' +
+  // M1: Generate a unique accent color from platform+email for visual differentiation
+  var colorSeed = (sub.platform || '') + (sub.email || '') + sub.id;
+  var hue = 0;
+  for (var ci = 0; ci < colorSeed.length; ci++) {
+    hue = (hue + colorSeed.charCodeAt(ci) * 31) % 360;
+  }
+  var accentStyle = 'border-left: 3px solid hsl(' + hue + ', 60%, 55%)';
+
+  return '<div class="sub-card" data-sub-id="' + sub.id + '" style="' + accentStyle + '">' +
     '<div class="sub-card-header">' +
     '<div class="sub-card-title">' + esc(sub.platform) + '</div>' +
     '<div class="sub-card-badges">' + trialHTML + badgesHTML + '</div>' +
