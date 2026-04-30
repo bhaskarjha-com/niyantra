@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -100,7 +101,7 @@ func (s *Server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createSubscription(w http.ResponseWriter, r *http.Request) {
 	var sub store.Subscription
-	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&sub); err != nil {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -157,7 +158,7 @@ func (s *Server) getSubscription(w http.ResponseWriter, id int64) {
 
 func (s *Server) updateSubscription(w http.ResponseWriter, r *http.Request, id int64) {
 	var sub store.Subscription
-	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&sub); err != nil {
 		jsonError(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}

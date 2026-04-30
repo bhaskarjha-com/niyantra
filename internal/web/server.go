@@ -161,11 +161,12 @@ func (s *Server) ListenAndServe() error {
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
 	var handler http.Handler = mux
+	handler = s.securityMiddleware(handler)
 	if s.auth != "" {
-		handler = s.basicAuth(mux)
+		handler = s.basicAuth(handler)
 	}
 
-	addr := fmt.Sprintf(":%d", s.port)
+	addr := fmt.Sprintf("127.0.0.1:%d", s.port)
 	return http.ListenAndServe(addr, handler)
 }
 
@@ -369,7 +370,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			Key   string `json:"key"`
 			Value string `json:"value"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 			jsonError(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
@@ -542,6 +543,43 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityMiddleware enforces CORS and Content-Type policies.
+func (s *Server) securityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// CORS: only allow localhost origin matching our port
+		allowedOrigin := fmt.Sprintf("http://localhost:%d", s.port)
+		allowedOrigin2 := fmt.Sprintf("http://127.0.0.1:%d", s.port)
+		origin := r.Header.Get("Origin")
+		if origin == allowedOrigin || origin == allowedOrigin2 {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		}
+
+		// Handle preflight
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		// Enforce Content-Type: application/json on mutation endpoints
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				ct := r.Header.Get("Content-Type")
+				// Allow empty content-type for DELETE and requests with no body
+				if ct != "" && !strings.HasPrefix(ct, "application/json") {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnsupportedMediaType)
+					json.NewEncoder(w).Encode(map[string]string{"error": "Content-Type must be application/json"})
+					return
+				}
+			}
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -756,7 +794,7 @@ func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID int64 `json:"id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 		jsonError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
@@ -997,7 +1035,7 @@ func (s *Server) handleUsageLogs(w http.ResponseWriter, r *http.Request) {
 			UsageUnit      string  `json:"usageUnit"`
 			Notes          string  `json:"notes"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 			jsonError(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
