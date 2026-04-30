@@ -114,7 +114,7 @@ func (s *Store) SnapshotCount() int {
 }
 
 // DeleteSnapshotsOlderThan removes snapshots older than the given number of days.
-// Also cleans up old Claude snapshots with the same retention policy.
+// Also cleans up old Claude and Codex snapshots with the same retention policy.
 // Returns the total number of deleted rows.
 func (s *Store) DeleteSnapshotsOlderThan(days int) (int64, error) {
 	cutoff := fmt.Sprintf("-%d days", days)
@@ -134,6 +134,15 @@ func (s *Store) DeleteSnapshotsOlderThan(days int) (int64, error) {
 	if err == nil {
 		d2, _ := result2.RowsAffected()
 		deleted += d2
+	}
+
+	// N13: Also clean up old Codex snapshots (previously unbounded)
+	result3, err := s.db.Exec(
+		`DELETE FROM codex_snapshots WHERE captured_at < datetime('now', ?)`, cutoff,
+	)
+	if err == nil {
+		d3, _ := result3.RowsAffected()
+		deleted += d3
 	}
 
 	return deleted, nil

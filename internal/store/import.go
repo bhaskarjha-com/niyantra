@@ -63,8 +63,9 @@ func (s *Store) ImportJSON(data []byte) (*ImportResult, error) {
 		return nil, fmt.Errorf("import: invalid JSON: %w", err)
 	}
 
-	if envelope.Version != "" && envelope.Version != "niyantra-export-v1" {
-		return nil, fmt.Errorf("import: unsupported export version %q (expected niyantra-export-v1)", envelope.Version)
+	// N11: Accept both "1.0" (from our export) and "niyantra-export-v1" (legacy)
+	if envelope.Version != "" && envelope.Version != "1.0" && envelope.Version != "niyantra-export-v1" {
+		return nil, fmt.Errorf("import: unsupported export version %q (expected 1.0 or niyantra-export-v1)", envelope.Version)
 	}
 
 	// ── Import accounts (dedup by email) ──
