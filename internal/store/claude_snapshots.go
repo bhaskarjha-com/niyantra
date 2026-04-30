@@ -17,18 +17,29 @@ type ClaudeSnapshot struct {
 }
 
 // InsertClaudeSnapshot stores a Claude Code rate limit snapshot.
+// M10: Accepts capturedAt parameter for accurate timestamps (nil = now).
 func (s *Store) InsertClaudeSnapshot(fiveHourPct float64, sevenDayPct *float64,
-	fiveHourReset, sevenDayReset *time.Time, source string) (int64, error) {
+	fiveHourReset, sevenDayReset *time.Time, source string, capturedAt *time.Time) (int64, error) {
 
 	if source == "" {
 		source = "statusline"
 	}
 
-	result, err := s.db.Exec(`
-		INSERT INTO claude_snapshots (five_hour_pct, seven_day_pct, five_hour_reset, seven_day_reset, source)
-		VALUES (?, ?, ?, ?, ?)`,
-		fiveHourPct, sevenDayPct, fiveHourReset, sevenDayReset, source,
-	)
+	var result sql.Result
+	var err error
+	if capturedAt != nil {
+		result, err = s.db.Exec(`
+			INSERT INTO claude_snapshots (five_hour_pct, seven_day_pct, five_hour_reset, seven_day_reset, source, captured_at)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			fiveHourPct, sevenDayPct, fiveHourReset, sevenDayReset, source, *capturedAt,
+		)
+	} else {
+		result, err = s.db.Exec(`
+			INSERT INTO claude_snapshots (five_hour_pct, seven_day_pct, five_hour_reset, seven_day_reset, source)
+			VALUES (?, ?, ?, ?, ?)`,
+			fiveHourPct, sevenDayPct, fiveHourReset, sevenDayReset, source,
+		)
+	}
 	if err != nil {
 		return 0, err
 	}

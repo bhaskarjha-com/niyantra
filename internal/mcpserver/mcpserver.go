@@ -394,7 +394,7 @@ func (m *MCPServer) handleUsageIntelligence(_ context.Context, _ *mcp.CallToolRe
 			}
 			out.Models = append(out.Models, mi)
 		}
-		break // Use first account
+		// N2: Search ALL accounts, not just first
 	}
 
 	if len(out.Models) == 0 {
@@ -488,7 +488,7 @@ func (m *MCPServer) handleBestModel(_ context.Context, _ *mcp.CallToolRequest, i
 			}
 			candidates = append(candidates, c)
 		}
-		break // First account
+		// N2: Search ALL accounts, not just first
 	}
 
 	if len(candidates) == 0 {

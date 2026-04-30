@@ -335,7 +335,7 @@ func (a *PollingAgent) pollClaudeBridge() {
 		}
 	}
 
-	if _, err := a.store.InsertClaudeSnapshot(fiveHourPct, sevenDayPct, fiveReset, sevenReset, "statusline"); err != nil {
+	if _, err := a.store.InsertClaudeSnapshot(fiveHourPct, sevenDayPct, fiveReset, sevenReset, "statusline", nil); err != nil {
 		a.logger.Error("Failed to store Claude Code snapshot", "error", err)
 		return
 	}
