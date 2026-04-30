@@ -373,13 +373,13 @@ func (s *Store) GenerateInsights() ([]Insight, error) {
 			continue
 		}
 		savingsSeen[sub.Platform] = true
-		annualSaving := m * 12 * 0.17
+		annualSaving := m * 12 * 0.17 // typical SaaS annual discount
 		insights = append(insights, Insight{
 			Type:     "annual_savings",
 			Severity: "info",
 			Icon:     "💰",
 			Title:    "Annual Billing Saves Money",
-			Message:  fmt.Sprintf("Switching %s to annual billing could save ~%s %.0f/year", sub.Platform, currency, annualSaving),
+			Message:  fmt.Sprintf("Switching %s to annual billing typically saves ~%s %.0f/year (~17%% discount)", sub.Platform, currency, annualSaving),
 			Platform: sub.Platform,
 			SubID:    sub.ID,
 		})

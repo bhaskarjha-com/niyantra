@@ -306,6 +306,7 @@ func cmdMCP(logger *slog.Logger, dbPath string) {
 	defer s.Close()
 
 	t := tracker.New(s, logger)
+	t.LoadBaseline()
 	srv := mcpserver.New(s, t, logger, version)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)

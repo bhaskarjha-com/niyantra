@@ -228,9 +228,11 @@ func WriteCredentials(accessToken, refreshToken, idToken string) error {
 		}
 	}
 
-	// Backup before modifying
+	// S5: Backup before modifying — abort if backup fails to avoid data loss
 	if len(data) > 2 {
-		_ = os.WriteFile(authPath+".bak", data, 0600)
+		if err := os.WriteFile(authPath+".bak", data, 0600); err != nil {
+			return fmt.Errorf("codex: backup auth file before modification: %w", err)
+		}
 	}
 
 	var rawAuth map[string]interface{}

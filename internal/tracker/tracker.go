@@ -36,6 +36,39 @@ func New(store *store.Store, logger *slog.Logger) *Tracker {
 	}
 }
 
+// LoadBaseline seeds the tracker's in-memory state from the latest snapshots
+// per account in the database. This prevents orphaned cycles after restart (N5).
+func (t *Tracker) LoadBaseline() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	snapshots, err := t.store.LatestPerAccount()
+	if err != nil {
+		t.logger.Warn("Tracker: failed to load baseline from DB", "error", err)
+		return
+	}
+
+	count := 0
+	for _, snap := range snapshots {
+		if snap == nil {
+			continue
+		}
+		for _, m := range snap.Models {
+			key := fmt.Sprintf("%d:%s", snap.AccountID, m.ModelID)
+			t.lastFractions[key] = m.RemainingFraction
+			if m.ResetTime != nil {
+				t.lastResetTimes[key] = *m.ResetTime
+			}
+			count++
+		}
+	}
+
+	if count > 0 {
+		t.hasBaseline = true
+		t.logger.Info("Tracker: loaded baseline from DB", "models", count, "accounts", len(snapshots))
+	}
+}
+
 // SetOnReset registers a callback invoked when a model reset is detected.
 func (t *Tracker) SetOnReset(fn func(string)) {
 	t.onReset = fn

@@ -837,6 +837,7 @@ function formatSeconds(seconds) {
   var m = Math.floor((seconds % 3600) / 60);
   if (h >= 24) return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
   if (h > 0) return h + 'h ' + m + 'm';
+  if (m === 0) return '<1m';
   return m + 'm';
 }
 
@@ -860,7 +861,8 @@ function esc(s) {
   if (!s) return '';
   var d = document.createElement('div');
   d.textContent = s;
-  return d.innerHTML;
+  // Also escape quotes for safe use in HTML attributes (M11)
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function showToast(msg, type) {
@@ -1230,7 +1232,7 @@ function generateInsights(stats, renewals, subs) {
   // Annual savings potential
   if (stats.totalMonthlySpend > 100) {
     var annualSavings = stats.totalMonthlySpend * 12 * 0.17; // ~17% saved on annual billing
-    chips.push({ icon: '💡', text: 'Could save ~$' + annualSavings.toFixed(0) + '/yr by switching to annual billing', cls: 'good' });
+    chips.push({ icon: '💡', text: 'Could save ~$' + annualSavings.toFixed(0) + '/yr by switching monthly plans to annual (typical ~17% discount)', cls: 'good' });
   }
 
   return chips;

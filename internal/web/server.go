@@ -46,7 +46,7 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		logger:   logger,
 		store:    s,
 		client:   c,
-		tracker:  tracker.New(s, logger),
+		tracker:  newTrackerWithBaseline(s, logger),
 		notifier: notify.NewEngine(logger),
 		port:     port,
 		auth:     auth,
@@ -73,6 +73,13 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 	}
 
 	return srv
+}
+
+// newTrackerWithBaseline creates a tracker and seeds it from the latest DB snapshots (N5).
+func newTrackerWithBaseline(s *store.Store, logger *slog.Logger) *tracker.Tracker {
+	t := tracker.New(s, logger)
+	t.LoadBaseline()
+	return t
 }
 
 // startPollingAgent creates and starts the auto-capture polling agent.
@@ -504,8 +511,10 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 		"budgetForecast": nil,
 	}
 
-	// Get latest snapshot for the account
+	// Get latest snapshot(s) for the account(s)
+	// N3b: When no account filter is specified, aggregate across all accounts
 	snapshots, _ := s.store.LatestPerAccount()
+	var allModels []interface{}
 	for _, snap := range snapshots {
 		if accountID > 0 && snap.AccountID != accountID {
 			continue
@@ -517,10 +526,20 @@ func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 				s.logger.Warn("usage summary error", "error", err)
 			}
 			if summaries != nil {
-				result["models"] = summaries
+				if accountID > 0 {
+					// Single account filter — return directly
+					result["models"] = summaries
+					break
+				}
+				// Aggregate across all accounts
+				for _, s := range summaries {
+					allModels = append(allModels, s)
+				}
 			}
 		}
-		break // Use the first matching account
+	}
+	if accountID == 0 && len(allModels) > 0 {
+		result["models"] = allModels
 	}
 
 	// Budget forecast
