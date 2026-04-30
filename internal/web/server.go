@@ -240,35 +240,38 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 	s.store.UpdateSourceCapture("antigravity")
 
 	// Auto-link: create a subscription record if one doesn't exist for this account
-	existing, _ := s.store.FindSubscriptionByAccountID(accountID)
-	if existing == nil {
-		autoSub := &store.Subscription{
-			Platform:      "Antigravity",
-			Category:      "coding",
-			Email:         snap.Email,
-			PlanName:      snap.PlanName,
-			Status:        "active",
-			CostCurrency:  "USD",
-			BillingCycle:  "monthly",
-			LimitPeriod:   "rolling_5h",
-			Notes:         "Auto-created from quota snapshot. 5h sprint cycle quotas.",
-			URL:           "https://antigravity.google",
-			StatusPageURL: "https://status.google.com",
-			AutoTracked:   true,
-			AccountID:     accountID,
-		}
-		// Set cost based on plan name heuristic
-		switch {
-		case strings.Contains(strings.ToLower(snap.PlanName), "pro+"),
-			strings.Contains(strings.ToLower(snap.PlanName), "ultimate"):
-			autoSub.CostAmount = 60
-		default:
-			autoSub.CostAmount = 15
-		}
-		if _, err := s.store.InsertSubscription(autoSub); err != nil {
-			s.logger.Warn("auto-link subscription failed", "error", err, "email", snap.Email)
-		} else {
-			s.logger.Info("auto-linked subscription", "email", snap.Email, "plan", snap.PlanName)
+	// Respects auto_link_subs config toggle (S2: was previously ignoring it)
+	if s.store.GetConfig("auto_link_subs") != "false" {
+		existing, _ := s.store.FindSubscriptionByAccountID(accountID)
+		if existing == nil {
+			autoSub := &store.Subscription{
+				Platform:      "Antigravity",
+				Category:      "coding",
+				Email:         snap.Email,
+				PlanName:      snap.PlanName,
+				Status:        "active",
+				CostCurrency:  "USD",
+				BillingCycle:  "monthly",
+				LimitPeriod:   "rolling_5h",
+				Notes:         "Auto-created from quota snapshot. 5h sprint cycle quotas.",
+				URL:           "https://antigravity.google",
+				StatusPageURL: "https://status.google.com",
+				AutoTracked:   true,
+				AccountID:     accountID,
+			}
+			// Set cost based on plan name heuristic
+			switch {
+			case strings.Contains(strings.ToLower(snap.PlanName), "pro+"),
+				strings.Contains(strings.ToLower(snap.PlanName), "ultimate"):
+				autoSub.CostAmount = 60
+			default:
+				autoSub.CostAmount = 15
+			}
+			if _, err := s.store.InsertSubscription(autoSub); err != nil {
+				s.logger.Warn("auto-link subscription failed", "error", err, "email", snap.Email)
+			} else {
+				s.logger.Info("auto-linked subscription", "email", snap.Email, "plan", snap.PlanName)
+			}
 		}
 	}
 

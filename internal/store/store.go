@@ -5,10 +5,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "modernc.org/sqlite"
 )
 
+// isColumnExistsError returns true if the error is a SQLite "duplicate column"
+// error, which is expected when ALTER TABLE ADD COLUMN runs on a column that
+// was already added in a previous migration run.
+func isColumnExistsError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "duplicate column")
+}
 // Store provides SQLite-backed persistence for Niyantra.
 type Store struct {
 	db   *sql.DB
@@ -203,9 +210,22 @@ func (s *Store) migrate() error {
 		}
 
 		// Add provenance columns to snapshots (ALTER TABLE is separate — can't be in multi-statement)
-		s.db.Exec(`ALTER TABLE snapshots ADD COLUMN capture_method TEXT NOT NULL DEFAULT 'manual'`)
-		s.db.Exec(`ALTER TABLE snapshots ADD COLUMN capture_source TEXT NOT NULL DEFAULT 'cli'`)
-		s.db.Exec(`ALTER TABLE snapshots ADD COLUMN source_id TEXT NOT NULL DEFAULT 'antigravity'`)
+		// S4: Log errors instead of swallowing them (duplicate column errors are expected on re-run)
+		if _, err := s.db.Exec(`ALTER TABLE snapshots ADD COLUMN capture_method TEXT NOT NULL DEFAULT 'manual'`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter snapshots (capture_method): %w", err)
+			}
+		}
+		if _, err := s.db.Exec(`ALTER TABLE snapshots ADD COLUMN capture_source TEXT NOT NULL DEFAULT 'cli'`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter snapshots (capture_source): %w", err)
+			}
+		}
+		if _, err := s.db.Exec(`ALTER TABLE snapshots ADD COLUMN source_id TEXT NOT NULL DEFAULT 'antigravity'`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter snapshots (source_id): %w", err)
+			}
+		}
 
 		s.setUserVersion(3)
 	}
@@ -357,7 +377,11 @@ func (s *Store) migrate() error {
 
 	// ── v8: AI Credits tracking ──────────────────────────────────────
 	if s.getUserVersion() < 8 {
-		s.db.Exec(`ALTER TABLE snapshots ADD COLUMN ai_credits_json TEXT DEFAULT ''`)
+		if _, err := s.db.Exec(`ALTER TABLE snapshots ADD COLUMN ai_credits_json TEXT DEFAULT ''`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter snapshots (ai_credits_json): %w", err)
+			}
+		}
 		s.setUserVersion(8)
 	}
 
