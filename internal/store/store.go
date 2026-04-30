@@ -402,3 +402,13 @@ func (s *Store) SchemaVersion() int {
 func (s *Store) setUserVersion(v int) {
 	s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", v))
 }
+
+// VacuumInto creates a consistent backup of the database at destPath.
+// Uses VACUUM INTO which is WAL-safe and won't be corrupted by concurrent writes.
+func (s *Store) VacuumInto(destPath string) error {
+	_, err := s.db.Exec("VACUUM INTO ?", destPath)
+	if err != nil {
+		return fmt.Errorf("store: vacuum into %s: %w", destPath, err)
+	}
+	return nil
+}

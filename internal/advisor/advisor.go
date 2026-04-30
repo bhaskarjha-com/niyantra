@@ -126,14 +126,20 @@ func Recommend(snapshots []*client.Snapshot, summariesByAccount map[int64][]*tra
 		return rec
 	}
 
-	// Check if a switch is warranted (best scores significantly higher)
+	// S1: Instead of assuming scores[0] is the "current" account (order is by
+	// readiness, not recency), compare best against the worst alternative.
+	// If the best is significantly better than the worst, recommend a switch.
 	if len(rec.Alternatives) > 0 {
-		// Find the "current" account — assume it's the first snapshot (most recently used)
-		currentScore := scores[0].Score
-		if best.Score-currentScore >= switchThreshold && bestIdx != 0 {
+		worstAlt := rec.Alternatives[0]
+		for _, alt := range rec.Alternatives {
+			if alt.Score < worstAlt.Score {
+				worstAlt = alt
+			}
+		}
+		if best.Score-worstAlt.Score >= switchThreshold {
 			rec.Action = "switch"
-			rec.Reason = fmt.Sprintf("Switch to %s (%.0f%% remaining, score %.0f). Current account %s scores %.0f.",
-				best.Email, best.RemainingPct, best.Score, scores[0].Email, currentScore)
+			rec.Reason = fmt.Sprintf("Switch to %s (%.0f%% remaining, score %.0f). %s scores %.0f.",
+				best.Email, best.RemainingPct, best.Score, worstAlt.Email, worstAlt.Score)
 		} else {
 			rec.Action = "stay"
 			rec.Reason = fmt.Sprintf("Best account is %s with %.0f%% remaining (score %.0f). No significant advantage in switching.",

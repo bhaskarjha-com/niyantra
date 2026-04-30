@@ -640,24 +640,33 @@ func (s *Server) handleClaudeStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
-// handleBackup serves the database file as a download.
+// handleBackup serves a consistent database backup as a download.
+// Uses VACUUM INTO for WAL-safe snapshot instead of raw file copy.
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	dbPath := s.store.Path()
-	f, err := os.Open(dbPath)
+	// Create temp file for VACUUM INTO
+	backupPath := s.store.Path() + ".backup-" + time.Now().Format("20060102-150405")
+	if err := s.store.VacuumInto(backupPath); err != nil {
+		s.logger.Error("Backup VACUUM INTO failed", "error", err)
+		jsonError(w, "backup failed", http.StatusInternalServerError)
+		return
+	}
+	defer os.Remove(backupPath)
+
+	f, err := os.Open(backupPath)
 	if err != nil {
-		jsonError(w, "cannot open database", http.StatusInternalServerError)
+		jsonError(w, "cannot open backup", http.StatusInternalServerError)
 		return
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		jsonError(w, "cannot stat database", http.StatusInternalServerError)
+		jsonError(w, "cannot stat backup", http.StatusInternalServerError)
 		return
 	}
 
@@ -689,7 +698,7 @@ func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
 }
 
 // onConfigChanged is called after a config key is updated via the API.
-// Handles side effects for bridge and notification settings.
+// Handles side effects for bridge, notification, and data source settings.
 func (s *Server) onConfigChanged(key, value string) {
 	switch key {
 	case "claude_bridge":
@@ -702,6 +711,11 @@ func (s *Server) onConfigChanged(key, value string) {
 				s.logger.Warn("Claude Code bridge disable failed", "error", err)
 			}
 		}
+		// S7: Sync data_sources.claude_code.enabled to match config
+		s.store.SetSourceEnabled("claude_code", value == "true")
+	case "codex_capture":
+		// S7: Sync data_sources.codex.enabled to match config
+		s.store.SetSourceEnabled("codex", value == "true")
 	case "notify_enabled", "notify_threshold":
 		s.notifier.Configure(
 			s.store.GetConfigBool("notify_enabled"),
