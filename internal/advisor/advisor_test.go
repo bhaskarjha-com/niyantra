@@ -165,3 +165,40 @@ func TestRecommend_ReasonAlwaysSet(t *testing.T) {
 		t.Error("expected reason to be set even for empty input")
 	}
 }
+
+// TestStaleAccountPenalized verifies that a fresh account at 50% is
+// recommended over a stale account at 100%. This is the N12 regression test.
+func TestStaleAccountPenalized(t *testing.T) {
+	now := time.Now()
+	resetTime := now.Add(3 * time.Hour)
+
+	// Stale account: 100% but captured 10 days ago
+	stale := &client.Snapshot{
+		AccountID:  1,
+		Email:      "stale@example.com",
+		PlanName:   "Pro",
+		CapturedAt: now.Add(-10 * 24 * time.Hour), // 10 days old
+		Models: []client.ModelQuota{
+			{Label: "Claude Sonnet", RemainingFraction: 1.0, RemainingPercent: 100, ResetTime: &resetTime},
+		},
+	}
+
+	// Fresh account: 50% but captured just now
+	fresh := &client.Snapshot{
+		AccountID:  2,
+		Email:      "fresh@example.com",
+		PlanName:   "Pro",
+		CapturedAt: now, // just now
+		Models: []client.ModelQuota{
+			{Label: "Claude Sonnet", RemainingFraction: 0.5, RemainingPercent: 50, ResetTime: &resetTime},
+		},
+	}
+
+	rec := Recommend([]*client.Snapshot{stale, fresh}, nil)
+	if rec.BestAccount == nil {
+		t.Fatal("expected best account to be set")
+	}
+	if rec.BestAccount.Email != "fresh@example.com" {
+		t.Errorf("best account = %q, want fresh@example.com (stale should be penalized)", rec.BestAccount.Email)
+	}
+}

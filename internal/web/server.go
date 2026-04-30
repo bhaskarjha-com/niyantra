@@ -463,11 +463,12 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := map[string]interface{}{
-		"mode":         mode,
-		"autoCapture":  autoCapture,
-		"isPolling":    s.agentMgr.IsRunning(),
-		"pollInterval": s.store.GetConfigInt("poll_interval", 300),
-		"sources":      sources,
+		"mode":          mode,
+		"autoCapture":   autoCapture,
+		"isPolling":     s.agentMgr.IsRunning(),
+		"pollInterval":  s.store.GetConfigInt("poll_interval", 300),
+		"sources":       sources,
+		"schemaVersion": s.store.SchemaVersion(),
 	}
 
 	// Add last poll info if agent is running

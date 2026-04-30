@@ -182,9 +182,11 @@ func ComputeBudgetForecast(db *store.Store) *BudgetForecast {
 		DaysInMonth:   daysInMonth,
 	}
 
-	if dayOfMonth > 0 {
-		forecast.BurnRatePerDay = overview.TotalMonthlySpend / float64(dayOfMonth)
-		forecast.ProjectedMonthlySpend = forecast.BurnRatePerDay * float64(daysInMonth)
+	// For fixed monthly subscriptions, burn rate is total cost / days in month
+	// (not day-of-month, which would produce nonsensical rates on day 1)
+	if daysInMonth > 0 {
+		forecast.BurnRatePerDay = overview.TotalMonthlySpend / float64(daysInMonth)
+		forecast.ProjectedMonthlySpend = overview.TotalMonthlySpend
 	}
 
 	forecast.OnTrack = forecast.ProjectedMonthlySpend <= budget

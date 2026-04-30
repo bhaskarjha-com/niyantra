@@ -67,6 +67,10 @@ func Recommend(snapshots []*client.Snapshot, summariesByAccount map[int64][]*tra
 	var scores []AccountScore
 	for _, acct := range accounts {
 		score := scoreAccount(acct, summariesByAccount)
+		// N12: Penalize stale accounts — stale data should never be recommended
+		if acct.Staleness > 6*time.Hour {
+			score.Score *= 0.3
+		}
 		scores = append(scores, score)
 	}
 

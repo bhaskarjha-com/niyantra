@@ -370,6 +370,11 @@ func (s *Store) getUserVersion() int {
 	return v
 }
 
+// SchemaVersion returns the current database schema version.
+func (s *Store) SchemaVersion() int {
+	return s.getUserVersion()
+}
+
 func (s *Store) setUserVersion(v int) {
 	s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", v))
 }

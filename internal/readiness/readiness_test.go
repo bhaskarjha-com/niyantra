@@ -202,3 +202,86 @@ func TestFormatStaleness(t *testing.T) {
 		})
 	}
 }
+
+// TestStaleSnapshotInfersReset verifies that a snapshot from 10 days ago
+// with 0% remaining and reset time in the past shows RemainingPercent=100
+// and StalenessLabel="Stale". This is the C3 regression test.
+func TestStaleSnapshotInfersReset(t *testing.T) {
+	pastReset := time.Now().Add(-10 * 24 * time.Hour).Add(5 * time.Hour) // 10 days ago + 5h
+	snap := &client.Snapshot{
+		AccountID:  1,
+		Email:      "stale@example.com",
+		PlanName:   "Pro",
+		CapturedAt: time.Now().Add(-10 * 24 * time.Hour), // 10 days ago
+		Models: []client.ModelQuota{
+			{
+				ModelID:           "model-1",
+				Label:             "Claude Sonnet",
+				RemainingFraction: 0.0,
+				RemainingPercent:  0,
+				IsExhausted:       true,
+				ResetTime:         &pastReset,
+			},
+		},
+	}
+
+	result := Calculate([]*client.Snapshot{snap}, 0.0)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(result))
+	}
+
+	ar := result[0]
+	if ar.StalenessLabel != "Stale" {
+		t.Errorf("staleness label = %q, want %q", ar.StalenessLabel, "Stale")
+	}
+	if len(ar.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(ar.Models))
+	}
+	if ar.Models[0].RemainingPercent != 100 {
+		t.Errorf("stale model remaining = %f, want 100 (inferred reset)", ar.Models[0].RemainingPercent)
+	}
+	if ar.Models[0].IsExhausted {
+		t.Error("stale model should NOT be marked exhausted after inferred reset")
+	}
+}
+
+// TestFreshSnapshotUnchanged verifies that a fresh snapshot (5 min ago)
+// with 0% remaining stays at 0% — it's genuinely exhausted, not stale.
+func TestFreshSnapshotUnchanged(t *testing.T) {
+	futureReset := time.Now().Add(2 * time.Hour) // reset in 2 hours
+	snap := &client.Snapshot{
+		AccountID:  1,
+		Email:      "fresh@example.com",
+		PlanName:   "Pro",
+		CapturedAt: time.Now().Add(-5 * time.Minute), // 5 min ago
+		Models: []client.ModelQuota{
+			{
+				ModelID:           "model-1",
+				Label:             "Claude Sonnet",
+				RemainingFraction: 0.0,
+				RemainingPercent:  0,
+				IsExhausted:       true,
+				ResetTime:         &futureReset,
+			},
+		},
+	}
+
+	result := Calculate([]*client.Snapshot{snap}, 0.0)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(result))
+	}
+
+	ar := result[0]
+	if ar.StalenessLabel == "Stale" {
+		t.Error("fresh snapshot should NOT be labeled Stale")
+	}
+	if len(ar.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(ar.Models))
+	}
+	if ar.Models[0].RemainingPercent != 0 {
+		t.Errorf("fresh model remaining = %f, want 0 (genuinely exhausted)", ar.Models[0].RemainingPercent)
+	}
+	if !ar.Models[0].IsExhausted {
+		t.Error("fresh model should be marked exhausted")
+	}
+}

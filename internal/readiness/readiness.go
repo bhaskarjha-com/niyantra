@@ -51,12 +51,15 @@ type GroupReadiness struct {
 func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadiness {
 	var results []AccountReadiness
 
+	stalenessThreshold := 6 * time.Hour
+
 	for _, snap := range snapshots {
 		if snap == nil {
 			continue
 		}
 
 		staleness := time.Since(snap.CapturedAt)
+		isStale := staleness > stalenessThreshold
 
 		ar := AccountReadiness{
 			AccountID:      snap.AccountID,
@@ -71,20 +74,34 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 			AICredits:      snap.AICredits,
 		}
 
+		// Override staleness label for very stale data
+		if isStale {
+			ar.StalenessLabel = "Stale"
+		}
+
 		// Per-model details
 		for _, m := range snap.Models {
 			resetSec := 0.0
+			remainingPct := m.RemainingPercent
+			exhausted := m.IsExhausted
+
 			if m.ResetTime != nil {
 				resetSec = time.Until(*m.ResetTime).Seconds()
 				if resetSec < 0 {
 					resetSec = 0
+					// C3: If snapshot is stale AND reset time has passed,
+					// infer quota has refilled (rolling 5h resets)
+					if isStale {
+						remainingPct = 100
+						exhausted = false
+					}
 				}
 			}
 			ar.Models = append(ar.Models, ModelDetail{
 				ModelID:          m.ModelID,
 				Label:            m.Label,
-				RemainingPercent: m.RemainingPercent,
-				IsExhausted:      m.IsExhausted,
+				RemainingPercent: remainingPct,
+				IsExhausted:      exhausted,
 				ResetSeconds:     resetSec,
 				GroupKey:         client.GroupForModel(m.ModelID, m.Label),
 			})

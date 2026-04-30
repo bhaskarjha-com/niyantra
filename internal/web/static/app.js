@@ -1687,7 +1687,8 @@ function loadMode() {
     var aboutEl = document.getElementById('s-about-info');
     if (aboutEl) {
       var srcCount = (data.sources || []).filter(function(s) { return s.enabled; }).length;
-      aboutEl.textContent = 'Schema v7 · 26 presets · Mode: ' +
+      var schemaV = data.schemaVersion ? ('Schema v' + data.schemaVersion) : 'Schema';
+      aboutEl.textContent = schemaV + ' · Mode: ' +
         (data.mode === 'auto' ? 'Auto' : 'Manual') +
         (data.isPolling ? ' (polling)' : '') +
         ' · ' + srcCount + ' active source' + (srcCount !== 1 ? 's' : '');
