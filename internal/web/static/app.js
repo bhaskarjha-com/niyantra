@@ -26,6 +26,8 @@ function initTheme() {
     var next = current === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('niyantra-theme', next);
+    // M2: Update chart colors in-place to avoid flash
+    updateChartTheme(next);
   });
 }
 
@@ -1043,6 +1045,23 @@ function updateTimestamp() {
 
 var historyChart = null;
 
+// M2: Update chart colors in-place on theme toggle (avoids destroy+rebuild flash)
+function updateChartTheme(theme) {
+  if (!historyChart) return;
+  var isDark = theme !== 'light';
+  var gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  var textColor = isDark ? '#94a3b8' : '#64748b';
+  if (historyChart.options.scales && historyChart.options.scales.y) {
+    historyChart.options.scales.y.grid.color = gridColor;
+    historyChart.options.scales.y.ticks.color = textColor;
+  }
+  if (historyChart.options.scales && historyChart.options.scales.x) {
+    historyChart.options.scales.x.grid.color = gridColor;
+    historyChart.options.scales.x.ticks.color = textColor;
+  }
+  historyChart.update('none'); // 'none' = no animation, instant repaint
+}
+
 function loadHistoryChart() {
   if (typeof Chart === 'undefined') return; // CDN not loaded (offline)
 
@@ -1596,7 +1615,9 @@ function initSettings() {
       localStorage.setItem('niyantra-theme', val);
       document.documentElement.setAttribute('data-theme', val);
     }
-    if (typeof loadHistoryChart === 'function') loadHistoryChart();
+    // M2: Update chart theme in-place instead of destroy+rebuild
+    var applied = document.documentElement.getAttribute('data-theme');
+    updateChartTheme(applied);
   });
 
   // Load server config and populate settings UI
@@ -2203,6 +2224,7 @@ var PALETTE_COMMANDS = [
     localStorage.setItem('niyantra-theme', next);
     var themeEl = document.getElementById('s-theme');
     if (themeEl) themeEl.value = next;
+    updateChartTheme(next);
   }},
   { name: 'Codex Snap',                        icon: '🤖', action: function() { handleCodexSnap(); } },
   { name: 'Import JSON',                       icon: '📥', action: function() {

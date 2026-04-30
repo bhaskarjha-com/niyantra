@@ -6,9 +6,11 @@ import (
 )
 
 // CodexSnapshot represents a stored Codex usage snapshot.
+// N14: AccountID is intentionally TEXT (OpenAI org ID like "org-xxx"),
+// unlike Antigravity's INT64 which references the internal accounts table.
 type CodexSnapshot struct {
 	ID             int64      `json:"id"`
-	AccountID      string     `json:"accountId"`
+	AccountID      string     `json:"accountId"` // OpenAI org/account ID (TEXT, not FK to accounts table)
 	FiveHourPct    float64    `json:"fiveHourPct"`
 	SevenDayPct    *float64   `json:"sevenDayPct"`
 	CodeReviewPct  *float64   `json:"codeReviewPct"`

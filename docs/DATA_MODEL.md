@@ -16,6 +16,8 @@
 | v4 | `model_cycles` | Cycle intelligence — per-model reset detection and usage tracking |
 | v5 | `claude_snapshots` + config keys | Claude Code rate limits, notifications, bridge config |
 | v6 | `system_alerts` | System-level alerts with hybrid TTL, advisor integration |
+| v7 | `codex_snapshots`, `usage_sessions`, `usage_logs` | Codex/ChatGPT tracking, session timeline, manual usage logging |
+| v8 | `snapshots.ai_credits` column | Native AI Credits tracking from Antigravity |
 
 ---
 
@@ -502,7 +504,7 @@ Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
 PRAGMA user_version;      -- read current version
-PRAGMA user_version = 3;  -- current target (v3)
+PRAGMA user_version = 8;  -- current target (v8)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -544,8 +546,29 @@ func (s *Store) migrate() error {
     if version < 5 {
         // v5: Claude Code snapshots + notification/bridge config
         s.exec(createClaudeSnapshotsSQL)
-        s.exec(seedPhase9ConfigSQL) // claude_bridge, notify_enabled, notify_threshold
+        s.exec(seedPhase9ConfigSQL)
         s.setUserVersion(5)
+    }
+
+    if version < 6 {
+        // v6: system_alerts table
+        s.exec(createSystemAlertsSQL)
+        s.setUserVersion(6)
+    }
+
+    if version < 7 {
+        // v7: codex_snapshots, usage_sessions, usage_logs + Codex config
+        s.exec(createCodexSnapshotsSQL)
+        s.exec(createUsageSessionsSQL)
+        s.exec(createUsageLogsSQL)
+        s.exec(seedCodexConfigSQL)
+        s.setUserVersion(7)
+    }
+
+    if version < 8 {
+        // v8: AI credits column on snapshots
+        s.exec(addAICreditsColumnSQL)
+        s.setUserVersion(8)
     }
 }
 ```
