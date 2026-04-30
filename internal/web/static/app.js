@@ -386,6 +386,98 @@ function renderAccounts(data) {
   }
 
   grid.innerHTML = html;
+
+  // C4: Render Codex and Claude provider cards below the Antigravity grid
+  renderProviderCards(data);
+}
+
+function renderProviderCards(data) {
+  var container = document.getElementById('account-grid');
+  if (!container) return;
+  var providerHTML = '';
+
+  // Codex card
+  if (data.codexSnapshot) {
+    var cs = data.codexSnapshot;
+    var fiveUsed = cs.fiveHourPct || 0;
+    var fiveRemaining = Math.max(0, 100 - fiveUsed);
+    var fiveClass = fiveUsed >= 80 ? 'critical' : fiveUsed >= 50 ? 'warning' : 'healthy';
+    var fiveReset = cs.fiveHourReset ? formatResetTime(cs.fiveHourReset) : '';
+    var sevenUsed = cs.sevenDayPct ? cs.sevenDayPct : 0;
+    var sevenRemaining = Math.max(0, 100 - sevenUsed);
+    var sevenClass = sevenUsed >= 80 ? 'critical' : sevenUsed >= 50 ? 'warning' : 'healthy';
+    var sevenReset = cs.sevenDayReset ? formatResetTime(cs.sevenDayReset) : '';
+    var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : 'unknown';
+    var codexBadge = fiveUsed >= 80 || sevenUsed >= 80 ? 'Low' : 'Ready';
+    var codexBadgeCls = codexBadge === 'Ready' ? 'status-ready' : 'status-low';
+
+    providerHTML += '<div class="account-card provider-card">' +
+      '<div class="account-row">' +
+      '<div class="account-info">' +
+      '<div class="account-email">\ud83e\udd16 Codex / ChatGPT</div>' +
+      '<div class="account-meta">' +
+      (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + '</span>' : '') +
+      '<span class="staleness">' + capturedAgo + '</span>' +
+      '</div></div>' +
+      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + fiveClass + '" style="width:' + fiveRemaining + '%"></div></div>' +
+      '<span class="mini-pct">' + fiveRemaining.toFixed(0) + '%</span>' +
+      (fiveReset ? '<span class="quota-reset">\u21bb ' + fiveReset + '</span>' : '') +
+      '<span class="quota-label">5-Hour</span></div>' +
+      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + sevenClass + '" style="width:' + sevenRemaining + '%"></div></div>' +
+      '<span class="mini-pct">' + sevenRemaining.toFixed(0) + '%</span>' +
+      (sevenReset ? '<span class="quota-reset">\u21bb ' + sevenReset + '</span>' : '') +
+      '<span class="quota-label">7-Day</span></div>' +
+      '<div class="grid-cell"></div>' +
+      '<div class="grid-cell"></div>' +
+      '<div style="text-align:center"><span class="status-badge ' + codexBadgeCls + '">' + codexBadge + '</span></div>' +
+      '</div></div>';
+  }
+
+  // Claude card
+  if (data.claudeSnapshot) {
+    var cl = data.claudeSnapshot;
+    var clFive = cl.fiveHourPct || 0;
+    var clFiveRem = Math.max(0, 100 - clFive);
+    var clFiveClass = clFive >= 80 ? 'critical' : clFive >= 50 ? 'warning' : 'healthy';
+    var clSeven = cl.sevenDayPct ? cl.sevenDayPct : 0;
+    var clSevenRem = Math.max(0, 100 - clSeven);
+    var clSevenClass = clSeven >= 80 ? 'critical' : clSeven >= 50 ? 'warning' : 'healthy';
+    var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : 'unknown';
+    var clBadge = clFive >= 80 || clSeven >= 80 ? 'Low' : 'Ready';
+    var clBadgeCls = clBadge === 'Ready' ? 'status-ready' : 'status-low';
+
+    providerHTML += '<div class="account-card provider-card">' +
+      '<div class="account-row">' +
+      '<div class="account-info">' +
+      '<div class="account-email">\ud83d\udd17 Claude Code</div>' +
+      '<div class="account-meta">' +
+      '<span class="plan-badge">Bridge</span>' +
+      '<span class="staleness">' + clAgo + '</span>' +
+      '</div></div>' +
+      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + clFiveClass + '" style="width:' + clFiveRem + '%"></div></div>' +
+      '<span class="mini-pct">' + clFiveRem.toFixed(0) + '%</span>' +
+      '<span class="quota-label">5-Hour</span></div>' +
+      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + clSevenClass + '" style="width:' + clSevenRem + '%"></div></div>' +
+      '<span class="mini-pct">' + clSevenRem.toFixed(0) + '%</span>' +
+      '<span class="quota-label">7-Day</span></div>' +
+      '<div class="grid-cell"></div>' +
+      '<div class="grid-cell"></div>' +
+      '<div style="text-align:center"><span class="status-badge ' + clBadgeCls + '">' + clBadge + '</span></div>' +
+      '</div></div>';
+  }
+
+  if (providerHTML) {
+    container.insertAdjacentHTML('beforeend', providerHTML);
+  }
+}
+
+function formatResetTime(isoString) {
+  if (!isoString) return '';
+  var reset = new Date(isoString);
+  var now = new Date();
+  var diffSec = (reset - now) / 1000;
+  if (diffSec <= 0) return 'now';
+  return formatSeconds(diffSec);
 }
 
 // ════════════════════════════════════════════
@@ -827,12 +919,46 @@ function handleSnap() {
   var orig = btn.innerHTML;
   btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Capturing...';
 
-  triggerSnap().then(function(data) {
-    showToast('✅ Captured: ' + data.email, 'success');
-    renderAccounts(data);
-    updateTimestamp();
-  }).catch(function(err) {
-    showToast('❌ ' + err.message, 'error');
+  // S6: Snap all enabled sources — Antigravity + Codex (if enabled)
+  var promises = [
+    triggerSnap().then(function(data) {
+      return { source: 'antigravity', data: data, email: data.email };
+    }).catch(function(err) {
+      return { source: 'antigravity', error: err.message };
+    })
+  ];
+
+  // Also snap Codex if capture is enabled
+  var codexToggle = document.getElementById('s-codex-capture');
+  if (codexToggle && codexToggle.checked) {
+    promises.push(
+      fetch('/api/codex/snap', { method: 'POST' }).then(function(r) { return r.json(); })
+      .then(function(d) { return { source: 'codex', data: d }; })
+      .catch(function() { return { source: 'codex', error: 'failed' }; })
+    );
+  }
+
+  Promise.all(promises).then(function(results) {
+    var msgs = [];
+    var antigravityData = null;
+    for (var i = 0; i < results.length; i++) {
+      var r = results[i];
+      if (r.error) {
+        msgs.push('❌ ' + r.source + ': ' + r.error);
+      } else {
+        if (r.source === 'antigravity') {
+          msgs.push('✅ ' + (r.email || 'Antigravity'));
+          antigravityData = r.data;
+        } else {
+          msgs.push('✅ ' + r.source);
+        }
+      }
+    }
+    showToast(msgs.join(' · '), msgs.some(function(m) { return m.startsWith('❌'); }) ? 'warning' : 'success');
+    if (antigravityData) {
+      renderAccounts(antigravityData);
+      updateTimestamp();
+    }
   }).finally(function() {
     btn.innerHTML = orig;
     btn.disabled = false;
@@ -1705,7 +1831,8 @@ function loadMode() {
     if (aboutEl) {
       var srcCount = (data.sources || []).filter(function(s) { return s.enabled; }).length;
       var schemaV = data.schemaVersion ? ('Schema v' + data.schemaVersion) : 'Schema';
-      aboutEl.textContent = schemaV + ' · Mode: ' +
+      var presetCount = presetsData.length || 0;
+      aboutEl.textContent = schemaV + ' · ' + presetCount + ' presets · Mode: ' +
         (data.mode === 'auto' ? 'Auto' : 'Manual') +
         (data.isPolling ? ' (polling)' : '') +
         ' · ' + srcCount + ' active source' + (srcCount !== 1 ? 's' : '');

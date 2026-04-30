@@ -192,11 +192,25 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	accounts := readiness.Calculate(snapshots, 0.0)
 
-	writeJSON(w, map[string]interface{}{
+	result := map[string]interface{}{
 		"accounts":      accounts,
 		"snapshotCount": s.store.SnapshotCount(),
 		"accountCount":  s.store.AccountCount(),
-	})
+	}
+
+	// C4: Include Codex snapshot if available (for homepage grid)
+	codexSnap, _ := s.store.LatestCodexSnapshot()
+	if codexSnap != nil {
+		result["codexSnapshot"] = codexSnap
+	}
+
+	// C4: Include Claude snapshot if available
+	claudeSnap, _ := s.store.LatestClaudeSnapshot()
+	if claudeSnap != nil {
+		result["claudeSnapshot"] = claudeSnap
+	}
+
+	writeJSON(w, result)
 }
 
 // handleSnap triggers a snapshot capture.
