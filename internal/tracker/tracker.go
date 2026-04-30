@@ -3,6 +3,7 @@ package tracker
 import (
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/client"
@@ -12,10 +13,11 @@ import (
 // Tracker manages reset cycle detection and usage calculation for Antigravity models.
 // Uses 3-method reset detection: time shift, fraction increase, and time-based.
 type Tracker struct {
+	mu             sync.RWMutex
 	store          *store.Store
 	logger         *slog.Logger
-	lastFractions  map[string]float64   // model_id → last remaining fraction
-	lastResetTimes map[string]time.Time // model_id → last reported reset time
+	lastFractions  map[string]float64   // accountID:model_id → last remaining fraction
+	lastResetTimes map[string]time.Time // accountID:model_id → last reported reset time
 	hasBaseline    bool
 
 	onReset func(modelID string) // callback when a model reset is detected
@@ -41,6 +43,9 @@ func (t *Tracker) SetOnReset(fn func(string)) {
 
 // Process iterates over all models in the snapshot, detects resets, and updates cycles.
 func (t *Tracker) Process(snap *client.Snapshot, accountID int64) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if snap == nil || len(snap.Models) == 0 {
 		return nil
 	}
@@ -78,9 +83,10 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 		if err := t.store.UpdateCycle(modelID, accountID, currentUsage, 0, 1); err != nil {
 			return fmt.Errorf("set initial peak: %w", err)
 		}
-		t.lastFractions[modelID] = model.RemainingFraction
+		mapKey := fmt.Sprintf("%d:%s", accountID, modelID)
+		t.lastFractions[mapKey] = model.RemainingFraction
 		if model.ResetTime != nil {
-			t.lastResetTimes[modelID] = *model.ResetTime
+			t.lastResetTimes[mapKey] = *model.ResetTime
 		}
 		t.logger.Debug("Created new cycle",
 			"model", modelID, "label", model.Label,
@@ -95,8 +101,10 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 	resetReason := ""
 
 	// Method 1: Reset time changed significantly (>10 min shift)
+	mapKey := fmt.Sprintf("%d:%s", accountID, modelID)
+
 	if model.ResetTime != nil {
-		if lastReset, ok := t.lastResetTimes[modelID]; ok {
+		if lastReset, ok := t.lastResetTimes[mapKey]; ok {
 			diff := model.ResetTime.Sub(lastReset)
 			if diff < 0 {
 				diff = -diff
@@ -110,7 +118,7 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 
 	// Method 2: Remaining fraction increased significantly (>10% = quota replenished)
 	if !resetDetected && t.hasBaseline {
-		if lastFraction, ok := t.lastFractions[modelID]; ok {
+		if lastFraction, ok := t.lastFractions[mapKey]; ok {
 			if model.RemainingFraction > lastFraction+0.1 {
 				resetDetected = true
 				resetReason = "remaining_fraction increased"
@@ -120,7 +128,7 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 
 	// Method 3: Time-based — reset time passed AND remaining increased
 	if !resetDetected && cycle.ResetTime != nil && capturedAt.After(*cycle.ResetTime) {
-		if lastFraction, ok := t.lastFractions[modelID]; ok {
+		if lastFraction, ok := t.lastFractions[mapKey]; ok {
 			if model.RemainingFraction > lastFraction {
 				resetDetected = true
 				resetReason = "time-based (reset passed + remaining increased)"
@@ -151,9 +159,9 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 		}
 
 		// Update tracking state
-		t.lastFractions[modelID] = model.RemainingFraction
+		t.lastFractions[mapKey] = model.RemainingFraction
 		if model.ResetTime != nil {
-			t.lastResetTimes[modelID] = *model.ResetTime
+			t.lastResetTimes[mapKey] = *model.ResetTime
 		}
 
 		t.logger.Info("Detected model reset",
@@ -179,7 +187,7 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 	newSnapshotCount := cycle.SnapshotCount + 1
 
 	if t.hasBaseline {
-		if lastFraction, ok := t.lastFractions[modelID]; ok {
+		if lastFraction, ok := t.lastFractions[mapKey]; ok {
 			usageDelta := lastFraction - model.RemainingFraction
 			if usageDelta > 0 {
 				cycle.TotalDelta += usageDelta
@@ -199,9 +207,9 @@ func (t *Tracker) processModel(model client.ModelQuota, capturedAt time.Time, ac
 	}
 
 	// Update tracking state
-	t.lastFractions[modelID] = model.RemainingFraction
+	t.lastFractions[mapKey] = model.RemainingFraction
 	if model.ResetTime != nil {
-		t.lastResetTimes[modelID] = *model.ResetTime
+		t.lastResetTimes[mapKey] = *model.ResetTime
 	}
 
 	return nil

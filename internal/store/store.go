@@ -34,6 +34,12 @@ func Open(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("store: setting WAL mode: %w", err)
 	}
 
+	// Set busy timeout to avoid SQLITE_BUSY during concurrent agent+UI writes
+	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("store: setting busy_timeout: %w", err)
+	}
+
 	s := &Store{db: db, path: dbPath}
 
 	if err := s.migrate(); err != nil {
