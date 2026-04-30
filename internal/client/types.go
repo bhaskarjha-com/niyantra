@@ -138,11 +138,13 @@ type Snapshot struct {
 }
 
 // GroupedQuota represents one logical quota group (e.g., Claude+GPT).
+// N6: RemainingPercent is always RemainingFraction * 100.
+// Both fields exist for convenience — fraction for internal math, percent for display.
 type GroupedQuota struct {
 	GroupKey          string
 	DisplayName       string
-	RemainingFraction float64
-	RemainingPercent  float64
+	RemainingFraction float64 // 0.0–1.0 scale (for internal calculations)
+	RemainingPercent  float64 // 0–100 scale (for display/JSON output)
 	IsExhausted       bool
 	ResetTime         *time.Time
 	TimeUntilReset    time.Duration

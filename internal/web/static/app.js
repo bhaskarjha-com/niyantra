@@ -259,7 +259,13 @@ function renderAccounts(data) {
   }
 
   var count = data.accountCount || data.accounts.length;
-  countBadge.textContent = count + ' account' + (count !== 1 ? 's' : '');
+  // M6: Show provider breakdown in badge
+  var badge = count + ' account' + (count !== 1 ? 's' : '');
+  var providers = [];
+  if (data.codexSnapshot) providers.push('Codex');
+  if (data.claudeSnapshot) providers.push('Claude');
+  if (providers.length > 0) badge += ' · ' + providers.join(' · ');
+  countBadge.textContent = badge;
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
   var filtered = filterAccountsArray(data.accounts);
