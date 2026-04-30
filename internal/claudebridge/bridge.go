@@ -340,8 +340,8 @@ func SetupBridge(logger *slog.Logger) error {
 }
 
 // EnsureBridge performs a periodic health check to verify the bridge
-// snippet is still present. If the user changed their statusline, re-prepends it.
-// Thread-safe via time check — no mutex needed for lightweight polling.
+// snippet is still present. S11: If missing, only logs a warning instead
+// of re-injecting — respects user intent if they manually removed it.
 var lastBridgeCheck time.Time
 
 func EnsureBridge(logger *slog.Logger) {
@@ -367,12 +367,10 @@ func EnsureBridge(logger *slog.Logger) {
 		return // Still healthy
 	}
 
-	newCmd := addBridgeSnippet(currentCmd)
-	setStatusLineCommand(settings, newCmd)
-	if err := writeClaudeSettings(settings); err == nil {
-		if logger != nil {
-			logger.Info("Claude Code statusline bridge re-established")
-		}
+	// S11: Log a warning instead of aggressively re-injecting
+	if logger != nil {
+		logger.Warn("Claude Code statusline bridge snippet not found in settings — " +
+			"it may have been manually removed. Re-enable in Settings to re-configure.")
 	}
 }
 

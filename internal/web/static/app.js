@@ -196,8 +196,10 @@ function sortAccountsArray(accounts) {
 function filterAccountsArray(accounts) {
   var searchInput = document.getElementById('quota-search');
   var statusFilter = document.getElementById('quota-filter-status');
+  var freshnessFilter = document.getElementById('quota-filter-freshness');
   var query = searchInput ? searchInput.value.toLowerCase() : '';
   var status = statusFilter ? statusFilter.value : 'all';
+  var freshness = freshnessFilter ? freshnessFilter.value : 'all';
 
   return accounts.filter(function(acc) {
     var matchesSearch = !query ||
@@ -209,7 +211,20 @@ function filterAccountsArray(accounts) {
     else if (status === 'low') matchesStatus = !acc.isReady && !allExhausted(acc);
     else if (status === 'empty') matchesStatus = allExhausted(acc);
 
-    return matchesSearch && matchesStatus;
+    // N7: Freshness filter
+    var matchesFreshness = true;
+    if (freshness !== 'all' && acc.stalenessLabel) {
+      var label = acc.stalenessLabel.toLowerCase();
+      if (freshness === 'fresh') {
+        matchesFreshness = label.includes('just now') || label.includes('min ago');
+      } else if (freshness === 'today') {
+        matchesFreshness = !label.includes('d ago');
+      } else if (freshness === 'stale') {
+        matchesFreshness = label.includes('d ago');
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesFreshness;
   });
 }
 
@@ -1939,6 +1954,13 @@ function initQuotas() {
   }
   if (qStatus) {
     qStatus.addEventListener('change', function() {
+      if (latestQuotaData) renderAccounts(latestQuotaData);
+    });
+  }
+  // N7: Freshness filter
+  var qFreshness = document.getElementById('quota-filter-freshness');
+  if (qFreshness) {
+    qFreshness.addEventListener('change', function() {
       if (latestQuotaData) renderAccounts(latestQuotaData);
     });
   }
