@@ -27,10 +27,20 @@
                     <span id="mode-label">Manual</span>
                 </span>
                 <span class="header-status" id="last-updated"></span>
-                <button class="snap-btn" id="snap-btn" title="Capture current quota snapshot (S)">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                    Snap Now
-                </button>
+                <!-- H3: Split-button snap with provider dropdown -->
+                <div class="snap-split" id="snap-split">
+                    <button class="snap-btn snap-main" id="snap-btn" title="Capture quota snapshot (S)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                        Snap Now
+                    </button>
+                    <button class="snap-btn snap-caret" id="snap-caret" title="Choose snap source">▾</button>
+                    <div class="snap-dropdown" id="snap-dropdown">
+                        <div class="snap-option" data-source="antigravity">◉ Antigravity</div>
+                        <div class="snap-option" data-source="codex">○ Codex / ChatGPT</div>
+                        <div class="snap-divider"></div>
+                        <div class="snap-option" data-source="all">⚡ Snap All Sources</div>
+                    </div>
+                </div>
                 <button class="btn-add" id="add-sub-btn" title="Add subscription">+ Add</button>
                 <button class="theme-btn" id="theme-btn" title="Toggle theme">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -61,12 +71,8 @@
                             <option value="low">Low</option>
                             <option value="empty">Empty</option>
                         </select>
-                        <select id="quota-filter-freshness" class="filter-select">
-                            <option value="all">All Freshness</option>
-                            <option value="fresh">Fresh (&lt;1h)</option>
-                            <option value="today">Today</option>
-                            <option value="stale">Stale (&gt;1d)</option>
-                        </select>
+                        <!-- Q2: Freshness filter removed — 'Stale/Fresh' was wrong abstraction.
+                             Last Snap column replaces it. Space reserved for provider filter (Phase 2). -->
                     </div>
                 </div>
 
@@ -77,6 +83,7 @@
                         <div class="grid-col-group sortable" data-sort="gemini_pro">Gemini Pro <span class="sort-indicator"></span></div>
                         <div class="grid-col-group sortable" data-sort="gemini_flash">Gemini Flash <span class="sort-indicator"></span></div>
                         <div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div>
+                        <div class="grid-col-snap sortable" data-sort="lastsnap">Last Snap <span class="sort-indicator"></span></div>
                         <div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div>
                     </div>
                     <div id="account-grid" class="account-grid"></div>

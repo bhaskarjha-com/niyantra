@@ -288,7 +288,7 @@ func (s *Store) GenerateInsights() ([]Insight, error) {
 		currency = "USD"
 	}
 
-	// Category counter
+	// Category counter — O2: only count manually-tracked subs for overlap detection
 	catCounts := make(map[string]int)
 	totalMonthly := 0.0
 
@@ -299,7 +299,10 @@ func (s *Store) GenerateInsights() ([]Insight, error) {
 
 		monthly := toMonthly(sub.CostAmount, sub.BillingCycle)
 		totalMonthly += monthly
-		catCounts[sub.Category]++
+		// O2: Auto-tracked subs are separate accounts, not duplicate tools
+		if !sub.AutoTracked {
+			catCounts[sub.Category]++
+		}
 
 		// Rule 1: Imminent renewal (within 3 days) → critical
 		if sub.NextRenewal != "" {
@@ -365,6 +368,10 @@ func (s *Store) GenerateInsights() ([]Insight, error) {
 	// Rule 3: Annual savings (deduplicated per-platform, separate loop)
 	savingsSeen := make(map[string]bool)
 	for _, sub := range subs {
+		// O2: Skip auto-tracked subs — user can't change their billing through Niyantra
+		if sub.AutoTracked {
+			continue
+		}
 		if sub.Status != "active" || sub.BillingCycle != "monthly" {
 			continue
 		}

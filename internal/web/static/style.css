@@ -123,7 +123,12 @@ body {
   white-space: nowrap;
 }
 
-/* ── Buttons ── */
+/* ── Split-Button Snap ── */
+
+.snap-split {
+  position: relative;
+  display: inline-flex;
+}
 
 .snap-btn {
   display: inline-flex;
@@ -133,7 +138,6 @@ body {
   background: var(--accent);
   color: #fff;
   border: none;
-  border-radius: var(--radius-sm);
   font-family: var(--font);
   font-size: 13px;
   font-weight: 600;
@@ -142,12 +146,64 @@ body {
   white-space: nowrap;
 }
 
-.snap-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.snap-main {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.snap-caret {
+  padding: 8px 8px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: 1px solid rgba(255,255,255,0.2);
+  font-size: 10px;
+}
+
+.snap-btn:hover { filter: brightness(1.1); }
 .snap-btn:active { transform: scale(0.97); }
 .snap-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: none; }
 
 .snap-btn.snapping {
   animation: pulse 1s ease-in-out infinite;
+}
+
+.snap-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  z-index: 100;
+  min-width: 180px;
+  padding: 4px 0;
+}
+
+.snap-dropdown.open { display: block; }
+
+.snap-option {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+
+.snap-option:hover {
+  background: var(--bg-elevated);
+}
+
+.snap-option.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.snap-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
 }
 
 @keyframes pulse {
@@ -249,14 +305,14 @@ body {
 
 .grid-header {
   display: grid;
-  grid-template-columns: 1fr 110px 110px 110px 100px 80px;
+  grid-template-columns: 1fr 100px 100px 100px 80px 70px 70px;
   gap: 12px;
   padding: 12px 20px;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
 }
 
-.grid-col-account, .grid-col-group, .grid-col-credits, .grid-col-status {
+.grid-col-account, .grid-col-group, .grid-col-credits, .grid-col-status, .grid-col-snap {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -314,7 +370,7 @@ body {
 
 .account-row {
   display: grid;
-  grid-template-columns: 1fr 110px 110px 110px 100px 80px;
+  grid-template-columns: 1fr 100px 100px 100px 80px 70px 70px;
   gap: 12px;
   padding: 16px 20px;
   align-items: center;
@@ -400,6 +456,14 @@ body {
 .status-badge.ready { background: var(--green-bg); color: var(--green); }
 .status-badge.partial { background: var(--amber-bg); color: var(--amber); }
 .status-badge.exhausted { background: var(--red-bg); color: var(--red); }
+
+/* Q3: Last Snap column */
+.snap-cell { text-align: center; }
+.snap-ago {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Account Card ── */
 
@@ -719,6 +783,18 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
+}
+
+/* S1: Subtitle for auto-tracked cards */
+.sub-card-subtitle {
+  margin-bottom: 6px;
+}
+.sub-card-platform-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .sub-card-cost {
@@ -2188,16 +2264,33 @@ kbd {
 }
 
 .advisor-score-val {
-  width: 40px;
+  width: 55px;
   text-align: right;
   font-weight: 700;
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
+.advisor-score-fill.good { background: var(--green); }
+.advisor-score-fill.ok { background: var(--amber); }
+.advisor-score-fill.low { background: var(--red); }
+
 .advisor-score-row.best .advisor-score-fill { background: var(--green); }
 .advisor-score-row.best .advisor-score-val { color: var(--green); }
-.advisor-score-row:not(.best) .advisor-score-fill { background: var(--text-muted); }
+
+.advisor-group-select {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.stale-icon {
+  color: var(--amber);
+  font-size: 12px;
+  cursor: help;
+}
 
 /* ════════════════════════════════════════════
    Phase 10: RENEWAL CALENDAR

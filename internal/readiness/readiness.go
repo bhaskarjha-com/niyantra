@@ -74,10 +74,8 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 			AICredits:      snap.AICredits,
 		}
 
-		// Override staleness label for very stale data
-		if isStale {
-			ar.StalenessLabel = "Stale"
-		}
+		// Q3: Always show actual time-ago — the time IS the staleness indicator
+		// Visual dimming in the UI handles the "stale" signal instead
 
 		// Per-model details
 		for _, m := range snap.Models {

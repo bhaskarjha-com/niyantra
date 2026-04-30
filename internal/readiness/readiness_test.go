@@ -205,7 +205,7 @@ func TestFormatStaleness(t *testing.T) {
 
 // TestStaleSnapshotInfersReset verifies that a snapshot from 10 days ago
 // with 0% remaining and reset time in the past shows RemainingPercent=100
-// and StalenessLabel="Stale". This is the C3 regression test.
+// and a time-ago staleness label. This is the C3 regression test.
 func TestStaleSnapshotInfersReset(t *testing.T) {
 	pastReset := time.Now().Add(-10 * 24 * time.Hour).Add(5 * time.Hour) // 10 days ago + 5h
 	snap := &client.Snapshot{
@@ -231,8 +231,9 @@ func TestStaleSnapshotInfersReset(t *testing.T) {
 	}
 
 	ar := result[0]
-	if ar.StalenessLabel != "Stale" {
-		t.Errorf("staleness label = %q, want %q", ar.StalenessLabel, "Stale")
+	// Q3: StalenessLabel is now always time-ago format (e.g. "10d ago"), not "Stale"
+	if ar.StalenessLabel != "10d ago" {
+		t.Errorf("staleness label = %q, want %q", ar.StalenessLabel, "10d ago")
 	}
 	if len(ar.Models) != 1 {
 		t.Fatalf("expected 1 model, got %d", len(ar.Models))

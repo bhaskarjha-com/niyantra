@@ -185,6 +185,9 @@ function sortAccountsArray(accounts) {
         va = getGroupPct(a, col); vb = getGroupPct(b, col); break;
       case 'credits':
         va = getAICredits(a); vb = getAICredits(b); break;
+      case 'lastsnap':
+        va = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+        vb = b.lastSeen ? new Date(b.lastSeen).getTime() : 0; break;
       case 'status':
         va = a.isReady ? 1 : 0; vb = b.isReady ? 1 : 0; break;
       default: va = a.email; vb = b.email; break;
@@ -198,10 +201,8 @@ function sortAccountsArray(accounts) {
 function filterAccountsArray(accounts) {
   var searchInput = document.getElementById('quota-search');
   var statusFilter = document.getElementById('quota-filter-status');
-  var freshnessFilter = document.getElementById('quota-filter-freshness');
   var query = searchInput ? searchInput.value.toLowerCase() : '';
   var status = statusFilter ? statusFilter.value : 'all';
-  var freshness = freshnessFilter ? freshnessFilter.value : 'all';
 
   return accounts.filter(function(acc) {
     var matchesSearch = !query ||
@@ -213,20 +214,7 @@ function filterAccountsArray(accounts) {
     else if (status === 'low') matchesStatus = !acc.isReady && !allExhausted(acc);
     else if (status === 'empty') matchesStatus = allExhausted(acc);
 
-    // N7: Freshness filter
-    var matchesFreshness = true;
-    if (freshness !== 'all' && acc.stalenessLabel) {
-      var label = acc.stalenessLabel.toLowerCase();
-      if (freshness === 'fresh') {
-        matchesFreshness = label.includes('just now') || label.includes('min ago');
-      } else if (freshness === 'today') {
-        matchesFreshness = !label.includes('d ago');
-      } else if (freshness === 'stale') {
-        matchesFreshness = label.includes('d ago');
-      }
-    }
-
-    return matchesSearch && matchesStatus && matchesFreshness;
+    return matchesSearch && matchesStatus;
   });
 }
 
@@ -261,13 +249,12 @@ function renderAccounts(data) {
   }
 
   var count = data.accountCount || data.accounts.length;
-  // M6: Show provider breakdown in badge
-  var badge = count + ' account' + (count !== 1 ? 's' : '');
-  var providers = [];
-  if (data.codexSnapshot) providers.push('Codex');
-  if (data.claudeSnapshot) providers.push('Claude');
-  if (providers.length > 0) badge += ' · ' + providers.join(' · ');
-  countBadge.textContent = badge;
+  // H1: Show per-provider count — clear breakdown
+  var parts = [];
+  parts.push(count + ' Antigravity');
+  if (data.codexSnapshot) parts.push('1 Codex');
+  if (data.claudeSnapshot) parts.push('1 Claude');
+  countBadge.textContent = parts.join(' · ');
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
   var filtered = filterAccountsArray(data.accounts);
@@ -377,16 +364,22 @@ function renderAccounts(data) {
     }
 
     var chevronCls = isExpanded ? 'chevron expanded' : 'chevron';
-    html += '<div class="account-card">' +
+    // Q3: Dim rows older than 24h
+    var staleStyle = '';
+    if (acc.lastSeen) {
+      var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
+      if (ageMs > 86400000) staleStyle = ' style="opacity:0.65"';
+    }
+    html += '<div class="account-card"' + staleStyle + '>' +
       '<div class="account-row" data-toggle="' + accId + '">' +
       '<div class="account-info">' +
       '<div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">▸</span> ' + esc(acc.email) + '</div>' +
       '<div class="account-meta">' +
       (acc.planName ? '<span class="plan-badge">' + esc(acc.planName) + '</span>' : '') +
-      '<span class="staleness">' + esc(acc.stalenessLabel) + '</span>' +
       '</div></div>' +
       groupCells +
       creditsCell +
+      '<div class="snap-cell"><span class="snap-ago">' + esc(acc.stalenessLabel) + '</span></div>' +
       '<div style="text-align:center"><span class="status-badge ' + badgeCls + '">' + badgeText + '</span></div>' +
       '</div>' +
       modelsHTML +
@@ -620,6 +613,21 @@ function renderSubCard(sub) {
     ? '<div class="sub-card-meta">' + metaParts.join(' · ') + '</div>'
     : '';
 
+  // S1: Auto-tracked subs show email as title (the differentiator), platform as subtitle
+  var cardTitle, cardSubtitle;
+  if (sub.autoTracked && sub.email) {
+    cardTitle = esc(sub.email);
+    cardSubtitle = '<span class="sub-card-platform-badge">' + esc(sub.platform) + (sub.planName ? ' · ' + esc(sub.planName) : '') + '</span>';
+  } else {
+    cardTitle = esc(sub.platform);
+    cardSubtitle = '';
+  }
+
+  // S3: Remove AUTO badge from badgesHTML for auto-tracked (context is implicit)
+  if (sub.autoTracked) {
+    badgesHTML = badgesHTML.replace(/<span[^>]*>AUTO<\/span>/i, '');
+  }
+
   // M1: Generate a unique accent color from platform+email for visual differentiation
   var colorSeed = (sub.platform || '') + (sub.email || '') + sub.id;
   var hue = 0;
@@ -630,9 +638,10 @@ function renderSubCard(sub) {
 
   return '<div class="sub-card" data-sub-id="' + sub.id + '" style="' + accentStyle + '">' +
     '<div class="sub-card-header">' +
-    '<div class="sub-card-title">' + esc(sub.platform) + '</div>' +
+    '<div class="sub-card-title">' + cardTitle + '</div>' +
     '<div class="sub-card-badges">' + trialHTML + badgesHTML + '</div>' +
     '</div>' +
+    (cardSubtitle ? '<div class="sub-card-subtitle">' + cardSubtitle + '</div>' : '') +
     metaHTML +
     costHTML +
     limitsHTML +
@@ -925,7 +934,62 @@ function closeDelete() {
 
 var snapInProgress = false;
 
+// H3: Split-button snap — source-aware snapping
+var snapDefault = localStorage.getItem('niyantra_snap_default') || 'antigravity';
+
+function initSnapDropdown() {
+  var caret = document.getElementById('snap-caret');
+  var dropdown = document.getElementById('snap-dropdown');
+  if (!caret || !dropdown) return;
+
+  // Toggle dropdown
+  caret.addEventListener('click', function(e) {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+
+  // Close on outside click
+  document.addEventListener('click', function() {
+    dropdown.classList.remove('open');
+  });
+
+  // Option clicks
+  dropdown.querySelectorAll('.snap-option').forEach(function(opt) {
+    opt.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var source = opt.dataset.source;
+      dropdown.classList.remove('open');
+      if (source === 'all') {
+        snapSource('all');
+      } else {
+        // Set as new default + snap it
+        snapDefault = source;
+        localStorage.setItem('niyantra_snap_default', source);
+        updateSnapDropdownIndicators();
+        snapSource(source);
+      }
+    });
+  });
+
+  updateSnapDropdownIndicators();
+}
+
+function updateSnapDropdownIndicators() {
+  var dropdown = document.getElementById('snap-dropdown');
+  if (!dropdown) return;
+  dropdown.querySelectorAll('.snap-option').forEach(function(opt) {
+    if (opt.dataset.source === 'all') return; // divider option
+    var isActive = opt.dataset.source === snapDefault;
+    opt.textContent = (isActive ? '◉ ' : '○ ') + opt.textContent.replace(/^[◉○] /, '');
+    opt.classList.toggle('active', isActive);
+  });
+}
+
 function handleSnap() {
+  snapSource(snapDefault);
+}
+
+function snapSource(source) {
   var btn = document.getElementById('snap-btn');
   if (!btn || btn.disabled || snapInProgress) return;
 
@@ -935,23 +999,35 @@ function handleSnap() {
   var orig = btn.innerHTML;
   btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Capturing...';
 
-  // S6: Snap all enabled sources — Antigravity + Codex (if enabled)
-  var promises = [
-    triggerSnap().then(function(data) {
-      return { source: 'antigravity', data: data, email: data.email };
-    }).catch(function(err) {
-      return { source: 'antigravity', error: err.message };
-    })
-  ];
+  var promises = [];
 
-  // Also snap Codex if capture is enabled
-  var codexToggle = document.getElementById('s-codex-capture');
-  if (codexToggle && codexToggle.checked) {
+  if (source === 'antigravity' || source === 'all') {
+    promises.push(
+      triggerSnap().then(function(data) {
+        return { source: 'Antigravity', data: data, label: data.email || 'Antigravity' };
+      }).catch(function(err) {
+        return { source: 'Antigravity', error: err.message };
+      })
+    );
+  }
+
+  if (source === 'codex' || source === 'all') {
     promises.push(
       fetch('/api/codex/snap', { method: 'POST' }).then(function(r) { return r.json(); })
-      .then(function(d) { return { source: 'codex', data: d }; })
-      .catch(function() { return { source: 'codex', error: 'failed' }; })
+      .then(function(d) {
+        var label = d.plan ? ('Codex · ' + d.plan) : 'Codex';
+        return { source: 'Codex', data: d, label: label };
+      })
+      .catch(function() { return { source: 'Codex', error: 'capture failed' }; })
     );
+  }
+
+  if (promises.length === 0) {
+    btn.innerHTML = orig;
+    btn.disabled = false;
+    snapInProgress = false;
+    showToast('No snap source selected', 'warning');
+    return;
   }
 
   Promise.all(promises).then(function(results) {
@@ -962,12 +1038,8 @@ function handleSnap() {
       if (r.error) {
         msgs.push('❌ ' + r.source + ': ' + r.error);
       } else {
-        if (r.source === 'antigravity') {
-          msgs.push('✅ ' + (r.email || 'Antigravity'));
-          antigravityData = r.data;
-        } else {
-          msgs.push('✅ ' + r.source);
-        }
+        msgs.push('✅ ' + r.label);
+        if (r.source === 'Antigravity') antigravityData = r.data;
       }
     }
     showToast(msgs.join(' · '), msgs.some(function(m) { return m.startsWith('❌'); }) ? 'warning' : 'success');
@@ -1034,9 +1106,23 @@ function showToast(msg, type) {
   }, 3000);
 }
 
+// H2: Track last update time for relative display
+var lastUpdateTime = null;
 function updateTimestamp() {
+  lastUpdateTime = new Date();
+  refreshTimestampDisplay();
+}
+function refreshTimestampDisplay() {
   var el = document.getElementById('last-updated');
-  if (el) el.textContent = 'Updated: ' + new Date().toLocaleTimeString();
+  if (!el || !lastUpdateTime) return;
+  var sec = Math.floor((new Date() - lastUpdateTime) / 1000);
+  var label;
+  if (sec < 10) label = 'just now';
+  else if (sec < 60) label = sec + 's ago';
+  else if (sec < 3600) label = Math.floor(sec / 60) + 'm ago';
+  else label = Math.floor(sec / 3600) + 'h ago';
+  el.textContent = 'Updated ' + label;
+  el.title = lastUpdateTime.toLocaleTimeString(); // absolute on hover
 }
 
 // ════════════════════════════════════════════
@@ -1551,22 +1637,19 @@ function renderOverviewEnhanced(data, subs, usageData) {
     var bf = usageData.budgetForecast;
     var forecastCls = bf.onTrack ? 'forecast-ok' : 'forecast-over';
     var forecastIcon = bf.onTrack ? '✅' : '⚠️';
-    var projStr = '$' + bf.projectedMonthlySpend.toFixed(2);
-    var burnStr = '$' + bf.burnRate.toFixed(2) + '/day';
+    // O3: For fixed monthly subs, show simple comparison — not daily burn rate
+    var pct = Math.round((bf.currentSpend / bf.monthlyBudget) * 100);
     var statusMsg = bf.onTrack
-      ? 'On track — projected ' + projStr + ' of $' + bf.monthlyBudget.toFixed(2) + ' budget'
-      : 'Over budget — projected ' + projStr + ' exceeds $' + bf.monthlyBudget.toFixed(2);
-    if (bf.daysUntilBudgetExhausted !== null && !bf.onTrack) {
-      statusMsg += ' (exhausts by day ' + bf.daysUntilBudgetExhausted + ')';
-    }
+      ? 'On track — $' + bf.currentSpend.toFixed(2) + ' of $' + bf.monthlyBudget.toFixed(2) + ' budget (' + pct + '%)'
+      : 'Over budget — $' + bf.currentSpend.toFixed(2) + ' exceeds $' + bf.monthlyBudget.toFixed(2) + ' by $' +
+        (bf.currentSpend - bf.monthlyBudget).toFixed(2) + ' (' + pct + '%)';
     forecastHTML = '<div class="overview-card full-width">' +
-      '<h3>Budget Forecast</h3>' +
+      '<h3>Budget Status</h3>' +
       '<div class="budget-forecast ' + forecastCls + '">' +
       '<div class="forecast-header">' + forecastIcon + ' ' + statusMsg + '</div>' +
       '<div class="forecast-details">' +
-      '<span class="forecast-chip">Burn rate: ' + burnStr + '</span>' +
-      '<span class="forecast-chip">Day ' + bf.dayOfMonth + ' of ' + bf.daysInMonth + '</span>' +
-      '<span class="forecast-chip">Spent: $' + bf.currentSpend.toFixed(2) + '</span>' +
+      '<span class="forecast-chip">Monthly subs: $' + bf.currentSpend.toFixed(2) + '</span>' +
+      '<span class="forecast-chip">Budget: $' + bf.monthlyBudget.toFixed(2) + '</span>' +
       '</div></div></div>';
   }
 
@@ -1742,6 +1825,8 @@ function initSettings() {
         updateConfig('codex_capture', val).then(function() {
           showToast(codexCaptureEl.checked ? '🤖 Codex capture enabled' : '🤖 Codex capture disabled', 'success');
           loadCodexSettingsStatus();
+          // T1: Refresh data sources list to reflect new enabled state
+          loadDataSources();
         });
       });
       loadCodexSettingsStatus();
@@ -2119,13 +2204,6 @@ function initQuotas() {
       if (latestQuotaData) renderAccounts(latestQuotaData);
     });
   }
-  // N7: Freshness filter
-  var qFreshness = document.getElementById('quota-filter-freshness');
-  if (qFreshness) {
-    qFreshness.addEventListener('change', function() {
-      if (latestQuotaData) renderAccounts(latestQuotaData);
-    });
-  }
 
   document.querySelectorAll('.grid-header .sortable').forEach(function(el) {
     el.addEventListener('click', function() {
@@ -2154,6 +2232,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initKeyboardShortcuts();
 
   document.getElementById('snap-btn').addEventListener('click', handleSnap);
+  initSnapDropdown();
 
   // Chart controls
   document.getElementById('chart-account').addEventListener('change', loadHistoryChart);
@@ -2192,6 +2271,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Auto-capture polling is handled server-side by the agent.
   // Manual data refreshes on snap or page reload.
+
+  // H2: Refresh relative timestamp every 30s
+  setInterval(refreshTimestampDisplay, 30000);
 });
 
 // ════════════════════════════════════════════
@@ -2525,57 +2607,122 @@ function renderServerInsights(insights) {
   return html;
 }
 
-// ════════════════════════════════════════════
-//  Phase 10: ADVISOR CARD
-// ════════════════════════════════════════════
+// O1: Dynamic Switch Advisor — model-group aware
+var advisorGroupPref = localStorage.getItem('niyantra_advisor_group') || 'claude_gpt';
 
 function loadAdvisorCard() {
   var container = document.getElementById('advisor-card-container');
   if (!container) return;
 
-  fetch('/api/advisor').then(function(r) { return r.json(); })
-  .then(function(rec) {
-    if (!rec || !rec.bestAccount) {
-      container.innerHTML = '';
-      return;
-    }
-
-    var actionIcon = rec.action === 'switch' ? '⚡' : (rec.action === 'wait' ? '⏳' : '✅');
-    var actionLabel = rec.action.toUpperCase();
-
-    var html = '<div class="advisor-card">' +
-      '<h3>🎯 Switch Advisor</h3>' +
-      '<div class="advisor-action ' + esc(rec.action) + '">' + actionIcon + ' ' + actionLabel + '</div>' +
-      '<div class="advisor-reason">' + esc(rec.reason) + '</div>';
-
-    // Score bars
-    var allScores = [rec.bestAccount];
-    if (rec.alternatives) {
-      for (var i = 0; i < rec.alternatives.length; i++) {
-        allScores.push(rec.alternatives[i]);
-      }
-    }
-
-    if (allScores.length > 0) {
-      html += '<div class="advisor-scores">';
-      for (var s = 0; s < allScores.length; s++) {
-        var acct = allScores[s];
-        var isBest = s === 0;
-        var pct = Math.min(100, Math.max(0, acct.score));
-        html += '<div class="advisor-score-row' + (isBest ? ' best' : '') + '">' +
-          '<span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span>' +
-          '<div class="advisor-score-bar"><div class="advisor-score-fill" style="width:' + pct + '%"></div></div>' +
-          '<span class="advisor-score-val">' + acct.score.toFixed(0) + '</span>' +
-          '</div>';
-      }
-      html += '</div>';
-    }
-    html += '</div>';
-    container.innerHTML = html;
-  }).catch(function() {
+  // Use latestQuotaData which has per-account group breakdowns
+  if (!latestQuotaData || !latestQuotaData.accounts || latestQuotaData.accounts.length < 2) {
     container.innerHTML = '';
-  });
+    return;
+  }
+
+  renderAdvisorWithGroup(container, advisorGroupPref);
 }
+
+function renderAdvisorWithGroup(container, groupKey) {
+  var accounts = latestQuotaData.accounts;
+
+  // Build ranked list based on selected group's remaining %
+  var ranked = [];
+  for (var i = 0; i < accounts.length; i++) {
+    var acc = accounts[i];
+    var groups = acc.groups || [];
+    var pct = null;
+    for (var g = 0; g < groups.length; g++) {
+      if (groups[g].groupKey === groupKey) {
+        pct = Math.round(groups[g].remainingPercent);
+        break;
+      }
+    }
+    // If group not found for this account, compute average of all
+    if (pct === null) {
+      if (groupKey === 'all') {
+        var total = 0;
+        for (var gx = 0; gx < groups.length; gx++) total += groups[gx].remainingPercent;
+        pct = groups.length > 0 ? Math.round(total / groups.length) : 0;
+      } else {
+        pct = 0;
+      }
+    }
+    var isStale = false;
+    if (acc.lastSeen) {
+      var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
+      isStale = ageMs > 6 * 3600 * 1000; // >6h
+    }
+    ranked.push({
+      email: acc.email,
+      pct: pct,
+      stale: isStale,
+      label: acc.stalenessLabel || ''
+    });
+  }
+
+  // Sort by remaining % descending
+  ranked.sort(function(a, b) { return b.pct - a.pct; });
+
+  // Group display names
+  var groupNames = {
+    'claude_gpt': 'Claude + GPT',
+    'gemini_pro': 'Gemini Pro',
+    'gemini_flash': 'Gemini Flash',
+    'all': 'All Models (avg)'
+  };
+
+  var best = ranked[0];
+  var worst = ranked[ranked.length - 1];
+  var actionIcon = best.pct > 20 ? '⚡' : '⏳';
+  var actionLabel = best.pct > 20 ? 'SWITCH' : 'WAIT';
+  var bestLabel = best.email.split('@')[0] + '@...';
+
+  var html = '<div class="advisor-card">' +
+    '<h3>🎯 Switch Advisor</h3>' +
+    '<div class="advisor-group-select">' +
+    '<label>Optimize for:</label>' +
+    '<select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px">' +
+    '<option value="claude_gpt"' + (groupKey === 'claude_gpt' ? ' selected' : '') + '>Claude + GPT</option>' +
+    '<option value="gemini_pro"' + (groupKey === 'gemini_pro' ? ' selected' : '') + '>Gemini Pro</option>' +
+    '<option value="gemini_flash"' + (groupKey === 'gemini_flash' ? ' selected' : '') + '>Gemini Flash</option>' +
+    '<option value="all"' + (groupKey === 'all' ? ' selected' : '') + '>All Models (avg)</option>' +
+    '</select></div>';
+
+  html += '<div class="advisor-action ' + (best.pct > 20 ? 'switch' : 'wait') + '">' +
+    actionIcon + ' ' + actionLabel + '</div>' +
+    '<div class="advisor-reason">Best: ' + esc(best.email) + ' (' + best.pct + '% ' +
+    esc(groupNames[groupKey] || groupKey) + ' remaining)' +
+    (best.stale ? ' ⚠️ stale data' : '') + '</div>';
+
+  // Score bars — show top 10, rest collapsed
+  html += '<div class="advisor-scores">';
+  var showCount = Math.min(ranked.length, 10);
+  for (var s = 0; s < showCount; s++) {
+    var acct = ranked[s];
+    var isBest = s === 0;
+    var barCls = acct.pct > 50 ? 'good' : (acct.pct > 20 ? 'ok' : 'low');
+    var staleIcon = acct.stale ? ' <span class="stale-icon" title="Data ' + esc(acct.label) + '">⚠</span>' : '';
+    html += '<div class="advisor-score-row' + (isBest ? ' best' : '') + '">' +
+      '<span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span>' +
+      '<div class="advisor-score-bar"><div class="advisor-score-fill ' + barCls + '" style="width:' + acct.pct + '%"></div></div>' +
+      '<span class="advisor-score-val">' + acct.pct + '%' + staleIcon + '</span>' +
+      '</div>';
+  }
+  html += '</div></div>';
+  container.innerHTML = html;
+
+  // Wire up group selector
+  var sel = document.getElementById('advisor-group-filter');
+  if (sel) {
+    sel.addEventListener('change', function() {
+      advisorGroupPref = sel.value;
+      localStorage.setItem('niyantra_advisor_group', advisorGroupPref);
+      renderAdvisorWithGroup(container, advisorGroupPref);
+    });
+  }
+}
+
 
 // ════════════════════════════════════════════
 //  Phase 10: RENEWAL CALENDAR
