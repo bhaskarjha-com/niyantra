@@ -254,8 +254,10 @@ function renderAccounts(data) {
     return;
   }
 
+  var providerFilter = document.getElementById('quota-filter-provider');
+  var pf = providerFilter ? providerFilter.value : 'all';
   var html = '';
-  if (acctCount > 0) {
+  if (acctCount > 0 && (pf === 'all' || pf === 'antigravity')) {
   var filtered = filterAccountsArray(data.accounts);
   var sorted = sortAccountsArray(filtered);
   html += '<div class="provider-section"><div class="provider-header" data-toggle-provider="section-antigravity">' +
@@ -263,6 +265,15 @@ function renderAccounts(data) {
     '<span class="provider-name">Antigravity</span>' +
     '<span class="provider-count">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + '</span></div></div>' +
     '<div class="provider-body" id="section-antigravity">';
+  // Dynamic Antigravity grid header
+  html += '<div class="grid-header">' +
+    '<div class="grid-col-account sortable" data-sort="account">Account <span class="sort-indicator"></span></div>';
+  for (var gh = 0; gh < GROUP_ORDER.length; gh++) {
+    html += '<div class="grid-col-group sortable" data-sort="' + GROUP_ORDER[gh] + '">' + (GROUP_LABELS[gh] || GROUP_ORDER[gh]) + ' <span class="sort-indicator"></span></div>';
+  }
+  html += '<div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div>' +
+    '<div class="grid-col-snap sortable" data-sort="lastsnap">Last Snap <span class="sort-indicator"></span></div>' +
+    '<div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div></div>';
   for (var i = 0; i < sorted.length; i++) {
     var acc = sorted[i];
     var accId = 'acc-' + acc.accountId;
@@ -396,8 +407,8 @@ function renderAccounts(data) {
   html += '</div></div>'; // close provider-body + provider-section
   } // end if acctCount > 0
 
-  if (data.codexSnapshot) html += renderCodexProviderSection(data.codexSnapshot);
-  if (data.claudeSnapshot) html += renderClaudeProviderSection(data.claudeSnapshot);
+  if (data.codexSnapshot && (pf === 'all' || pf === 'codex')) html += renderCodexProviderSection(data.codexSnapshot);
+  if (data.claudeSnapshot && (pf === 'all' || pf === 'claude')) html += renderClaudeProviderSection(data.claudeSnapshot);
 
   grid.innerHTML = html;
 
@@ -2286,8 +2297,19 @@ function initQuotas() {
     });
   }
 
-  document.querySelectorAll('.grid-header .sortable').forEach(function(el) {
-    el.addEventListener('click', function() {
+  var qProvider = document.getElementById('quota-filter-provider');
+  if (qProvider) {
+    qProvider.addEventListener('change', function() {
+      if (latestQuotaData) renderAccounts(latestQuotaData);
+    });
+  }
+
+  // Sort headers are now dynamic â€” use delegation on account-grid
+  var gridEl = document.getElementById('account-grid');
+  if (gridEl) {
+    gridEl.addEventListener('click', function(e) {
+      var el = e.target.closest('.sortable');
+      if (!el) return;
       var col = el.dataset.sort;
       if (quotaSortState.column === col) {
         quotaSortState.direction = quotaSortState.direction === 'asc' ? 'desc' : 'asc';
@@ -2295,10 +2317,9 @@ function initQuotas() {
         quotaSortState.column = col;
         quotaSortState.direction = 'asc';
       }
-      updateSortHeaders();
       if (latestQuotaData) renderAccounts(latestQuotaData);
     });
-  });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

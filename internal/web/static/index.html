@@ -71,21 +71,16 @@
                             <option value="low">Low</option>
                             <option value="empty">Empty</option>
                         </select>
-                        <!-- Q2: Freshness filter removed — 'Stale/Fresh' was wrong abstraction.
-                             Last Snap column replaces it. Space reserved for provider filter (Phase 2). -->
+                        <select id="quota-filter-provider" class="filter-select">
+                            <option value="all">All Providers</option>
+                            <option value="antigravity">Antigravity</option>
+                            <option value="codex">Codex / ChatGPT</option>
+                            <option value="claude">Claude Code</option>
+                        </select>
                     </div>
                 </div>
 
                 <div class="grid-section">
-                    <div class="grid-header">
-                        <div class="grid-col-account sortable sort-active" data-sort="account">Account <span class="sort-indicator">▾</span></div>
-                        <div class="grid-col-group sortable" data-sort="claude_gpt">Claude + GPT <span class="sort-indicator"></span></div>
-                        <div class="grid-col-group sortable" data-sort="gemini_pro">Gemini Pro <span class="sort-indicator"></span></div>
-                        <div class="grid-col-group sortable" data-sort="gemini_flash">Gemini Flash <span class="sort-indicator"></span></div>
-                        <div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div>
-                        <div class="grid-col-snap sortable" data-sort="lastsnap">Last Snap <span class="sort-indicator"></span></div>
-                        <div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div>
-                    </div>
                     <div id="account-grid" class="account-grid"></div>
                 </div>
 
