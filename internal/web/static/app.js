@@ -541,79 +541,155 @@ function renderSubscriptions(data) {
     return;
   }
 
-  // S2: Split subs into auto-tracked provider groups vs manual
-  var providerGroups = {}; // platform -> array of auto-tracked subs
+  // Split subs into auto-tracked provider groups vs manual
+  var providerGroups = {};
   var manualSubs = [];
+  var grandTotal = 0;
   for (var i = 0; i < subs.length; i++) {
     var s = subs[i];
+    // Calculate monthly equivalent
+    var monthly = 0;
+    if (s.costAmount > 0) {
+      if (s.billingCycle === 'yearly') monthly = s.costAmount / 12;
+      else monthly = s.costAmount;
+    }
+    grandTotal += monthly;
+
     if (s.autoTracked) {
       var pkey = s.platform || 'Unknown';
-      if (!providerGroups[pkey]) providerGroups[pkey] = [];
-      providerGroups[pkey].push(s);
+      if (!providerGroups[pkey]) providerGroups[pkey] = { items: [], total: 0 };
+      providerGroups[pkey].items.push(s);
+      providerGroups[pkey].total += monthly;
     } else {
       manualSubs.push(s);
     }
   }
 
-  var html = '';
-
-  // Render auto-tracked provider sections as compact collapsible tables
   var providerKeys = Object.keys(providerGroups);
+  var autoCount = subs.length - manualSubs.length;
+  var sym = currencySymbol(subs[0] ? subs[0].costCurrency : 'USD');
+
+  // ── Spend Summary Card ──
+  var html = '<div class="spend-summary-card">' +
+    '<div class="spend-hero">' +
+    '<div class="spend-amount">' + sym + grandTotal.toFixed(2) + '<span class="spend-period">/mo</span></div>' +
+    '<div class="spend-label">Total Monthly Spend</div>' +
+    '</div>' +
+    '<div class="spend-breakdown">';
+
+  // Provider chips
+  var providerIcons = { 'Antigravity': '⚡', 'Codex': '🤖', 'Claude': '🔮' };
+  for (var pk = 0; pk < providerKeys.length; pk++) {
+    var pName = providerKeys[pk];
+    var pIcon = providerIcons[pName] || '📦';
+    var pTotal = providerGroups[pName].total;
+    html += '<span class="spend-chip">' + pIcon + ' ' + esc(pName) +
+      ' <strong>' + sym + pTotal.toFixed(2) + '</strong></span>';
+  }
+  if (manualSubs.length > 0) {
+    var manualTotal = 0;
+    for (var mi = 0; mi < manualSubs.length; mi++) {
+      if (manualSubs[mi].costAmount > 0) {
+        manualTotal += manualSubs[mi].billingCycle === 'yearly'
+          ? manualSubs[mi].costAmount / 12 : manualSubs[mi].costAmount;
+      }
+    }
+    if (manualTotal > 0) {
+      html += '<span class="spend-chip">📋 Manual <strong>' + sym + manualTotal.toFixed(2) + '</strong></span>';
+    }
+  }
+
+  html += '</div>' +
+    '<div class="spend-meta">' + autoCount + ' auto-tracked · ' + manualSubs.length + ' manual</div>' +
+    '</div>';
+
+  // ── Auto-Tracked Provider Sections ──
   for (var pi = 0; pi < providerKeys.length; pi++) {
     var provider = providerKeys[pi];
-    var items = providerGroups[provider];
-    var totalMonthly = 0;
+    var group = providerGroups[provider];
+    var items = group.items;
+    var icon = providerIcons[provider] || '📦';
+
+    // Smart plan detection — uniform vs mixed
+    var planCounts = {};
     for (var ti = 0; ti < items.length; ti++) {
-      if (items[ti].billingCycle === 'monthly') totalMonthly += items[ti].costAmount;
-      else if (items[ti].billingCycle === 'yearly') totalMonthly += items[ti].costAmount / 12;
+      var pn = items[ti].planName || '—';
+      if (!planCounts[pn]) planCounts[pn] = 0;
+      planCounts[pn]++;
+    }
+    var planKeys = Object.keys(planCounts);
+    var planSummary = '';
+    if (planKeys.length === 1) {
+      // All same plan
+      var costEach = items[0].costAmount > 0
+        ? sym + items[0].costAmount.toFixed(2) + '/' + (items[0].billingCycle || 'mo')
+        : 'Free';
+      planSummary = items.length + ' × ' + esc(planKeys[0]) + ' · ' + costEach + ' each';
+    } else {
+      // Mixed plans
+      var parts = [];
+      for (var pk2 = 0; pk2 < planKeys.length; pk2++) {
+        parts.push(planCounts[planKeys[pk2]] + ' ' + esc(planKeys[pk2]));
+      }
+      planSummary = parts.join(' · ');
     }
 
-    var sectionId = 'provider-section-' + provider.replace(/\s+/g, '-').toLowerCase();
+    var sectionId = 'sub-provider-' + provider.replace(/\s+/g, '-').toLowerCase();
     html += '<div class="provider-section">' +
       '<div class="provider-header" data-toggle-provider="' + sectionId + '">' +
       '<div class="provider-header-left">' +
       '<span class="provider-chevron" id="pchev-' + sectionId + '">▾</span> ' +
+      '<span class="provider-icon">' + icon + '</span>' +
       '<span class="provider-name">' + esc(provider) + '</span>' +
       '<span class="provider-count">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>' +
       '</div>' +
-      '<span class="provider-spend">$' + totalMonthly.toFixed(2) + '/mo</span>' +
+      '<span class="provider-spend">' + sym + group.total.toFixed(2) + '/mo</span>' +
       '</div>' +
-      '<div class="provider-body" id="' + sectionId + '">' +
-      '<table class="provider-table">' +
-      '<thead><tr><th>Account</th><th>Plan</th><th>Cost</th><th>Status</th><th></th></tr></thead>' +
-      '<tbody>';
+      '<div class="provider-body" id="' + sectionId + '">';
+
+    // Plan summary line
+    html += '<div class="plan-summary">' + planSummary + '</div>';
+
+    // Full-width table with Edit capability
+    html += '<table class="provider-table">' +
+      '<thead><tr>' +
+      '<th>Account</th><th>Plan</th><th>Cost</th><th>Billing</th><th>Status</th><th></th>' +
+      '</tr></thead><tbody>';
 
     for (var si = 0; si < items.length; si++) {
       var sub = items[si];
-      var sym = currencySymbol(sub.costCurrency);
-      var costStr = sub.costAmount > 0 ? (sym + sub.costAmount.toFixed(2) + '/' + (sub.billingCycle || 'mo')) : '—';
+      var subSym = currencySymbol(sub.costCurrency);
+      var costStr = sub.costAmount > 0
+        ? subSym + sub.costAmount.toFixed(2)
+        : 'Free';
+      var cycleStr = sub.billingCycle || '—';
       var statusCls = sub.status === 'active' ? 'ready' : (sub.status === 'trial' ? 'partial' : 'exhausted');
-      html += '<tr>' +
+
+      html += '<tr class="sub-row" data-sub-id="' + sub.id + '">' +
         '<td class="provider-row-email">' + esc(sub.email || '—') + '</td>' +
-        '<td>' + esc(sub.planName || '—') + '</td>' +
+        '<td><span class="plan-badge">' + esc(sub.planName || '—') + '</span></td>' +
         '<td class="provider-row-cost">' + costStr + '</td>' +
+        '<td class="provider-row-cycle">' + esc(cycleStr) + '</td>' +
         '<td><span class="status-badge ' + statusCls + '">' + esc(sub.status) + '</span></td>' +
         '<td class="provider-row-actions">' +
+        '<button class="btn-edit-sm" data-edit-id="' + sub.id + '" title="Edit">✏️</button>' +
         '<button class="btn-delete-card btn-delete-sm" data-delete-id="' + sub.id + '" data-delete-name="' + esc(sub.platform) + '" title="Delete">×</button>' +
-        '</td>' +
-        '</tr>';
+        '</td></tr>';
     }
 
     html += '</tbody></table></div></div>';
   }
 
-  // Render manual subs with full card layout, grouped by category
+  // ── Manual Subscriptions ──
   if (manualSubs.length > 0) {
     var grouped = {};
-    for (var mi = 0; mi < manualSubs.length; mi++) {
-      var cat = manualSubs[mi].category || 'other';
+    for (var mi2 = 0; mi2 < manualSubs.length; mi2++) {
+      var cat = manualSubs[mi2].category || 'other';
       if (!grouped[cat]) grouped[cat] = [];
-      grouped[cat].push(manualSubs[mi]);
+      grouped[cat].push(manualSubs[mi2]);
     }
     var catOrder = ['coding', 'chat', 'api', 'image', 'audio', 'productivity', 'other'];
-    if (providerKeys.length > 0) {
-      html += '<div class="sub-category-label" style="margin-top:24px">Manual Subscriptions (' + manualSubs.length + ')</div>';
-    }
+    html += '<div class="sub-section-label">Manual Subscriptions (' + manualSubs.length + ')</div>';
     for (var ci = 0; ci < catOrder.length; ci++) {
       var catItems = grouped[catOrder[ci]];
       if (!catItems || catItems.length === 0) continue;
@@ -625,10 +701,10 @@ function renderSubscriptions(data) {
       }
     }
   } else if (providerKeys.length > 0) {
-    // Show helpful empty state for manual subs
-    html += '<div class="manual-empty">' +
+    html += '<div class="sub-section-label">Manual Subscriptions</div>' +
+      '<div class="manual-empty">' +
       '<p>No manual subscriptions tracked.</p>' +
-      '<p class="empty-hint">Click <strong>+ Add</strong> to track Claude, Cursor, or other AI services.</p>' +
+      '<p class="empty-hint">Click <strong>+ Add</strong> to track Claude Pro, Cursor, or other AI tools.</p>' +
       '</div>';
   }
 

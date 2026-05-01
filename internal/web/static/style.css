@@ -1133,7 +1133,7 @@ body {
   font-weight: 600;
 }
 
-.provider-row-actions { text-align: right; width: 40px; }
+.provider-row-actions { text-align: right; width: 70px; white-space: nowrap; }
 
 .btn-delete-sm {
   padding: 2px 6px !important;
@@ -1143,7 +1143,131 @@ body {
   transition: opacity 150ms;
 }
 
-.provider-table tbody tr:hover .btn-delete-sm { opacity: 1; }
+.btn-edit-sm {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 13px;
+  opacity: 0.4;
+  transition: opacity 150ms;
+}
+
+.provider-table tbody tr:hover .btn-delete-sm,
+.provider-table tbody tr:hover .btn-edit-sm { opacity: 1; }
+
+.provider-icon { font-size: 16px; }
+
+.provider-row-cycle {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.plan-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.plan-summary {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+/* ── Spend Summary Card ── */
+
+.spend-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.spend-hero {
+  min-width: 160px;
+}
+
+.spend-amount {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.spend-period {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.spend-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+.spend-breakdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.spend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.spend-chip strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.spend-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Section Labels ── */
+
+.sub-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 20px 0 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
 
 .manual-empty {
   text-align: center;
