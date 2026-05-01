@@ -11,6 +11,7 @@ import (
 type CodexSnapshot struct {
 	ID             int64      `json:"id"`
 	AccountID      string     `json:"accountId"` // OpenAI org/account ID (TEXT, not FK to accounts table)
+	Email          string     `json:"email,omitempty"` // User email from OIDC id_token
 	FiveHourPct    float64    `json:"fiveHourPct"`
 	SevenDayPct    *float64   `json:"sevenDayPct"`
 	CodeReviewPct  *float64   `json:"codeReviewPct"`
@@ -37,11 +38,11 @@ func (s *Store) InsertCodexSnapshot(snap *CodexSnapshot) (int64, error) {
 
 	res, err := s.db.Exec(`
 		INSERT INTO codex_snapshots
-			(account_id, five_hour_pct, seven_day_pct, code_review_pct,
+			(account_id, email, five_hour_pct, seven_day_pct, code_review_pct,
 			 five_hour_reset, seven_day_reset, plan_type, credits_balance,
 			 captured_at, capture_method, capture_source)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
-		snap.AccountID, snap.FiveHourPct, snap.SevenDayPct, snap.CodeReviewPct,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)`,
+		snap.AccountID, snap.Email, snap.FiveHourPct, snap.SevenDayPct, snap.CodeReviewPct,
 		fiveReset, sevenReset, snap.PlanType, snap.CreditsBalance,
 		snap.CaptureMethod, snap.CaptureSource,
 	)
@@ -54,7 +55,7 @@ func (s *Store) InsertCodexSnapshot(snap *CodexSnapshot) (int64, error) {
 // LatestCodexSnapshot returns the most recent Codex snapshot.
 func (s *Store) LatestCodexSnapshot() (*CodexSnapshot, error) {
 	row := s.db.QueryRow(`
-		SELECT id, account_id, five_hour_pct, seven_day_pct, code_review_pct,
+		SELECT id, account_id, COALESCE(email,''), five_hour_pct, seven_day_pct, code_review_pct,
 		       five_hour_reset, seven_day_reset, plan_type, credits_balance,
 		       captured_at, capture_method, capture_source
 		FROM codex_snapshots ORDER BY captured_at DESC LIMIT 1`)
@@ -62,7 +63,7 @@ func (s *Store) LatestCodexSnapshot() (*CodexSnapshot, error) {
 	snap := &CodexSnapshot{}
 	var fiveReset, sevenReset, capturedAt sql.NullString
 	err := row.Scan(
-		&snap.ID, &snap.AccountID, &snap.FiveHourPct,
+		&snap.ID, &snap.AccountID, &snap.Email, &snap.FiveHourPct,
 		&snap.SevenDayPct, &snap.CodeReviewPct,
 		&fiveReset, &sevenReset,
 		&snap.PlanType, &snap.CreditsBalance,
@@ -93,7 +94,7 @@ func (s *Store) LatestCodexSnapshot() (*CodexSnapshot, error) {
 // CodexHistory returns Codex snapshots since the given time.
 func (s *Store) CodexHistory(since time.Time) ([]*CodexSnapshot, error) {
 	rows, err := s.db.Query(`
-		SELECT id, account_id, five_hour_pct, seven_day_pct, code_review_pct,
+		SELECT id, account_id, COALESCE(email,''), five_hour_pct, seven_day_pct, code_review_pct,
 		       five_hour_reset, seven_day_reset, plan_type, credits_balance,
 		       captured_at, capture_method, capture_source
 		FROM codex_snapshots
@@ -110,7 +111,7 @@ func (s *Store) CodexHistory(since time.Time) ([]*CodexSnapshot, error) {
 		snap := &CodexSnapshot{}
 		var fiveReset, sevenReset, capturedAt sql.NullString
 		if err := rows.Scan(
-			&snap.ID, &snap.AccountID, &snap.FiveHourPct,
+			&snap.ID, &snap.AccountID, &snap.Email, &snap.FiveHourPct,
 			&snap.SevenDayPct, &snap.CodeReviewPct,
 			&fiveReset, &sevenReset,
 			&snap.PlanType, &snap.CreditsBalance,

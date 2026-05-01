@@ -967,6 +967,7 @@ func (s *Server) handleCodexSnap(w http.ResponseWriter, r *http.Request) {
 	// Build and store snapshot
 	snap := &store.CodexSnapshot{
 		AccountID:      creds.AccountID,
+		Email:          creds.Email,
 		FiveHourPct:    0,
 		PlanType:       usage.PlanType,
 		CreditsBalance: usage.CreditsBalance,

@@ -39,6 +39,7 @@ type Credentials struct {
 	APIKey       string
 	AccountID    string
 	UserID       string
+	Email        string
 	ExpiresAt    time.Time
 	ExpiresIn    time.Duration
 }
@@ -108,6 +109,7 @@ func DetectCredentials(logger *slog.Logger) (*Credentials, error) {
 		APIKey:       strings.TrimSpace(auth.OpenAIAPIKey),
 		AccountID:    strings.TrimSpace(auth.Tokens.AccountID),
 		UserID:       parseIDTokenUserID(idToken),
+		Email:        parseIDTokenEmail(idToken),
 		ExpiresAt:    expiresAt,
 		ExpiresIn:    expiresIn,
 	}
@@ -280,6 +282,19 @@ func parseIDTokenExpiry(idToken string) time.Time {
 		return time.Unix(int64(exp), 0)
 	}
 	return time.Time{}
+}
+
+// parseIDTokenEmail extracts the email claim from a JWT id_token.
+// OpenAI's OIDC id_token includes a standard "email" claim.
+func parseIDTokenEmail(idToken string) string {
+	claims := parseJWTPayload(idToken)
+	if claims == nil {
+		return ""
+	}
+	if email, ok := claims["email"].(string); ok {
+		return strings.TrimSpace(email)
+	}
+	return ""
 }
 
 // parseIDTokenUserID extracts chatgpt_user_id from a JWT id_token.

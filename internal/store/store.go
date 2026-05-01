@@ -384,6 +384,15 @@ func (s *Store) migrate() error {
 		}
 		s.setUserVersion(8)
 	}
+	// ── v9: Codex email tracking ────────────────────────────────────
+	if s.getUserVersion() < 9 {
+		if _, err := s.db.Exec(`ALTER TABLE codex_snapshots ADD COLUMN email TEXT DEFAULT ''`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter codex_snapshots (email): %w", err)
+			}
+		}
+		s.setUserVersion(9)
+	}
 
 	return nil
 }
