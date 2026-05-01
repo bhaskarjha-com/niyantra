@@ -2135,6 +2135,13 @@ function formatActivityDetail(entry) {
         return esc(d.platform || '');
       case 'auto_link':
         return esc(entry.accountEmail || '') + ' → ' + esc(d.platform || '');
+      case 'codex_snap':
+        // T2: Truncate UUID for readability
+        var acctId = entry.accountEmail || '';
+        if (acctId.length > 20) acctId = acctId.substring(0, 6) + '..' + acctId.slice(-6);
+        return esc(acctId) + (d.plan ? ' (' + esc(d.plan) + ')' : '');
+      case 'model_reset':
+        return esc(entry.accountEmail || '');
       default:
         return entry.accountEmail ? esc(entry.accountEmail) : '';
     }

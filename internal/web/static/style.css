@@ -498,8 +498,13 @@ body {
 
 /* ── Account Card ── */
 
-.account-card { border-bottom: 1px solid var(--border); }
+.account-card {
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  transition: border-left-color 150ms;
+}
 .account-card:last-child { border-bottom: none; }
+.account-card:hover { border-left-color: var(--accent); }
 .account-card .account-row { cursor: pointer; border-bottom: none; }
 
 /* ── Chevron ── */
