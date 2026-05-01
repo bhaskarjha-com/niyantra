@@ -237,9 +237,15 @@ function renderAccounts(data) {
   var snapCount = document.getElementById('snap-count');
   if (!grid) return;
 
-  if (!data.accounts || data.accounts.length === 0) {
-    countBadge.textContent = '0 accounts';
-    if (snapCount) snapCount.textContent = '';
+  var acctCount = (data.accounts || []).length;
+  var parts = [];
+  if (acctCount > 0) parts.push(acctCount + ' Antigravity');
+  if (data.codexSnapshot) parts.push('1 Codex');
+  if (data.claudeSnapshot) parts.push('1 Claude');
+  countBadge.textContent = parts.join(' · ') || '0 accounts';
+  if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
+
+  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot) {
     grid.innerHTML = '<div class="empty-state">' +
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>' +
       '<p>No accounts tracked yet</p>' +
@@ -248,19 +254,15 @@ function renderAccounts(data) {
     return;
   }
 
-  var count = data.accountCount || data.accounts.length;
-  // H1: Show per-provider count — clear breakdown
-  var parts = [];
-  parts.push(count + ' Antigravity');
-  if (data.codexSnapshot) parts.push('1 Codex');
-  if (data.claudeSnapshot) parts.push('1 Claude');
-  countBadge.textContent = parts.join(' · ');
-  if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
-
+  var html = '';
+  if (acctCount > 0) {
   var filtered = filterAccountsArray(data.accounts);
   var sorted = sortAccountsArray(filtered);
-
-  var html = '';
+  html += '<div class="provider-section"><div class="provider-header" data-toggle-provider="section-antigravity">' +
+    '<div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">▾</span>' +
+    '<span class="provider-name">Antigravity</span>' +
+    '<span class="provider-count">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + '</span></div></div>' +
+    '<div class="provider-body" id="section-antigravity">';
   for (var i = 0; i < sorted.length; i++) {
     var acc = sorted[i];
     var accId = 'acc-' + acc.accountId;
@@ -391,91 +393,100 @@ function renderAccounts(data) {
       '</div>';
   }
 
+  html += '</div></div>'; // close provider-body + provider-section
+  } // end if acctCount > 0
+
+  if (data.codexSnapshot) html += renderCodexProviderSection(data.codexSnapshot);
+  if (data.claudeSnapshot) html += renderClaudeProviderSection(data.claudeSnapshot);
+
   grid.innerHTML = html;
 
-  // C4: Render Codex and Claude provider cards below the Antigravity grid
-  renderProviderCards(data);
+  // Wire up provider section collapse
+  grid.querySelectorAll('.provider-header[data-toggle-provider]').forEach(function(hdr) {
+    hdr.addEventListener('click', function() {
+      var targetId = hdr.dataset.toggleProvider;
+      var body = document.getElementById(targetId);
+      var chev = document.getElementById('pchev-' + targetId);
+      if (!body) return;
+      var collapsed = body.classList.toggle('collapsed');
+      if (chev) chev.textContent = collapsed ? '▸' : '▾';
+    });
+  });
 }
 
-function renderProviderCards(data) {
-  var container = document.getElementById('account-grid');
-  if (!container) return;
-  var providerHTML = '';
-
-  // Codex card
-  if (data.codexSnapshot) {
-    var cs = data.codexSnapshot;
-    var fiveUsed = cs.fiveHourPct || 0;
-    var fiveRemaining = Math.max(0, 100 - fiveUsed);
-    var fiveClass = fiveUsed >= 80 ? 'critical' : fiveUsed >= 50 ? 'warning' : 'healthy';
-    var fiveReset = cs.fiveHourReset ? formatResetTime(cs.fiveHourReset) : '';
-    var sevenUsed = cs.sevenDayPct ? cs.sevenDayPct : 0;
-    var sevenRemaining = Math.max(0, 100 - sevenUsed);
-    var sevenClass = sevenUsed >= 80 ? 'critical' : sevenUsed >= 50 ? 'warning' : 'healthy';
-    var sevenReset = cs.sevenDayReset ? formatResetTime(cs.sevenDayReset) : '';
-    var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : 'unknown';
-    var codexBadge = fiveUsed >= 80 || sevenUsed >= 80 ? 'Low' : 'Ready';
-    var codexBadgeCls = codexBadge === 'Ready' ? 'status-ready' : 'status-low';
-
-    providerHTML += '<div class="account-card provider-card">' +
-      '<div class="account-row">' +
-      '<div class="account-info">' +
-      '<div class="account-email">\ud83e\udd16 Codex / ChatGPT</div>' +
-      '<div class="account-meta">' +
-      (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + '</span>' : '') +
-      '<span class="staleness">' + capturedAgo + '</span>' +
-      '</div></div>' +
-      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + fiveClass + '" style="width:' + fiveRemaining + '%"></div></div>' +
-      '<span class="mini-pct">' + fiveRemaining.toFixed(0) + '%</span>' +
-      (fiveReset ? '<span class="quota-reset">\u21bb ' + fiveReset + '</span>' : '') +
-      '<span class="quota-label">5-Hour</span></div>' +
-      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + sevenClass + '" style="width:' + sevenRemaining + '%"></div></div>' +
-      '<span class="mini-pct">' + sevenRemaining.toFixed(0) + '%</span>' +
-      (sevenReset ? '<span class="quota-reset">\u21bb ' + sevenReset + '</span>' : '') +
-      '<span class="quota-label">7-Day</span></div>' +
-      '<div class="grid-cell"></div>' +
-      '<div class="grid-cell"></div>' +
-      '<div style="text-align:center"><span class="status-badge ' + codexBadgeCls + '">' + codexBadge + '</span></div>' +
-      '</div></div>';
-  }
-
-  // Claude card
-  if (data.claudeSnapshot) {
-    var cl = data.claudeSnapshot;
-    var clFive = cl.fiveHourPct || 0;
-    var clFiveRem = Math.max(0, 100 - clFive);
-    var clFiveClass = clFive >= 80 ? 'critical' : clFive >= 50 ? 'warning' : 'healthy';
-    var clSeven = cl.sevenDayPct ? cl.sevenDayPct : 0;
-    var clSevenRem = Math.max(0, 100 - clSeven);
-    var clSevenClass = clSeven >= 80 ? 'critical' : clSeven >= 50 ? 'warning' : 'healthy';
-    var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : 'unknown';
-    var clBadge = clFive >= 80 || clSeven >= 80 ? 'Low' : 'Ready';
-    var clBadgeCls = clBadge === 'Ready' ? 'status-ready' : 'status-low';
-
-    providerHTML += '<div class="account-card provider-card">' +
-      '<div class="account-row">' +
-      '<div class="account-info">' +
-      '<div class="account-email">\ud83d\udd17 Claude Code</div>' +
-      '<div class="account-meta">' +
-      '<span class="plan-badge">Bridge</span>' +
-      '<span class="staleness">' + clAgo + '</span>' +
-      '</div></div>' +
-      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + clFiveClass + '" style="width:' + clFiveRem + '%"></div></div>' +
-      '<span class="mini-pct">' + clFiveRem.toFixed(0) + '%</span>' +
-      '<span class="quota-label">5-Hour</span></div>' +
-      '<div class="grid-cell"><div class="mini-bar"><div class="mini-bar-fill ' + clSevenClass + '" style="width:' + clSevenRem + '%"></div></div>' +
-      '<span class="mini-pct">' + clSevenRem.toFixed(0) + '%</span>' +
-      '<span class="quota-label">7-Day</span></div>' +
-      '<div class="grid-cell"></div>' +
-      '<div class="grid-cell"></div>' +
-      '<div style="text-align:center"><span class="status-badge ' + clBadgeCls + '">' + clBadge + '</span></div>' +
-      '</div></div>';
-  }
-
-  if (providerHTML) {
-    container.insertAdjacentHTML('beforeend', providerHTML);
-  }
+function renderCodexProviderSection(cs) {
+  var fiveUsed = cs.fiveHourPct || 0;
+  var fiveRem = Math.max(0, 100 - fiveUsed);
+  var fiveCls = fiveRem > 50 ? 'good' : fiveRem > 20 ? 'ok' : fiveRem > 0 ? 'warning' : 'exhausted';
+  var fiveReset = cs.fiveHourReset ? formatResetTime(cs.fiveHourReset) : '';
+  var sevenUsed = cs.sevenDayPct ? cs.sevenDayPct : 0;
+  var sevenRem = Math.max(0, 100 - sevenUsed);
+  var sevenCls = sevenRem > 50 ? 'good' : sevenRem > 20 ? 'ok' : sevenRem > 0 ? 'warning' : 'exhausted';
+  var sevenReset = cs.sevenDayReset ? formatResetTime(cs.sevenDayReset) : '';
+  var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : 'unknown';
+  var dotCls = (fiveUsed >= 80 || sevenUsed >= 80) ? 'dot-low' : 'dot-ready';
+  var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  var displayName = cs.email || (cs.accountId && cs.accountId.length > 12 ? cs.accountId.substring(0,6) + '..' + cs.accountId.slice(-6) : (cs.accountId || 'Codex'));
+  var creditsStr = cs.creditsBalance !== null && cs.creditsBalance !== undefined ? cs.creditsBalance.toFixed(2) : String.fromCharCode(8212);
+  return '<div class="provider-section">' +
+    '<div class="provider-header" data-toggle-provider="section-codex">' +
+    '<div class="provider-header-left">' +
+    '<span class="provider-chevron" id="pchev-section-codex">▾</span>' +
+    '<span class="provider-name">\ud83e\udd16 Codex / ChatGPT</span>' +
+    '<span class="provider-count">1 account</span>' +
+    '</div></div>' +
+    '<div class="provider-body" id="section-codex">' +
+    '<div class="grid-header grid-codex">' +
+    '<div>Account</div><div>Plan</div><div>5-Hour</div><div>7-Day</div><div>Credits</div><div>Last Snap</div><div>Status</div>' +
+    '</div>' +
+    '<div class="account-card"><div class="account-row grid-codex">' +
+    '<div class="account-info"><div class="account-email">' + esc(displayName) + '</div></div>' +
+    '<div>' + (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + '</span>' : String.fromCharCode(8212)) + '</div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + fiveCls + '">' + fiveRem.toFixed(0) + '%</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + fiveCls + '" style="width:' + fiveRem + '%"></div></div>' +
+    (fiveReset ? '<span class="quota-reset">\u21bb ' + fiveReset + '</span>' : '') + '</div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + sevenCls + '">' + sevenRem.toFixed(0) + '%</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + sevenCls + '" style="width:' + sevenRem + '%"></div></div>' +
+    (sevenReset ? '<span class="quota-reset">\u21bb ' + sevenReset + '</span>' : '') + '</div>' +
+    '<div class="credits-cell"><span class="credit-amount">' + creditsStr + '</span></div>' +
+    '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
+    '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
+    '</div></div></div></div>';
 }
+
+function renderClaudeProviderSection(cl) {
+  var clFive = cl.fiveHourPct || 0;
+  var clFiveRem = Math.max(0, 100 - clFive);
+  var clFiveCls = clFiveRem > 50 ? 'good' : clFiveRem > 20 ? 'ok' : clFiveRem > 0 ? 'warning' : 'exhausted';
+  var clSeven = cl.sevenDayPct ? cl.sevenDayPct : 0;
+  var clSevenRem = Math.max(0, 100 - clSeven);
+  var clSevenCls = clSevenRem > 50 ? 'good' : clSevenRem > 20 ? 'ok' : clSevenRem > 0 ? 'warning' : 'exhausted';
+  var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : 'unknown';
+  var dotCls = (clFive >= 80 || clSeven >= 80) ? 'dot-low' : 'dot-ready';
+  var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  return '<div class="provider-section">' +
+    '<div class="provider-header" data-toggle-provider="section-claude">' +
+    '<div class="provider-header-left">' +
+    '<span class="provider-chevron" id="pchev-section-claude">▾</span>' +
+    '<span class="provider-name">\ud83d\udd17 Claude Code</span>' +
+    '<span class="provider-count">1 account \u00b7 Bridge</span>' +
+    '</div></div>' +
+    '<div class="provider-body" id="section-claude">' +
+    '<div class="grid-header grid-claude">' +
+    '<div>Source</div><div>5-Hour</div><div>7-Day</div><div>Last Snap</div><div>Status</div>' +
+    '</div>' +
+    '<div class="account-card"><div class="account-row grid-claude">' +
+    '<div class="account-info"><div class="account-email">' + esc(cl.source || 'statusline') + '</div></div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + clFiveCls + '">' + clFiveRem.toFixed(0) + '%</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + clFiveCls + '" style="width:' + clFiveRem + '%"></div></div></div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + clSevenCls + '">' + clSevenRem.toFixed(0) + '%</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + clSevenCls + '" style="width:' + clSevenRem + '%"></div></div></div>' +
+    '<div class="snap-cell"><span class="snap-ago">' + clAgo + '</span></div>' +
+    '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
+    '</div></div></div></div>';
+}
+
+
 
 function formatResetTime(isoString) {
   if (!isoString) return '';

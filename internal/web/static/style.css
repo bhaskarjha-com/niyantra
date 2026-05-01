@@ -933,6 +933,91 @@ body {
   font-weight: 600;
 }
 
+/* ════════════════════════════════════════════
+   PROVIDER SECTIONS (Quotas Tab)
+   ════════════════════════════════════════════ */
+
+.provider-section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.provider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--border);
+}
+.provider-header:hover { background: rgba(255,255,255,0.04); }
+
+.provider-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-chevron {
+  font-size: 12px;
+  color: var(--text-muted);
+  width: 12px;
+  text-align: center;
+}
+
+.provider-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.provider-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.06);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.provider-body { }
+.provider-body.collapsed { display: none; }
+
+/* Codex grid: Account | Plan | 5-Hour | 7-Day | Credits | Last Snap | Status */
+.grid-codex {
+  display: grid;
+  grid-template-columns: 2fr 80px 100px 100px 80px 100px 80px;
+  align-items: center;
+  gap: 0 8px;
+  padding: 0 16px;
+}
+
+/* Claude grid: Source | 5-Hour | 7-Day | Last Snap | Status */
+.grid-claude {
+  display: grid;
+  grid-template-columns: 2fr 120px 120px 120px 80px;
+  align-items: center;
+  gap: 0 8px;
+  padding: 0 16px;
+}
+
+.grid-codex.grid-header,
+.grid-claude.grid-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding-top: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+
 /* ── Category Headers ── */
 
 .sub-category-label {
