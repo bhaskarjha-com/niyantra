@@ -40,9 +40,11 @@ type ModelOrAlias struct {
 }
 
 // QuotaInfo contains remaining quota and reset time for a model.
+// RemainingFraction is a pointer: nil means "not reported" (treat as full),
+// 0.0 means "genuinely exhausted."
 type QuotaInfo struct {
-	RemainingFraction float64 `json:"remainingFraction"`
-	ResetTime         string  `json:"resetTime"`
+	RemainingFraction *float64 `json:"remainingFraction,omitempty"`
+	ResetTime         string   `json:"resetTime"`
 }
 
 // ModelConfig is a single model's configuration from the API.
@@ -183,12 +185,20 @@ func (r *UserStatusResponse) ToSnapshot(capturedAt time.Time) *Snapshot {
 				modelID = cfg.ModelOrAlias.Model
 			}
 
+			// When remainingFraction is nil (missing from JSON), the language
+			// server hasn't loaded quota data yet. Treat as 100% remaining
+			// rather than 0% to avoid false exhaustion.
+			frac := 1.0 // default: full
+			if cfg.QuotaInfo.RemainingFraction != nil {
+				frac = *cfg.QuotaInfo.RemainingFraction
+			}
+
 			mq := ModelQuota{
 				ModelID:           modelID,
 				Label:             cleanLabel(cfg.Label),
-				RemainingFraction: cfg.QuotaInfo.RemainingFraction,
-				RemainingPercent:  cfg.QuotaInfo.RemainingFraction * 100,
-				IsExhausted:       cfg.QuotaInfo.RemainingFraction == 0,
+				RemainingFraction: frac,
+				RemainingPercent:  frac * 100,
+				IsExhausted:       cfg.QuotaInfo.RemainingFraction != nil && frac == 0,
 			}
 
 			if cfg.QuotaInfo.ResetTime != "" {
