@@ -909,6 +909,8 @@ func (s *Server) handleCodexStatus(w http.ResponseWriter, r *http.Request) {
 	if err == nil && creds != nil {
 		result["installed"] = true
 		result["accountId"] = creds.AccountID
+		result["email"] = creds.Email
+		result["name"] = creds.Name
 		result["planExpiry"] = nil
 		if !creds.ExpiresAt.IsZero() {
 			result["tokenExpiry"] = creds.ExpiresAt.Format(time.RFC3339)

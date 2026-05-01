@@ -1711,24 +1711,26 @@ function renderOverviewEnhanced(data, subs, usageData) {
     calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
   }
 
-  // ── Quick Links — deduplicated (1 per unique URL) ──
+  // ── Quick Links — most recent URL per platform (no stale duplicates) ──
   var linksHTML = '';
   if (links.length > 0) {
-    var seenUrls = {};
-    var uniqueLinks = [];
+    var platformLinks = {};
     for (var l = 0; l < links.length; l++) {
-      if (!seenUrls[links[l].url]) {
-        seenUrls[links[l].url] = true;
-        uniqueLinks.push(links[l]);
+      var lnk = links[l];
+      // Keep only the first occurrence per platform (API returns newest first)
+      if (!platformLinks[lnk.platform]) {
+        platformLinks[lnk.platform] = lnk;
       }
     }
-    // Only show if there are genuinely different links (not 15 identical ones)
-    if (uniqueLinks.length > 1 || (uniqueLinks.length === 1 && uniqueLinks[0].platform !== 'Antigravity')) {
+    var platformKeys = Object.keys(platformLinks);
+    // Only show if there are links to non-Antigravity platforms, or multiple platforms
+    if (platformKeys.length > 1 || (platformKeys.length === 1 && platformKeys[0] !== 'Antigravity')) {
       linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3>' +
         '<div class="quick-links-grid">';
-      for (var ul = 0; ul < uniqueLinks.length; ul++) {
-        linksHTML += '<a class="quick-link" href="' + esc(uniqueLinks[ul].url) + '" target="_blank" rel="noopener">' +
-          '🔗 ' + esc(uniqueLinks[ul].platform) + '</a>';
+      for (var pk = 0; pk < platformKeys.length; pk++) {
+        var pl = platformLinks[platformKeys[pk]];
+        linksHTML += '<a class="quick-link" href="' + esc(pl.url) + '" target="_blank" rel="noopener">' +
+          '🔗 ' + esc(pl.platform) + '</a>';
       }
       linksHTML += '</div></div>';
     }
@@ -1743,8 +1745,50 @@ function renderOverviewEnhanced(data, subs, usageData) {
     '<a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📦 JSON</a>' +
     '</div></div>';
 
-  // P1: Content order — advisor first (most actionable), then budget, spend, insights
-  el.innerHTML = advisorHTML + forecastHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  // ── Provider Health Overview ──
+  var providerHTML = '<div class="overview-card full-width"><h3>Provider Health</h3>';
+  providerHTML += '<div class="provider-health-grid">';
+  // Antigravity
+  if (latestQuotaData && latestQuotaData.accounts && latestQuotaData.accounts.length > 0) {
+    var accts = latestQuotaData.accounts;
+    var readyCount = 0;
+    for (var ai = 0; ai < accts.length; ai++) { if (accts[ai].isReady) readyCount++; }
+    var healthPct = Math.round((readyCount / accts.length) * 100);
+    var healthCls = healthPct >= 80 ? 'health-good' : healthPct >= 50 ? 'health-warn' : 'health-bad';
+    providerHTML += '<div class="provider-health-row">' +
+      '<span class="ph-name">⚡ Antigravity</span>' +
+      '<span class="ph-count">' + accts.length + ' accounts</span>' +
+      '<span class="ph-bar"><span class="ph-fill ' + healthCls + '" style="width:' + healthPct + '%"></span></span>' +
+      '<span class="ph-stat ' + healthCls + '">' + readyCount + '/' + accts.length + ' ready</span>' +
+      '</div>';
+  }
+  // Codex
+  if (latestQuotaData && latestQuotaData.codexSnapshot) {
+    var cs = latestQuotaData.codexSnapshot;
+    var cxStatus = cs.status === 'healthy' ? 'health-good' : 'health-bad';
+    var cxLabel = cs.email || 'Codex account';
+    providerHTML += '<div class="provider-health-row">' +
+      '<span class="ph-name">🤖 Codex</span>' +
+      '<span class="ph-count">' + esc(cxLabel) + '</span>' +
+      '<span class="ph-bar"><span class="ph-fill ' + cxStatus + '" style="width:' + (100 - (cs.sevenDayPct || 0)) + '%"></span></span>' +
+      '<span class="ph-stat ' + cxStatus + '">' + esc(cs.planType || 'free') + '</span>' +
+      '</div>';
+  }
+  // Claude
+  if (latestQuotaData && latestQuotaData.claudeSnapshot) {
+    var cls2 = latestQuotaData.claudeSnapshot;
+    var clStatus = cls2.status === 'healthy' ? 'health-good' : 'health-bad';
+    providerHTML += '<div class="provider-health-row">' +
+      '<span class="ph-name">🔮 Claude Code</span>' +
+      '<span class="ph-count">Bridge</span>' +
+      '<span class="ph-bar"><span class="ph-fill ' + clStatus + '" style="width:' + (100 - (cls2.fiveHourPct || 0)) + '%"></span></span>' +
+      '<span class="ph-stat ' + clStatus + '">' + (cls2.status || '—') + '</span>' +
+      '</div>';
+  }
+  providerHTML += '</div></div>';
+
+  // P1: Content order — advisor first (most actionable), then budget, provider health, spend, insights
+  el.innerHTML = advisorHTML + forecastHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // Async load Claude Code data
   if (serverConfig['claude_bridge'] === 'true') {
@@ -3004,8 +3048,9 @@ function loadCodexSettingsStatus() {
     var tokenStatus = data.tokenExpired ?
       '<span style="color:var(--warning)">⚠️ Token expired — will auto-refresh on next poll</span>' :
       '<span style="color:var(--success)">✅ Token valid (expires ' + (data.tokenExpiresIn || '?') + ')</span>';
+    var displayId = data.email || (data.accountId && data.accountId.length > 12 ? data.accountId.substring(0,6) + '…' + data.accountId.slice(-6) : (data.accountId || 'unknown'));
     statusEl.innerHTML =
-      '🤖 Codex detected · Account: <strong>' + esc(data.accountId || 'unknown') + '</strong><br>' +
+      '🤖 Codex detected · Account: <strong>' + esc(displayId) + '</strong><br>' +
       tokenStatus;
     if (data.snapshot) {
       statusEl.innerHTML += '<br>Latest: <strong>' + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) · ' +

@@ -3037,3 +3037,71 @@ kbd {
   animation: pulse-warn 2s ease-in-out infinite;
 }
 
+/* ── Provider Health Overview (Overview Tab) ── */
+
+.provider-health-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.provider-health-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 160px 100px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.provider-health-row:last-child {
+  border-bottom: none;
+}
+
+.ph-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.ph-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ph-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ph-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.ph-fill.health-good { background: var(--success); }
+.ph-fill.health-warn { background: var(--warning); }
+.ph-fill.health-bad { background: var(--danger); }
+
+.ph-stat {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+.ph-stat.health-good { color: var(--success); }
+.ph-stat.health-warn { color: var(--warning); }
+.ph-stat.health-bad { color: var(--danger); }
+
+@media (max-width: 640px) {
+  .provider-health-row {
+    grid-template-columns: 100px 1fr;
+    grid-template-rows: auto auto;
+  }
+  .ph-bar { grid-column: 1 / -1; }
+  .ph-stat { grid-column: 1 / -1; text-align: left; }
+}
