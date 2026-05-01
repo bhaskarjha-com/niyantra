@@ -1334,8 +1334,9 @@ function renderHistoryChart(snapshots) {
   var keys = Object.keys(groupData);
   for (var k = 0; k < keys.length; k++) {
     var key = keys[k];
+    if (!key || !groupNames[key]) continue; // Skip unknown/empty groups
     datasets.push({
-      label: groupNames[key] || key,
+      label: groupNames[key],
       data: groupData[key],
       borderColor: groupColors[key] || '#94a3b8',
       backgroundColor: (groupColors[key] || '#94a3b8') + '20',
