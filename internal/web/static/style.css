@@ -727,9 +727,16 @@ body {
 /* ── Subscription Cards ── */
 
 .subs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.subs-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 12px;
+  padding: 16px;
 }
 
 .sub-card {
@@ -1950,7 +1957,7 @@ kbd {
   .quota-cell:nth-child(4)::before { content: "Gemini Flash"; }
   .header { flex-wrap: wrap; }
   .header-status { display: none; }
-  .subs-grid { grid-template-columns: 1fr; }
+  .subs-card-grid { grid-template-columns: 1fr; padding: 12px; }
   .overview-content { grid-template-columns: 1fr; }
   .form-row { flex-direction: column; gap: 0; }
   .tab-btn { padding: 10px 14px; font-size: 12px; }

@@ -547,7 +547,6 @@ function renderSubscriptions(data) {
   var grandTotal = 0;
   for (var i = 0; i < subs.length; i++) {
     var s = subs[i];
-    // Calculate monthly equivalent
     var monthly = 0;
     if (s.costAmount > 0) {
       if (s.billingCycle === 'yearly') monthly = s.costAmount / 12;
@@ -569,7 +568,7 @@ function renderSubscriptions(data) {
   var autoCount = subs.length - manualSubs.length;
   var sym = currencySymbol(subs[0] ? subs[0].costCurrency : 'USD');
 
-  // ── Spend Summary Card ──
+  // ── Spend Summary Bar (compact) ──
   var html = '<div class="spend-summary-card">' +
     '<div class="spend-hero">' +
     '<div class="spend-amount">' + sym + grandTotal.toFixed(2) + '<span class="spend-period">/mo</span></div>' +
@@ -577,7 +576,6 @@ function renderSubscriptions(data) {
     '</div>' +
     '<div class="spend-breakdown">';
 
-  // Provider chips
   var providerIcons = { 'Antigravity': '⚡', 'Codex': '🤖', 'Claude': '🔮' };
   for (var pk = 0; pk < providerKeys.length; pk++) {
     var pName = providerKeys[pk];
@@ -603,36 +601,12 @@ function renderSubscriptions(data) {
     '<div class="spend-meta">' + autoCount + ' auto-tracked · ' + manualSubs.length + ' manual</div>' +
     '</div>';
 
-  // ── Auto-Tracked Provider Sections ──
+  // ── Auto-Tracked Provider Sections (with CARD grid inside) ──
   for (var pi = 0; pi < providerKeys.length; pi++) {
     var provider = providerKeys[pi];
     var group = providerGroups[provider];
     var items = group.items;
     var icon = providerIcons[provider] || '📦';
-
-    // Smart plan detection — uniform vs mixed
-    var planCounts = {};
-    for (var ti = 0; ti < items.length; ti++) {
-      var pn = items[ti].planName || '—';
-      if (!planCounts[pn]) planCounts[pn] = 0;
-      planCounts[pn]++;
-    }
-    var planKeys = Object.keys(planCounts);
-    var planSummary = '';
-    if (planKeys.length === 1) {
-      // All same plan
-      var costEach = items[0].costAmount > 0
-        ? sym + items[0].costAmount.toFixed(2) + '/' + (items[0].billingCycle || 'mo')
-        : 'Free';
-      planSummary = items.length + ' × ' + esc(planKeys[0]) + ' · ' + costEach + ' each';
-    } else {
-      // Mixed plans
-      var parts = [];
-      for (var pk2 = 0; pk2 < planKeys.length; pk2++) {
-        parts.push(planCounts[planKeys[pk2]] + ' ' + esc(planKeys[pk2]));
-      }
-      planSummary = parts.join(' · ');
-    }
 
     var sectionId = 'sub-provider-' + provider.replace(/\s+/g, '-').toLowerCase();
     html += '<div class="provider-section">' +
@@ -645,39 +619,15 @@ function renderSubscriptions(data) {
       '</div>' +
       '<span class="provider-spend">' + sym + group.total.toFixed(2) + '/mo</span>' +
       '</div>' +
-      '<div class="provider-body" id="' + sectionId + '">';
+      '<div class="provider-body" id="' + sectionId + '">' +
+      '<div class="subs-card-grid">';
 
-    // Plan summary line
-    html += '<div class="plan-summary">' + planSummary + '</div>';
-
-    // Full-width table with Edit capability
-    html += '<table class="provider-table">' +
-      '<thead><tr>' +
-      '<th>Account</th><th>Plan</th><th>Cost</th><th>Billing</th><th>Status</th><th></th>' +
-      '</tr></thead><tbody>';
-
+    // Render each auto-tracked sub as a FULL CARD (same as manual)
     for (var si = 0; si < items.length; si++) {
-      var sub = items[si];
-      var subSym = currencySymbol(sub.costCurrency);
-      var costStr = sub.costAmount > 0
-        ? subSym + sub.costAmount.toFixed(2)
-        : 'Free';
-      var cycleStr = sub.billingCycle || '—';
-      var statusCls = sub.status === 'active' ? 'ready' : (sub.status === 'trial' ? 'partial' : 'exhausted');
-
-      html += '<tr class="sub-row" data-sub-id="' + sub.id + '">' +
-        '<td class="provider-row-email">' + esc(sub.email || '—') + '</td>' +
-        '<td><span class="plan-badge">' + esc(sub.planName || '—') + '</span></td>' +
-        '<td class="provider-row-cost">' + costStr + '</td>' +
-        '<td class="provider-row-cycle">' + esc(cycleStr) + '</td>' +
-        '<td><span class="status-badge ' + statusCls + '">' + esc(sub.status) + '</span></td>' +
-        '<td class="provider-row-actions">' +
-        '<button class="btn-edit-sm" data-edit-id="' + sub.id + '" title="Edit">✏️</button>' +
-        '<button class="btn-delete-card btn-delete-sm" data-delete-id="' + sub.id + '" data-delete-name="' + esc(sub.platform) + '" title="Delete">×</button>' +
-        '</td></tr>';
+      html += renderSubCard(items[si]);
     }
 
-    html += '</tbody></table></div></div>';
+    html += '</div></div></div>';
   }
 
   // ── Manual Subscriptions ──
@@ -690,16 +640,15 @@ function renderSubscriptions(data) {
     }
     var catOrder = ['coding', 'chat', 'api', 'image', 'audio', 'productivity', 'other'];
     html += '<div class="sub-section-label">Manual Subscriptions (' + manualSubs.length + ')</div>';
+    html += '<div class="subs-card-grid">';
     for (var ci = 0; ci < catOrder.length; ci++) {
       var catItems = grouped[catOrder[ci]];
       if (!catItems || catItems.length === 0) continue;
-      if (manualSubs.length > 5) {
-        html += '<div class="sub-category-label">' + esc(catOrder[ci]) + ' (' + catItems.length + ')</div>';
-      }
       for (var csi = 0; csi < catItems.length; csi++) {
         html += renderSubCard(catItems[csi]);
       }
     }
+    html += '</div>';
   } else if (providerKeys.length > 0) {
     html += '<div class="sub-section-label">Manual Subscriptions</div>' +
       '<div class="manual-empty">' +
