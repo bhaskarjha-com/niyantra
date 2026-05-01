@@ -287,15 +287,20 @@ function renderAccounts(data) {
       if (g.timeUntilResetSec > 0) {
         reset = '<span class="quota-reset">↻ ' + formatSeconds(g.timeUntilResetSec) + '</span>';
       }
+      // Q4: Mini progress bar under percentage
+      var barCls = cls;
       groupCells += '<div class="quota-cell">' +
         '<span class="quota-pct ' + cls + '">' + pct + '%</span>' +
+        '<div class="quota-minibar"><div class="quota-minibar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' +
         reset + '</div>';
     }
 
 
-    var badgeCls = acc.isReady ? 'ready' : 'partial';
-    var badgeText = acc.isReady ? 'Ready' : 'Low';
-    if (allExhausted(acc)) { badgeCls = 'exhausted'; badgeText = 'Empty'; }
+    // Q5: Health dots — visual status
+    var dotCls = 'dot-ready';
+    var badgeText = 'Ready';
+    if (allExhausted(acc)) { dotCls = 'dot-empty'; badgeText = 'Empty'; }
+    else if (!acc.isReady) { dotCls = 'dot-low'; badgeText = 'Low'; }
 
     var creditsCell = '<div class="credits-cell">';
     if (acc.aiCredits && acc.aiCredits.length > 0) {
@@ -380,7 +385,7 @@ function renderAccounts(data) {
       groupCells +
       creditsCell +
       '<div class="snap-cell"><span class="snap-ago">' + esc(acc.stalenessLabel) + '</span></div>' +
-      '<div style="text-align:center"><span class="status-badge ' + badgeCls + '">' + badgeText + '</span></div>' +
+      '<div style="text-align:center"><span class="health-dot ' + dotCls + '">● ' + badgeText + '</span></div>' +
       '</div>' +
       modelsHTML +
       '</div>';
@@ -513,32 +518,110 @@ function renderSubscriptions(data) {
     return;
   }
 
-  // Group by category
-  var grouped = {};
+  // S2: Split subs into auto-tracked provider groups vs manual
+  var providerGroups = {}; // platform -> array of auto-tracked subs
+  var manualSubs = [];
   for (var i = 0; i < subs.length; i++) {
     var s = subs[i];
-    var cat = s.category || 'other';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(s);
-  }
-
-  var catOrder = ['coding', 'chat', 'api', 'image', 'audio', 'productivity', 'other'];
-  var html = '';
-
-  for (var ci = 0; ci < catOrder.length; ci++) {
-    var catKey = catOrder[ci];
-    var items = grouped[catKey];
-    if (!items || items.length === 0) continue;
-
-    html += '<div class="sub-category-label">' + esc(catKey) + ' (' + items.length + ')</div>';
-
-    for (var si = 0; si < items.length; si++) {
-      var sub = items[si];
-      html += renderSubCard(sub);
+    if (s.autoTracked) {
+      var pkey = s.platform || 'Unknown';
+      if (!providerGroups[pkey]) providerGroups[pkey] = [];
+      providerGroups[pkey].push(s);
+    } else {
+      manualSubs.push(s);
     }
   }
 
+  var html = '';
+
+  // Render auto-tracked provider sections as compact collapsible tables
+  var providerKeys = Object.keys(providerGroups);
+  for (var pi = 0; pi < providerKeys.length; pi++) {
+    var provider = providerKeys[pi];
+    var items = providerGroups[provider];
+    var totalMonthly = 0;
+    for (var ti = 0; ti < items.length; ti++) {
+      if (items[ti].billingCycle === 'monthly') totalMonthly += items[ti].costAmount;
+      else if (items[ti].billingCycle === 'yearly') totalMonthly += items[ti].costAmount / 12;
+    }
+
+    var sectionId = 'provider-section-' + provider.replace(/\s+/g, '-').toLowerCase();
+    html += '<div class="provider-section">' +
+      '<div class="provider-header" data-toggle-provider="' + sectionId + '">' +
+      '<div class="provider-header-left">' +
+      '<span class="provider-chevron" id="pchev-' + sectionId + '">▾</span> ' +
+      '<span class="provider-name">' + esc(provider) + '</span>' +
+      '<span class="provider-count">' + items.length + ' account' + (items.length !== 1 ? 's' : '') + '</span>' +
+      '</div>' +
+      '<span class="provider-spend">$' + totalMonthly.toFixed(2) + '/mo</span>' +
+      '</div>' +
+      '<div class="provider-body" id="' + sectionId + '">' +
+      '<table class="provider-table">' +
+      '<thead><tr><th>Account</th><th>Plan</th><th>Cost</th><th>Status</th><th></th></tr></thead>' +
+      '<tbody>';
+
+    for (var si = 0; si < items.length; si++) {
+      var sub = items[si];
+      var sym = currencySymbol(sub.costCurrency);
+      var costStr = sub.costAmount > 0 ? (sym + sub.costAmount.toFixed(2) + '/' + (sub.billingCycle || 'mo')) : '—';
+      var statusCls = sub.status === 'active' ? 'ready' : (sub.status === 'trial' ? 'partial' : 'exhausted');
+      html += '<tr>' +
+        '<td class="provider-row-email">' + esc(sub.email || '—') + '</td>' +
+        '<td>' + esc(sub.planName || '—') + '</td>' +
+        '<td class="provider-row-cost">' + costStr + '</td>' +
+        '<td><span class="status-badge ' + statusCls + '">' + esc(sub.status) + '</span></td>' +
+        '<td class="provider-row-actions">' +
+        '<button class="btn-delete-card btn-delete-sm" data-delete-id="' + sub.id + '" data-delete-name="' + esc(sub.platform) + '" title="Delete">×</button>' +
+        '</td>' +
+        '</tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+  }
+
+  // Render manual subs with full card layout, grouped by category
+  if (manualSubs.length > 0) {
+    var grouped = {};
+    for (var mi = 0; mi < manualSubs.length; mi++) {
+      var cat = manualSubs[mi].category || 'other';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(manualSubs[mi]);
+    }
+    var catOrder = ['coding', 'chat', 'api', 'image', 'audio', 'productivity', 'other'];
+    if (providerKeys.length > 0) {
+      html += '<div class="sub-category-label" style="margin-top:24px">Manual Subscriptions (' + manualSubs.length + ')</div>';
+    }
+    for (var ci = 0; ci < catOrder.length; ci++) {
+      var catItems = grouped[catOrder[ci]];
+      if (!catItems || catItems.length === 0) continue;
+      if (manualSubs.length > 5) {
+        html += '<div class="sub-category-label">' + esc(catOrder[ci]) + ' (' + catItems.length + ')</div>';
+      }
+      for (var csi = 0; csi < catItems.length; csi++) {
+        html += renderSubCard(catItems[csi]);
+      }
+    }
+  } else if (providerKeys.length > 0) {
+    // Show helpful empty state for manual subs
+    html += '<div class="manual-empty">' +
+      '<p>No manual subscriptions tracked.</p>' +
+      '<p class="empty-hint">Click <strong>+ Add</strong> to track Claude, Cursor, or other AI services.</p>' +
+      '</div>';
+  }
+
   grid.innerHTML = html;
+
+  // Wire up provider section collapse/expand
+  grid.querySelectorAll('.provider-header').forEach(function(hdr) {
+    hdr.addEventListener('click', function() {
+      var targetId = hdr.dataset.toggleProvider;
+      var body = document.getElementById(targetId);
+      var chev = document.getElementById('pchev-' + targetId);
+      if (!body) return;
+      var collapsed = body.classList.toggle('collapsed');
+      if (chev) chev.textContent = collapsed ? '▸' : '▾';
+    });
+  });
 }
 
 function renderSubCard(sub) {
@@ -1536,108 +1619,18 @@ function renderOverviewEnhanced(data, subs, usageData) {
   var quotas = data.quotaSummary;
   var serverInsights = data.insights || [];
 
-  // ── Budget Alert ──
-  var budgetHTML = renderBudgetAlert(stats.totalMonthlySpend);
-  if (!getBudget()) {
-    budgetHTML = '<div class="budget-alert ok">' +
-      '<span class="budget-icon">💰</span>' +
-      '<span class="budget-msg">No monthly budget set. Set one to track spending.</span>' +
-      '<button class="budget-btn" onclick="openBudgetModal()">Set Budget</button>' +
-      '</div>';
-  }
+  // ── Phase 10: Advisor Card placeholder ──
+  var advisorHTML = '<div id="advisor-card-container"></div>';
 
   // ── Phase 10: Server-Computed Insights ──
   var insightsHTML = renderServerInsights(serverInsights);
 
-  // ── Phase 10: Advisor Card placeholder ──
-  var advisorHTML = '<div id="advisor-card-container"></div>';
-
-  // ── Spend card ──
-  var spendHTML = '<div class="overview-card">' +
-    '<h3>Monthly AI Spend</h3>' +
-    '<div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + '</div>' +
-    '<div class="overview-big-label">$' + stats.totalAnnualSpend.toFixed(2) + '/year estimated</div>' +
-    '</div>';
-
-  // ── Category breakdown ──
-  var catHTML = '<div class="overview-card"><h3>By Category</h3>';
-  var cats = Object.keys(stats.byCategory);
-  if (cats.length === 0) {
-    catHTML += '<div class="empty-hint">No subscriptions yet</div>';
-  } else {
-    cats.sort(function(a, b) {
-      return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
-    });
-    for (var i = 0; i < cats.length; i++) {
-      var c = stats.byCategory[cats[i]];
-      catHTML += '<div class="overview-category-row">' +
-        '<span class="overview-category-name">' + esc(cats[i]) + '<span class="overview-category-count">' + c.count + ' subs</span></span>' +
-        '<span class="overview-category-spend">$' + c.monthlySpend.toFixed(2) + '/mo</span>' +
-        '</div>';
-    }
-  }
-  catHTML += '</div>';
-
-  // ── Phase 10: Renewal Calendar ──
-  var calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
-
-  // ── Quick Links ──
-  var linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3>';
-  if (links.length === 0) {
-    linksHTML += '<div class="empty-hint">Add subscriptions with dashboard URLs to see quick links here</div>';
-  } else {
-    linksHTML += '<div class="quick-links-grid">';
-    for (var l = 0; l < links.length; l++) {
-      linksHTML += '<a class="quick-link" href="' + esc(links[l].url) + '" target="_blank" rel="noopener">' +
-        '🔗 ' + esc(links[l].platform) + '</a>';
-    }
-    linksHTML += '</div>';
-  }
-  linksHTML += '</div>';
-
-  // ── Export ──
-  var exportHTML = '<div class="overview-card full-width"><h3>Export</h3>' +
-    '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">' +
-    'Download your data for expense tracking, tax reports, or backup.</p>' +
-    '<div style="display:flex;gap:8px">' +
-    '<a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📥 CSV</a>' +
-    '<a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📦 JSON</a>' +
-    '</div></div>';
-
-  // ── Ready Now ──
-  var readyHTML = '';
-  if (quotas && quotas.length > 0) {
-    readyHTML = '<div class="overview-card full-width"><h3>Ready Now — Auto-Tracked Quotas</h3>';
-    for (var q = 0; q < quotas.length; q++) {
-      var acct = quotas[q];
-      var readyIcon = acct.isReady ? '✅' : '⚠️';
-      var grps = acct.groups || [];
-      var grpInfo = '';
-      for (var gi = 0; gi < grps.length; gi++) {
-        var g = grps[gi];
-        var gpct = Math.round(g.remainingPercent);
-        var gicon = gpct > 50 ? '✅' : (gpct > 0 ? '⚠️' : '❌');
-        var resetInfo = '';
-        if (g.timeUntilResetSec > 0 && gpct === 0) {
-          resetInfo = ' ↻ ' + formatSeconds(g.timeUntilResetSec);
-        }
-        grpInfo += '<span class="sub-limit-chip">' + gicon + ' ' + esc(g.displayName) + ': ' + gpct + '%' + resetInfo + '</span> ';
-      }
-      readyHTML += '<div style="margin-bottom:10px">' +
-        '<div style="font-weight:600;font-size:14px;margin-bottom:4px">' + readyIcon + ' ' + esc(acct.email) + '</div>' +
-        '<div class="sub-card-limits">' + grpInfo + '</div>' +
-        '</div>';
-    }
-    readyHTML += '</div>';
-  }
-
-  // ── Budget Forecast (from usage intelligence) ──
+  // ── Budget Status (from usage intelligence) — single source of truth ──
   var forecastHTML = '';
   if (usageData && usageData.budgetForecast) {
     var bf = usageData.budgetForecast;
     var forecastCls = bf.onTrack ? 'forecast-ok' : 'forecast-over';
     var forecastIcon = bf.onTrack ? '✅' : '⚠️';
-    // O3: For fixed monthly subs, show simple comparison — not daily burn rate
     var pct = Math.round((bf.currentSpend / bf.monthlyBudget) * 100);
     var statusMsg = bf.onTrack
       ? 'On track — $' + bf.currentSpend.toFixed(2) + ' of $' + bf.monthlyBudget.toFixed(2) + ' budget (' + pct + '%)'
@@ -1651,7 +1644,36 @@ function renderOverviewEnhanced(data, subs, usageData) {
       '<span class="forecast-chip">Monthly subs: $' + bf.currentSpend.toFixed(2) + '</span>' +
       '<span class="forecast-chip">Budget: $' + bf.monthlyBudget.toFixed(2) + '</span>' +
       '</div></div></div>';
+  } else if (!getBudget()) {
+    forecastHTML = '<div class="overview-card full-width">' +
+      '<div class="budget-forecast forecast-ok">' +
+      '<div class="forecast-header">💰 No monthly budget set</div>' +
+      '<div class="forecast-details"><button class="btn-add-sm" onclick="openBudgetModal()">Set Budget</button></div>' +
+      '</div></div>';
   }
+
+  // ── Spend + Category merged card ──
+  var cats = Object.keys(stats.byCategory);
+  var spendHTML = '<div class="overview-card">' +
+    '<h3>Monthly AI Spend</h3>' +
+    '<div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + '</div>';
+  // Show category breakdown inline if more than 1 category
+  if (cats.length > 1) {
+    cats.sort(function(a, b) {
+      return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
+    });
+    for (var i = 0; i < cats.length; i++) {
+      var c = stats.byCategory[cats[i]];
+      spendHTML += '<div class="overview-category-row">' +
+        '<span class="overview-category-name">' + esc(cats[i]) + '<span class="overview-category-count">' + c.count + ' subs</span></span>' +
+        '<span class="overview-category-spend">$' + c.monthlySpend.toFixed(2) + '/mo</span>' +
+        '</div>';
+    }
+  } else if (cats.length === 1) {
+    var onlyCat = stats.byCategory[cats[0]];
+    spendHTML += '<div class="overview-big-label">' + onlyCat.count + ' ' + cats[0] + ' subscription' + (onlyCat.count !== 1 ? 's' : '') + '</div>';
+  }
+  spendHTML += '</div>';
 
   // ── Claude Code card ──
   var claudeHTML = '';
@@ -1659,7 +1681,46 @@ function renderOverviewEnhanced(data, subs, usageData) {
     claudeHTML = renderClaudeCodeCard();
   }
 
-  el.innerHTML = budgetHTML + advisorHTML + insightsHTML + forecastHTML + claudeHTML + spendHTML + catHTML + calendarHTML + linksHTML + exportHTML + readyHTML;
+  // ── Renewal Calendar — only if renewals exist ──
+  var calendarHTML = '';
+  if (renewals.length > 0) {
+    calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
+  }
+
+  // ── Quick Links — deduplicated (1 per unique URL) ──
+  var linksHTML = '';
+  if (links.length > 0) {
+    var seenUrls = {};
+    var uniqueLinks = [];
+    for (var l = 0; l < links.length; l++) {
+      if (!seenUrls[links[l].url]) {
+        seenUrls[links[l].url] = true;
+        uniqueLinks.push(links[l]);
+      }
+    }
+    // Only show if there are genuinely different links (not 15 identical ones)
+    if (uniqueLinks.length > 1 || (uniqueLinks.length === 1 && uniqueLinks[0].platform !== 'Antigravity')) {
+      linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3>' +
+        '<div class="quick-links-grid">';
+      for (var ul = 0; ul < uniqueLinks.length; ul++) {
+        linksHTML += '<a class="quick-link" href="' + esc(uniqueLinks[ul].url) + '" target="_blank" rel="noopener">' +
+          '🔗 ' + esc(uniqueLinks[ul].platform) + '</a>';
+      }
+      linksHTML += '</div></div>';
+    }
+  }
+
+  // ── Export ──
+  var exportHTML = '<div class="overview-card full-width"><h3>Export</h3>' +
+    '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">' +
+    'Download your data for expense tracking, tax reports, or backup.</p>' +
+    '<div style="display:flex;gap:8px">' +
+    '<a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📥 CSV</a>' +
+    '<a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📦 JSON</a>' +
+    '</div></div>';
+
+  // P1: Content order — advisor first (most actionable), then budget, spend, insights
+  el.innerHTML = advisorHTML + forecastHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // Async load Claude Code data
   if (serverConfig['claude_bridge'] === 'true') {
@@ -1669,8 +1730,10 @@ function renderOverviewEnhanced(data, subs, usageData) {
   // Async load advisor card
   loadAdvisorCard();
 
-  // Render calendar with renewal data
-  renderRenewalCalendar(renewals, subs);
+  // Render calendar with renewal data (only if container exists)
+  if (renewals.length > 0) {
+    renderRenewalCalendar(renewals, subs);
+  }
 
   // Phase 11: Codex card + Sessions timeline (async)
   renderCodexCard(el);
@@ -2695,19 +2758,23 @@ function renderAdvisorWithGroup(container, groupKey) {
     esc(groupNames[groupKey] || groupKey) + ' remaining)' +
     (best.stale ? ' ⚠️ stale data' : '') + '</div>';
 
-  // Score bars — show top 10, rest collapsed
+  // Score bars — show top 5, toggle for rest
   html += '<div class="advisor-scores">';
-  var showCount = Math.min(ranked.length, 10);
-  for (var s = 0; s < showCount; s++) {
+  var initialShow = Math.min(ranked.length, 5);
+  for (var s = 0; s < ranked.length; s++) {
     var acct = ranked[s];
     var isBest = s === 0;
     var barCls = acct.pct > 50 ? 'good' : (acct.pct > 20 ? 'ok' : 'low');
     var staleIcon = acct.stale ? ' <span class="stale-icon" title="Data ' + esc(acct.label) + '">⚠</span>' : '';
-    html += '<div class="advisor-score-row' + (isBest ? ' best' : '') + '">' +
+    var hidden = s >= initialShow ? ' style="display:none" data-advisor-extra' : '';
+    html += '<div class="advisor-score-row' + (isBest ? ' best' : '') + '"' + hidden + '>' +
       '<span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span>' +
       '<div class="advisor-score-bar"><div class="advisor-score-fill ' + barCls + '" style="width:' + acct.pct + '%"></div></div>' +
       '<span class="advisor-score-val">' + acct.pct + '%' + staleIcon + '</span>' +
       '</div>';
+  }
+  if (ranked.length > initialShow) {
+    html += '<button class="advisor-show-all" id="advisor-toggle-all">Show all ' + ranked.length + ' accounts</button>';
   }
   html += '</div></div>';
   container.innerHTML = html;
@@ -2719,6 +2786,17 @@ function renderAdvisorWithGroup(container, groupKey) {
       advisorGroupPref = sel.value;
       localStorage.setItem('niyantra_advisor_group', advisorGroupPref);
       renderAdvisorWithGroup(container, advisorGroupPref);
+    });
+  }
+
+  // Wire up show-all toggle
+  var toggleBtn = document.getElementById('advisor-toggle-all');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function() {
+      var extras = container.querySelectorAll('[data-advisor-extra]');
+      var showing = toggleBtn.textContent.indexOf('Hide') >= 0;
+      extras.forEach(function(el) { el.style.display = showing ? 'none' : ''; });
+      toggleBtn.textContent = showing ? 'Show all ' + ranked.length + ' accounts' : 'Hide extras';
     });
   }
 }

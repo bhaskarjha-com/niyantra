@@ -441,6 +441,27 @@ body {
   white-space: nowrap;
 }
 
+/* Q4: Mini progress bars */
+.quota-minibar {
+  width: 100%;
+  max-width: 56px;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.quota-minibar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quota-minibar-fill.good { background: var(--green); }
+.quota-minibar-fill.ok { background: var(--accent); }
+.quota-minibar-fill.warning { background: var(--amber); }
+.quota-minibar-fill.exhausted { background: var(--red); }
+
 /* ── Status Badge ── */
 
 .status-badge {
@@ -456,6 +477,16 @@ body {
 .status-badge.ready { background: var(--green-bg); color: var(--green); }
 .status-badge.partial { background: var(--amber-bg); color: var(--amber); }
 .status-badge.exhausted { background: var(--red-bg); color: var(--red); }
+
+/* Q5: Health Dot indicators */
+.health-dot {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.health-dot.dot-ready { color: var(--green); }
+.health-dot.dot-low { color: var(--amber); }
+.health-dot.dot-empty { color: var(--red); }
 
 /* Q3: Last Snap column */
 .snap-cell { text-align: center; }
@@ -907,6 +938,128 @@ body {
   color: var(--text-muted);
   padding: 12px 0 6px;
   grid-column: 1 / -1;
+}
+
+/* S2: Provider Sections for auto-tracked subs */
+
+.provider-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.provider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 150ms;
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-header:hover { background: var(--bg-elevated); }
+
+.provider-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provider-chevron {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 200ms ease;
+}
+
+.provider-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.provider-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.provider-spend {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.provider-body { transition: max-height 300ms ease; }
+.provider-body.collapsed { display: none; }
+
+.provider-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.provider-table thead th {
+  padding: 8px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.provider-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 150ms;
+}
+
+.provider-table tbody tr:last-child { border-bottom: none; }
+.provider-table tbody tr:hover { background: var(--bg-elevated); }
+
+.provider-table td {
+  padding: 10px 16px;
+  color: var(--text-secondary);
+}
+
+.provider-row-email {
+  font-weight: 600;
+  color: var(--text-primary) !important;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-row-cost {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.provider-row-actions { text-align: right; width: 40px; }
+
+.btn-delete-sm {
+  padding: 2px 6px !important;
+  font-size: 14px !important;
+  line-height: 1;
+  opacity: 0.4;
+  transition: opacity 150ms;
+}
+
+.provider-table tbody tr:hover .btn-delete-sm { opacity: 1; }
+
+.manual-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 /* ════════════════════════════════════════════
@@ -2290,6 +2443,24 @@ kbd {
   color: var(--amber);
   font-size: 12px;
   cursor: help;
+}
+
+.advisor-show-all {
+  display: block;
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 150ms;
+}
+.advisor-show-all:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 /* ════════════════════════════════════════════
