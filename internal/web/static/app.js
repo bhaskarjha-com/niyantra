@@ -1,6 +1,7 @@
 // Niyantra Dashboard JS — Unified Quota + Subscription Manager
 
 const GROUP_ORDER = ['claude_gpt', 'gemini_pro', 'gemini_flash'];
+const GROUP_LABELS = ['Claude + GPT', 'Gemini Pro', 'Gemini Flash'];
 const GROUP_COLORS = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flash: '#3B82F6' };
 
 // Track which accounts are expanded (survives re-renders)
