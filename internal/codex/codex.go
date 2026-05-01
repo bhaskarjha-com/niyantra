@@ -40,6 +40,8 @@ type Credentials struct {
 	AccountID    string
 	UserID       string
 	Email        string
+	Name         string
+	Picture      string
 	ExpiresAt    time.Time
 	ExpiresIn    time.Duration
 }
@@ -110,6 +112,8 @@ func DetectCredentials(logger *slog.Logger) (*Credentials, error) {
 		AccountID:    strings.TrimSpace(auth.Tokens.AccountID),
 		UserID:       parseIDTokenUserID(idToken),
 		Email:        parseIDTokenEmail(idToken),
+		Name:         parseIDTokenName(idToken),
+		Picture:      parseIDTokenPicture(idToken),
 		ExpiresAt:    expiresAt,
 		ExpiresIn:    expiresIn,
 	}
@@ -121,7 +125,11 @@ func DetectCredentials(logger *slog.Logger) (*Credentials, error) {
 	logger.Debug("Codex credentials loaded",
 		"path", authPath,
 		"has_refresh_token", creds.RefreshToken != "",
-		"account_id", creds.AccountID)
+		"account_id", creds.AccountID,
+		"email", creds.Email,
+		"name", creds.Name,
+		"user_id", creds.UserID,
+		"has_picture", creds.Picture != "")
 
 	return creds, nil
 }
@@ -293,6 +301,30 @@ func parseIDTokenEmail(idToken string) string {
 	}
 	if email, ok := claims["email"].(string); ok {
 		return strings.TrimSpace(email)
+	}
+	return ""
+}
+
+// parseIDTokenName extracts the name claim from a JWT id_token.
+func parseIDTokenName(idToken string) string {
+	claims := parseJWTPayload(idToken)
+	if claims == nil {
+		return ""
+	}
+	if name, ok := claims["name"].(string); ok {
+		return strings.TrimSpace(name)
+	}
+	return ""
+}
+
+// parseIDTokenPicture extracts the picture claim from a JWT id_token.
+func parseIDTokenPicture(idToken string) string {
+	claims := parseJWTPayload(idToken)
+	if claims == nil {
+		return ""
+	}
+	if pic, ok := claims["picture"].(string); ok {
+		return strings.TrimSpace(pic)
 	}
 	return ""
 }
