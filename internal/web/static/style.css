@@ -28,6 +28,9 @@
   --red-bg: rgba(248, 113, 113, 0.15);
   --purple: #c084fc;
   --purple-bg: rgba(192, 132, 252, 0.15);
+  --provider-antigravity: #06b6d4;
+  --provider-codex: #f59e0b;
+  --provider-claude: #a855f7;
   --radius: 16px;
   --radius-sm: 10px;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -1045,6 +1048,35 @@ body {
   border-radius: var(--radius);
   margin-bottom: 16px;
   overflow: hidden;
+}
+
+.provider-section[data-provider="antigravity"] { border-left: 3px solid var(--provider-antigravity); }
+.provider-section[data-provider="codex"] { border-left: 3px solid var(--provider-codex); }
+.provider-section[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
+
+.provider-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+.provider-empty-state[data-provider="antigravity"] { border-left: 3px solid var(--provider-antigravity); }
+.provider-empty-state[data-provider="codex"] { border-left: 3px solid var(--provider-codex); }
+.provider-empty-state[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
+
+.provider-empty-icon {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.provider-empty-state p {
+  margin: 4px 0;
+  font-size: 14px;
 }
 
 .provider-header {
@@ -2974,7 +3006,8 @@ kbd {
   flex-shrink: 0;
 }
 
-.quota-bar-track {
+.quota-bar-track,
+.quota-minibar-alt {
   flex: 1;
   height: 8px;
   background: var(--border);
@@ -2982,7 +3015,8 @@ kbd {
   overflow: hidden;
 }
 
-.quota-bar-fill {
+.quota-bar-fill,
+.quota-minibar-fill-alt {
   height: 100%;
   border-radius: 4px;
   transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);

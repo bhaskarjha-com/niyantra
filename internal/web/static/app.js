@@ -261,7 +261,7 @@ function renderAccounts(data) {
   if (acctCount > 0 && (pf === 'all' || pf === 'antigravity')) {
   var filtered = filterAccountsArray(data.accounts);
   var sorted = sortAccountsArray(filtered);
-  html += '<div class="provider-section"><div class="provider-header" data-toggle-provider="section-antigravity">' +
+  html += '<div class="provider-section" data-provider="antigravity"><div class="provider-header" data-toggle-provider="section-antigravity">' +
     '<div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">▾</span>' +
     '<span class="provider-name">Antigravity</span>' +
     '<span class="provider-count">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + '</span></div></div>' +
@@ -411,6 +411,26 @@ function renderAccounts(data) {
   if (data.codexSnapshot && (pf === 'all' || pf === 'codex')) html += renderCodexProviderSection(data.codexSnapshot);
   if (data.claudeSnapshot && (pf === 'all' || pf === 'claude')) html += renderClaudeProviderSection(data.claudeSnapshot);
 
+  // V3: Empty states when a specific provider is selected but has no data
+  if (pf === 'antigravity' && acctCount === 0) {
+    html += '<div class="provider-empty-state" data-provider="antigravity">' +
+      '<span class="provider-empty-icon">⚡</span>' +
+      '<p>No Antigravity accounts detected</p>' +
+      '<p class="empty-hint">Open Windsurf and log in to start tracking quotas</p></div>';
+  }
+  if (pf === 'codex' && !data.codexSnapshot) {
+    html += '<div class="provider-empty-state" data-provider="codex">' +
+      '<span class="provider-empty-icon">🤖</span>' +
+      '<p>No Codex snapshots yet</p>' +
+      '<p class="empty-hint">Install Codex CLI and click <strong>Snap Now</strong> to capture</p></div>';
+  }
+  if (pf === 'claude' && !data.claudeSnapshot) {
+    html += '<div class="provider-empty-state" data-provider="claude">' +
+      '<span class="provider-empty-icon">🔮</span>' +
+      '<p>No Claude Code data yet</p>' +
+      '<p class="empty-hint">Enable the Claude bridge in <strong>Settings</strong></p></div>';
+  }
+
   grid.innerHTML = html;
 
   // Wire up provider section collapse
@@ -440,7 +460,7 @@ function renderCodexProviderSection(cs) {
   var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
   var displayName = cs.email || (cs.accountId && cs.accountId.length > 12 ? cs.accountId.substring(0,6) + '..' + cs.accountId.slice(-6) : (cs.accountId || 'Codex'));
   var creditsStr = cs.creditsBalance !== null && cs.creditsBalance !== undefined ? cs.creditsBalance.toFixed(2) : String.fromCharCode(8212);
-  return '<div class="provider-section">' +
+  return '<div class="provider-section" data-provider="codex">' +
     '<div class="provider-header" data-toggle-provider="section-codex">' +
     '<div class="provider-header-left">' +
     '<span class="provider-chevron" id="pchev-section-codex">▾</span>' +
@@ -476,7 +496,7 @@ function renderClaudeProviderSection(cl) {
   var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : 'unknown';
   var dotCls = (clFive >= 80 || clSeven >= 80) ? 'dot-low' : 'dot-ready';
   var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
-  return '<div class="provider-section">' +
+  return '<div class="provider-section" data-provider="claude">' +
     '<div class="provider-header" data-toggle-provider="section-claude">' +
     '<div class="provider-header-left">' +
     '<span class="provider-chevron" id="pchev-section-claude">▾</span>' +
@@ -609,7 +629,8 @@ function renderSubscriptions(data) {
     var icon = providerIcons[provider] || '📦';
 
     var sectionId = 'sub-provider-' + provider.replace(/\s+/g, '-').toLowerCase();
-    html += '<div class="provider-section">' +
+    var providerAttr = provider.toLowerCase().replace(/[^a-z]/g, '');
+    html += '<div class="provider-section" data-provider="' + providerAttr + '">' +
       '<div class="provider-header" data-toggle-provider="' + sectionId + '">' +
       '<div class="provider-header-left">' +
       '<span class="provider-chevron" id="pchev-' + sectionId + '">▾</span> ' +
@@ -1828,8 +1849,7 @@ function renderOverviewEnhanced(data, subs, usageData) {
     renderRenewalCalendar(renewals, subs);
   }
 
-  // Phase 11: Codex card + Sessions timeline (async)
-  renderCodexCard(el);
+  // Phase 11: Sessions timeline (Codex card removed — Provider Health covers it)
   renderSessionsTimeline(el);
 }
 
@@ -2852,7 +2872,7 @@ function renderAdvisorWithGroup(container, groupKey) {
   var bestLabel = best.email.split('@')[0] + '@...';
 
   var html = '<div class="advisor-card">' +
-    '<h3>🎯 Switch Advisor</h3>' +
+    '<h3>⚡ Antigravity Account Advisor</h3>' +
     '<div class="advisor-group-select">' +
     '<label>Optimize for:</label>' +
     '<select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px">' +
