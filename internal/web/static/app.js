@@ -3,6 +3,7 @@
 const GROUP_ORDER = ['claude_gpt', 'gemini_pro', 'gemini_flash'];
 const GROUP_LABELS = ['Claude + GPT', 'Gemini Pro', 'Gemini Flash'];
 const GROUP_COLORS = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flash: '#3B82F6' };
+const GROUP_NAMES = { claude_gpt: 'Claude + GPT', gemini_pro: 'Gemini Pro', gemini_flash: 'Gemini Flash' };
 
 // Track which accounts are expanded (survives re-renders)
 const expandedAccounts = new Set();
@@ -297,6 +298,17 @@ function renderAccounts(data) {
     var isExpanded = expandedAccounts.has(accId);
 
     var groupCells = '';
+    // Pre-index models by group for Quick Adjust
+    var modelsByGroup = {};
+    if (acc.models) {
+      for (var mi2 = 0; mi2 < acc.models.length; mi2++) {
+        var mm = acc.models[mi2];
+        var gk = mm.groupKey || 'claude_gpt';
+        if (!modelsByGroup[gk]) modelsByGroup[gk] = [];
+        modelsByGroup[gk].push(mm.label || mm.modelId);
+      }
+    }
+
     for (var gi = 0; gi < GROUP_ORDER.length; gi++) {
       var key = GROUP_ORDER[gi];
       var g = null;
@@ -319,9 +331,21 @@ function renderAccounts(data) {
       }
       // Q4: Mini progress bar under percentage
       var barCls = cls;
+
+      // Group-level Quick Adjust — ±5 buttons, appear on hover
+      var groupLabels = (modelsByGroup[key] || []).join('|||');
+      var groupAdjust = '<span class="group-adjust" data-snap-id="' + acc.latestSnapshotId +
+        '" data-group-key="' + key +
+        '" data-group-labels="' + esc(groupLabels) +
+        '" data-current-pct="' + pct + '">' +
+        '<button class="gadj-btn" data-delta="-5" title="−5% all models in group">−5</button>' +
+        '<button class="gadj-btn" data-delta="5" title="+5% all models in group">+5</button>' +
+        '</span>';
+
       groupCells += '<div class="quota-cell">' +
         '<span class="quota-pct ' + cls + '">' + pct + '%</span>' +
         '<div class="quota-minibar"><div class="quota-minibar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' +
+        groupAdjust +
         reset + '</div>';
     }
 
@@ -381,11 +405,20 @@ function renderAccounts(data) {
           }
         }
 
+        // Quick Adjust controls — visible on hover
+        var adjustBtns = '<span class="adjust-controls" data-snap-id="' + acc.latestSnapshotId + '" data-model-label="' + esc(m.label || m.modelId) + '" data-current-pct="' + mpct + '">' +
+          '<button class="adj-btn" data-delta="-10" title="−10%">−10</button>' +
+          '<button class="adj-btn" data-delta="-5" title="−5%">−5</button>' +
+          '<button class="adj-btn" data-delta="5" title="+5%">+5</button>' +
+          '<button class="adj-btn" data-delta="10" title="+10%">+10</button>' +
+          '</span>';
+
         modelRows += '<div class="model-row">' +
           '<div class="model-indicator" style="background:' + color + '"></div>' +
           '<span class="model-label">' + esc(m.label || m.modelId) + '</span>' +
           '<div class="model-bar-track"><div class="model-bar-fill ' + mcls + '" style="width:' + mpct + '%"></div></div>' +
           '<span class="model-pct ' + mcls + '">' + mpct + '%</span>' +
+          adjustBtns +
           '<span class="model-reset">' + resetStr + '</span>' +
           intellBadges +
           '</div>';
@@ -893,6 +926,117 @@ function setupToggle() {
           })
           .catch(function(err) { showToast('❌ ' + err.message, 'error'); });
       }
+      return;
+    }
+
+    // Handle Group-level Quick Adjust buttons (±5% on group columns)
+    var gadjBtn = e.target.closest('.gadj-btn');
+    if (gadjBtn) {
+      e.stopPropagation();
+      var gControls = gadjBtn.closest('.group-adjust');
+      if (!gControls) return;
+      var gSnapId = parseInt(gControls.getAttribute('data-snap-id'), 10);
+      var gGroupKey = gControls.getAttribute('data-group-key');
+      var gLabelsStr = gControls.getAttribute('data-group-labels');
+      var gCurrentPct = parseFloat(gControls.getAttribute('data-current-pct'));
+      var gDelta = parseFloat(gadjBtn.getAttribute('data-delta'));
+      var gNewPct = Math.max(0, Math.min(100, gCurrentPct + gDelta));
+
+      // Optimistic UI update on group cell
+      var cell = gControls.closest('.quota-cell');
+      if (cell) {
+        var gPctSpan = cell.querySelector('.quota-pct');
+        var gBarFill = cell.querySelector('.quota-minibar-fill');
+        if (gPctSpan) {
+          gPctSpan.textContent = Math.round(gNewPct) + '%';
+          gPctSpan.className = 'quota-pct ' + (gNewPct <= 0 ? 'exhausted' : gNewPct < 20 ? 'warning' : gNewPct < 50 ? 'ok' : 'good');
+        }
+        if (gBarFill) {
+          gBarFill.style.width = gNewPct + '%';
+          gBarFill.className = 'quota-minibar-fill ' + (gNewPct <= 0 ? 'exhausted' : gNewPct < 20 ? 'warning' : gNewPct < 50 ? 'ok' : 'good');
+        }
+      }
+      gControls.setAttribute('data-current-pct', gNewPct);
+
+      // Build adjustments for ALL models in this group
+      var gLabels = gLabelsStr.split('|||').filter(function(l) { return l.length > 0; });
+      var adjustments = [];
+      for (var li = 0; li < gLabels.length; li++) {
+        // Each model gets the same delta applied
+        // Note: this is approximate — individual models may have different starting values
+        // The backend calculates the actual new value per model
+        adjustments.push({ label: gLabels[li], remainingPercent: gNewPct });
+      }
+
+      if (adjustments.length === 0) return;
+
+      fetch('/api/snap/adjust', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ snapshotId: gSnapId, adjustments: adjustments })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.error) {
+          showToast('❌ ' + data.error, 'error');
+          return;
+        }
+        var groupName = GROUP_NAMES[gGroupKey] || gGroupKey;
+        showToast('✎ ' + groupName + ' → ' + Math.round(gNewPct) + '% (' + adjustments.length + ' models)', 'info');
+        fetchStatus().then(renderAccounts);
+      })
+      .catch(function(err) { showToast('❌ ' + err.message, 'error'); });
+      return;
+    }
+
+    // Handle Quick Adjust buttons (±5%, ±10%)
+    var adjBtn = e.target.closest('.adj-btn');
+    if (adjBtn) {
+      e.stopPropagation();
+      var controls = adjBtn.closest('.adjust-controls');
+      if (!controls) return;
+      var snapId = parseInt(controls.getAttribute('data-snap-id'), 10);
+      var label = controls.getAttribute('data-model-label');
+      var currentPct = parseFloat(controls.getAttribute('data-current-pct'));
+      var delta = parseFloat(adjBtn.getAttribute('data-delta'));
+      var newPct = Math.max(0, Math.min(100, currentPct + delta));
+
+      // Optimistic UI update
+      var row = controls.closest('.model-row');
+      if (row) {
+        var pctSpan = row.querySelector('.model-pct');
+        var barFill = row.querySelector('.model-bar-fill');
+        if (pctSpan) {
+          pctSpan.textContent = Math.round(newPct) + '%';
+          pctSpan.className = 'model-pct ' + (newPct <= 0 ? 'exhausted' : newPct < 20 ? 'warning' : newPct < 50 ? 'ok' : 'good');
+        }
+        if (barFill) {
+          barFill.style.width = newPct + '%';
+          barFill.className = 'model-bar-fill ' + (newPct <= 0 ? 'exhausted' : newPct < 20 ? 'warning' : newPct < 50 ? 'ok' : 'good');
+        }
+      }
+      controls.setAttribute('data-current-pct', newPct);
+
+      // API call
+      fetch('/api/snap/adjust', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          snapshotId: snapId,
+          adjustments: [{ label: label, remainingPercent: newPct }]
+        })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data.error) {
+          showToast('❌ ' + data.error, 'error');
+          return;
+        }
+        showToast('✎ Adjusted ' + label + ' → ' + Math.round(newPct) + '%', 'info');
+        // Refresh status to recalculate group-level aggregates
+        fetchStatus().then(renderAccounts);
+      })
+      .catch(function(err) { showToast('❌ ' + err.message, 'error'); });
       return;
     }
 

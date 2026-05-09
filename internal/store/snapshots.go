@@ -193,3 +193,27 @@ func scanSnapshots(rows interface {
 
 	return snapshots, nil
 }
+
+// UpdateSnapshotModels updates the models_json for a snapshot.
+// Used by Quick Adjust to let users fine-tune quota percentages.
+func (s *Store) UpdateSnapshotModels(snapshotID int64, models []client.ModelQuota) error {
+	modelsJSON, err := json.Marshal(models)
+	if err != nil {
+		return fmt.Errorf("store: marshal models: %w", err)
+	}
+
+	result, err := s.db.Exec(
+		`UPDATE snapshots SET models_json = ? WHERE id = ?`,
+		string(modelsJSON), snapshotID,
+	)
+	if err != nil {
+		return fmt.Errorf("store: update snapshot models: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("store: snapshot %d not found", snapshotID)
+	}
+
+	return nil
+}

@@ -2,5 +2,6 @@
 //
 // All computation is purely local — zero network calls, zero I/O.
 // Input: latest snapshot per account.
-// Output: readiness state with per-group status, staleness, reset countdowns.
+// Output: AccountReadiness with per-group status, staleness, reset countdowns,
+// and LatestSnapshotID (used by Quick Adjust to identify the target snapshot).
 package readiness

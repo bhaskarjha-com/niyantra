@@ -397,6 +397,8 @@ Each snapshot stores per-model quota data as a JSON array:
 ]
 ```
 
+**Mutability (Quick Adjust):** Unlike most snapshot data which is immutable after capture, `models_json` can be updated via `UpdateSnapshotModels()` (exposed as `PATCH /api/snap/adjust`). This allows users to fine-tune stale LS cache values after snapping. The `remainingFraction` and `remainingPercent` fields are recalculated together to maintain consistency.
+
 ---
 
 ## Key Queries

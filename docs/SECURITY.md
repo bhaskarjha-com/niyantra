@@ -20,7 +20,7 @@
 
 ## Network Behavior
 
-- **`niyantra snap`**: 1 Heartbeat RPC + 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
+- **`niyantra snap`**: 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
 - **`niyantra serve`**: Binds HTTP server on `localhost:9222` (configurable)
 - **`niyantra mcp`**: stdio only, no network
 - **Codex polling (opt-in)**: HTTPS to OpenAI authorization servers (`auth0.openai.com`) using locally-stored OAuth tokens from `~/.codex/auth.json`

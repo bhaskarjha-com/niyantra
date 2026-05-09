@@ -5,14 +5,29 @@ All notable changes to Niyantra are documented here.
 
 ## [0.15.0] - 2026-05-09
 
+### Added
+- **Quick Adjust** — manual quota correction at group and model level:
+  - Group-level ±5% buttons on Claude+GPT / Gemini Pro / Gemini Flash columns (appear on hover)
+  - Model-level ±10%, ±5% buttons on individual model rows (appear on hover)
+  - `PATCH /api/snap/adjust` endpoint for persisting adjustments
+  - `UpdateSnapshotModels` store method with full DB round-trip
+  - `latestSnapshotId` exposed in AccountReadiness for frontend reference
+- Tests: `TestUpdateSnapshotModels`, `TestUpdateSnapshotModels_NotFound`
+
 ### Fixed
-- **Heartbeat RPC** before quota fetch — refreshes stale Antigravity Language Server cache, preventing stale data on first snap after idle
+- **Removed Heartbeat RPC** — was a no-op (connection keep-alive, not a cache invalidator); removed to eliminate wasted latency before every snap
+- **ideName fix** — LS payload corrected from `windsurf` to `antigravity`, ensuring proper quota data matching
 - **Protobuf `*float64` handling** — correct treatment of `remainingFraction` where protobuf zero means 0% (exhausted), not null (missing data)
 - **Reset-time-corrected aggregation** — group-level calculations (Claude+GPT total) now use time-adjusted model values instead of raw snapshot data
 - **Account dimming logic** — dimmed by `isReady` flag instead of `allExhausted`, fixing visual inconsistency between fresh and stale snapshots
 - **Provider collapse persistence** — collapse/expand state baked into HTML generation, preventing flash-expand on filter change
 - **Subscription tab white flash** — pre-load data on init, removed re-fetch from tab switch handler
 - **Tab animation flickering** — removed `tabFadeIn` CSS animation causing background color flash during DOM re-paints
+
+### Removed
+- `cloudapi.go` — dead-end direct Google Cloud API integration (unreliable token extraction from `state.vscdb`)
+- `cmd/apitest/`, `cmd/dbprobe/`, `cmd/usstest/` — experimental test tools
+- `Source` field from `UserStatusResponse`, `DataSource` field from `Snapshot` — no longer needed without cloud API dual-path
 
 ### Changed
 - Advisor now detects "All Ready" state and shows "Stay" recommendation when health > 80%

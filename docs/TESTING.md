@@ -67,6 +67,25 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 - [ ] Click expanded row again → collapses
 - [ ] Collapse state persists across filter changes (no flash-expand)
 
+### 2.5 Quick Adjust — Group Level
+- [ ] Hover over a quota group cell (Claude+GPT / Gemini Pro / Gemini Flash)
+- [ ] **−5** and **+5** buttons appear below the minibar
+- [ ] Click **−5** → percentage decreases by 5, bar shrinks, toast confirms
+- [ ] Click **+5** → percentage increases by 5, bar grows
+- [ ] Refresh page → adjusted values persist (stored in DB)
+- [ ] Click **−5** when value is 3% → clamps to 0%, shows "exhausted" styling
+- [ ] Click **+5** when value is 98% → clamps to 100%
+- [ ] Adjustment applies to ALL models in the group
+
+### 2.6 Quick Adjust — Model Level
+- [ ] Expand an account → hover over a model row
+- [ ] **−10**, **−5**, **+5**, **+10** buttons appear after the percentage
+- [ ] Click **−5** → model percentage decreases by 5, bar updates, toast confirms
+- [ ] Click **+10** → model percentage increases by 10
+- [ ] Only the specific model is affected (other models unchanged)
+- [ ] Refresh page → adjusted value persists
+- [ ] Group-level aggregate recalculates after model adjustment
+
 ### 2.4 Quota History Chart
 - [ ] Chart section appears below the account grid
 - [ ] Title: "Quota History"
@@ -514,6 +533,7 @@ Test each shortcut from the Quotas tab with no modal open:
 |---------|------|------|-------|
 | 1. Dashboard Shell | | | |
 | 2. Quotas Tab | | | |
+| 2.5-2.6 Quick Adjust | | | |
 | 3. Subscriptions Tab | | | |
 | 4. Overview Tab | | | |
 | 5. Settings Tab | | | |

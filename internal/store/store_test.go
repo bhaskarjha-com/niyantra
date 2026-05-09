@@ -193,3 +193,77 @@ func TestInsertAndQuerySnapshotWithAICredits(t *testing.T) {
 		t.Errorf("expected credit amount 1000, got %f", credits[0].CreditAmount)
 	}
 }
+
+func TestUpdateSnapshotModels(t *testing.T) {
+	s := openTestDB(t)
+
+	accountID, _ := s.GetOrCreateAccount("adjust@example.com", "Pro")
+
+	snap := &client.Snapshot{
+		AccountID:  accountID,
+		CapturedAt: time.Now().UTC(),
+		Email:      "adjust@example.com",
+		PlanName:   "Pro",
+		Models: []client.ModelQuota{
+			{ModelID: "claude-sonnet", Label: "Claude Sonnet 4.6", RemainingFraction: 0.8, RemainingPercent: 80},
+			{ModelID: "gemini-pro", Label: "Gemini 3.1 Pro", RemainingFraction: 1.0, RemainingPercent: 100},
+		},
+		CaptureMethod: "manual",
+		CaptureSource: "ui",
+		SourceID:      "antigravity",
+	}
+
+	snapID, err := s.InsertSnapshot(snap)
+	if err != nil {
+		t.Fatalf("InsertSnapshot: %v", err)
+	}
+
+	// Adjust Claude Sonnet from 80% to 45%
+	updatedModels := []client.ModelQuota{
+		{ModelID: "claude-sonnet", Label: "Claude Sonnet 4.6", RemainingFraction: 0.45, RemainingPercent: 45},
+		{ModelID: "gemini-pro", Label: "Gemini 3.1 Pro", RemainingFraction: 1.0, RemainingPercent: 100},
+	}
+
+	if err := s.UpdateSnapshotModels(snapID, updatedModels); err != nil {
+		t.Fatalf("UpdateSnapshotModels: %v", err)
+	}
+
+	// Verify the update persisted
+	snaps, err := s.LatestPerAccount()
+	if err != nil {
+		t.Fatalf("LatestPerAccount: %v", err)
+	}
+	if len(snaps) != 1 {
+		t.Fatalf("expected 1 snapshot, got %d", len(snaps))
+	}
+	if len(snaps[0].Models) != 2 {
+		t.Fatalf("expected 2 models, got %d", len(snaps[0].Models))
+	}
+
+	// Check the adjusted model
+	for _, m := range snaps[0].Models {
+		if m.Label == "Claude Sonnet 4.6" {
+			if m.RemainingPercent != 45 {
+				t.Errorf("expected Claude Sonnet adjusted to 45%%, got %.0f%%", m.RemainingPercent)
+			}
+			if m.RemainingFraction != 0.45 {
+				t.Errorf("expected fraction 0.45, got %f", m.RemainingFraction)
+			}
+		}
+		if m.Label == "Gemini 3.1 Pro" {
+			if m.RemainingPercent != 100 {
+				t.Errorf("expected Gemini Pro unchanged at 100%%, got %.0f%%", m.RemainingPercent)
+			}
+		}
+	}
+}
+
+func TestUpdateSnapshotModels_NotFound(t *testing.T) {
+	s := openTestDB(t)
+
+	// Try to update a non-existent snapshot
+	err := s.UpdateSnapshotModels(99999, []client.ModelQuota{})
+	if err == nil {
+		t.Error("expected error for non-existent snapshot, got nil")
+	}
+}

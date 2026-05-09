@@ -159,6 +159,7 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/accounts", s.handleAccounts)
 	mux.HandleFunc("/api/accounts/", s.handleAccountByID)
 	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID)
+	mux.HandleFunc("/api/snap/adjust", s.handleSnapAdjust)
 
 	// Static files (embedded)
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -1277,4 +1278,106 @@ func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSON(w, map[string]string{"message": "snapshot deleted"})
+}
+
+// handleSnapAdjust handles PATCH /api/snap/adjust
+// Lets users fine-tune model quota percentages on a snapshot.
+//
+// Request body:
+//
+//	{
+//	  "snapshotId": 42,
+//	  "adjustments": [
+//	    {"label": "Gemini 3.1 Pro (High)", "remainingPercent": 80},
+//	    {"label": "Claude Sonnet 4.6",     "remainingPercent": 45}
+//	  ]
+//	}
+func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch && r.Method != http.MethodPost {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		SnapshotID  int64 `json:"snapshotId"`
+		Adjustments []struct {
+			Label            string  `json:"label"`
+			RemainingPercent float64 `json:"remainingPercent"`
+		} `json:"adjustments"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.SnapshotID <= 0 {
+		jsonError(w, "snapshotId is required", http.StatusBadRequest)
+		return
+	}
+	if len(req.Adjustments) == 0 {
+		jsonError(w, "at least one adjustment is required", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch current snapshot to get existing models
+	snaps, err := s.store.History(0, 1000)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	var targetSnap *client.Snapshot
+	for _, snap := range snaps {
+		if snap.ID == req.SnapshotID {
+			targetSnap = snap
+			break
+		}
+	}
+	if targetSnap == nil {
+		jsonError(w, "snapshot not found", http.StatusNotFound)
+		return
+	}
+
+	// Apply adjustments
+	adjustCount := 0
+	for i := range targetSnap.Models {
+		for _, adj := range req.Adjustments {
+			if targetSnap.Models[i].Label == adj.Label {
+				pct := adj.RemainingPercent
+				if pct < 0 {
+					pct = 0
+				}
+				if pct > 100 {
+					pct = 100
+				}
+				targetSnap.Models[i].RemainingPercent = pct
+				targetSnap.Models[i].RemainingFraction = pct / 100
+				targetSnap.Models[i].IsExhausted = pct <= 0
+				adjustCount++
+				break
+			}
+		}
+	}
+
+	if adjustCount == 0 {
+		jsonError(w, "no matching models found to adjust", http.StatusBadRequest)
+		return
+	}
+
+	// Save updated models
+	if err := s.store.UpdateSnapshotModels(req.SnapshotID, targetSnap.Models); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "snap_adjusted", targetSnap.Email, map[string]interface{}{
+		"snapshotId":  req.SnapshotID,
+		"adjustments": adjustCount,
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message":     "snapshot adjusted",
+		"snapshotId":  req.SnapshotID,
+		"adjustments": adjustCount,
+		"models":      targetSnap.Models,
+	})
 }

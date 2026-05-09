@@ -10,7 +10,7 @@ User Interfaces
           |
 Application Layer
   agent/        - polling loop + session management
-  client/       - LS detection + Heartbeat RPC + quota fetch
+  client/       - LS detection + quota fetch (Connect RPC)
   codex/        - OAuth + Codex API polling + OIDC JWT parsing
   claudebridge/ - statusline patch + read
   advisor/      - switch recommendation engine
@@ -66,9 +66,10 @@ Key types:
 - GroupedQuota - logical group (claude_gpt, gemini_pro, gemini_flash)
 
 Data integrity:
-- Heartbeat RPC sent before quota fetch to refresh stale LS cache
 - `remainingFraction` uses `*float64` to distinguish protobuf zero (0% = exhausted) from missing/null
 - AI Credits (`availableCredits`, `promptCredits`, `flowCredits`) extracted from `GetUserStatus` API and stored in `ai_credits_json`
+- LS payload uses `ideName: "antigravity"` (not `windsurf`) for correct data matching
+- LS cache refreshes on ~60-120s timer; Quick Adjust lets users fine-tune stale values post-snap
 
 ## 2. internal/store/ - SQLite Ledger
 
@@ -130,7 +131,7 @@ For each group:
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### Endpoints (29 REST)
+### Endpoints (30 REST)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -164,6 +165,7 @@ Serves a 4-tab dashboard with embedded static assets and a REST API.
 | DELETE | /api/accounts/:id | Cascade delete account + all data |
 | DELETE | /api/accounts/:id/snapshots | Clear snapshots only |
 | DELETE | /api/snapshots/:id | Delete single snapshot |
+| PATCH | /api/snap/adjust | Quick Adjust: fine-tune model quotas on a snapshot |
 
 Stack: Go embed.FS + vanilla HTML/CSS/JS. No frameworks, no bundler, no npm.
 
@@ -175,10 +177,7 @@ Stack: Go embed.FS + vanilla HTML/CSS/JS. No frameworks, no bundler, no npm.
 User invokes "snap" (CLI or UI)
   |
   v
-client.HeartbeatRPC(ctx)               <-- Refresh stale LS cache
-  |
-  v
-client.FetchQuotas(ctx)                <-- 1 HTTP POST to localhost
+client.FetchQuotas(ctx)                <-- 1 HTTP POST to localhost (LS RPC)
   |
   v
 Parse response: extract models (*float64 remainingFraction), email, plan, AI credits
@@ -200,6 +199,9 @@ store.LogActivity("snap", ...)         <-- Activity log entry
   |
   v
 Auto-link: create/update subscription  <-- If auto_link_subs=true
+  |
+  v
+User may Quick Adjust via UI           <-- PATCH /api/snap/adjust (optional)
 ```
 
 ### Status Flow (0 network calls)

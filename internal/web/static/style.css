@@ -438,6 +438,51 @@ body {
 .quota-pct.warning { color: var(--amber); }
 .quota-pct.exhausted { color: var(--red); }
 
+/* ── Group Quick Adjust ── */
+
+.group-adjust {
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  margin-top: 1px;
+}
+
+.quota-cell:hover .group-adjust {
+  opacity: 1;
+}
+
+.gadj-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  font-family: var(--font);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+  line-height: 1.6;
+}
+
+.gadj-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  transform: scale(1.08);
+}
+
+.gadj-btn[data-delta^="-"]:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.gadj-btn:active {
+  transform: scale(0.92);
+}
+
 .quota-reset {
   font-size: 10px;
   color: var(--text-muted);
@@ -600,6 +645,53 @@ body {
 .model-pct.exhausted { color: var(--red); }
 
 .model-reset { width: 65px; text-align: right; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+/* ── Quick Adjust Controls ── */
+
+.adjust-controls {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  flex-shrink: 0;
+}
+
+.model-row:hover .adjust-controls {
+  opacity: 1;
+}
+
+.adj-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+  line-height: 1.4;
+  min-width: 24px;
+  text-align: center;
+}
+
+.adj-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  transform: scale(1.05);
+}
+
+.adj-btn[data-delta^="-"]:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.adj-btn:active {
+  transform: scale(0.95);
+}
 
 /* ── Account Management Actions ── */
 

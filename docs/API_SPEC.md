@@ -33,6 +33,7 @@ Returns the readiness state of all tracked accounts. **Zero network calls** — 
   "accounts": [
     {
       "accountId": 1,
+      "latestSnapshotId": 308,
       "email": "work@company.com",
       "planName": "Pro",
       "lastSeen": "2026-04-17T00:30:00Z",
@@ -102,6 +103,7 @@ Returns the readiness state of all tracked accounts. **Zero network calls** — 
 | Field | Type | Description |
 |-------|------|-------------|
 | `accountId` | `int64` | Internal account identifier |
+| `latestSnapshotId` | `int64` | ID of the most recent snapshot (used by Quick Adjust) |
 | `email` | `string` | Antigravity account email |
 | `planName` | `string` | Subscription plan (Free, Pro, Enterprise) |
 | `lastSeen` | `string` | ISO 8601 timestamp of last snapshot |
@@ -171,6 +173,50 @@ Triggers an on-demand snapshot of the currently logged-in Antigravity account. *
 {
   "error": "antigravity: not authenticated"
 }
+```
+
+---
+
+### `PATCH /api/snap/adjust` (Quick Adjust)
+
+Fine-tune model quota percentages on an existing snapshot. Designed for manual correction when LS cache data is slightly stale (~60-120s).
+
+**Request:** `application/json`
+
+```json
+{
+  "snapshotId": 308,
+  "adjustments": [
+    { "label": "Claude Sonnet 4.6", "remainingPercent": 15 },
+    { "label": "Gemini 3.1 Pro (High)", "remainingPercent": 80 }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `snapshotId` | `int64` | Target snapshot to adjust (from `latestSnapshotId`) |
+| `adjustments[].label` | `string` | Model display label to match |
+| `adjustments[].remainingPercent` | `float64` | New remaining percentage (clamped 0-100) |
+
+**Response (success):** `200 OK`
+
+```json
+{
+  "message": "snapshot adjusted",
+  "snapshotId": 308,
+  "adjustments": 2,
+  "models": [
+    { "modelId": "...", "label": "Claude Sonnet 4.6", "remainingFraction": 0.15, "remainingPercent": 15, "isExhausted": false },
+    { "modelId": "...", "label": "Gemini 3.1 Pro (High)", "remainingFraction": 0.80, "remainingPercent": 80, "isExhausted": false }
+  ]
+}
+```
+
+**Response (no matching models):** `400 Bad Request`
+
+```json
+{ "error": "no matching models found to adjust" }
 ```
 
 ---

@@ -10,18 +10,19 @@ import (
 
 // AccountReadiness represents the readiness state of a single account.
 type AccountReadiness struct {
-	AccountID      int64             `json:"accountId"`
-	Email          string            `json:"email"`
-	PlanName       string            `json:"planName"`
-	LastSeen       time.Time         `json:"lastSeen"`
-	Staleness      time.Duration     `json:"-"`
-	StalenessLabel string            `json:"stalenessLabel"`
-	IsReady        bool              `json:"isReady"`
-	Groups         []GroupReadiness  `json:"groups"`
-	Models         []ModelDetail     `json:"models"`
-	PromptCredits  float64           `json:"promptCredits"`
-	MonthlyCredits int               `json:"monthlyCredits"`
-	AICredits      []client.AICredit `json:"aiCredits"`
+	AccountID        int64             `json:"accountId"`
+	LatestSnapshotID int64             `json:"latestSnapshotId"`
+	Email            string            `json:"email"`
+	PlanName         string            `json:"planName"`
+	LastSeen         time.Time         `json:"lastSeen"`
+	Staleness        time.Duration     `json:"-"`
+	StalenessLabel   string            `json:"stalenessLabel"`
+	IsReady          bool              `json:"isReady"`
+	Groups           []GroupReadiness  `json:"groups"`
+	Models           []ModelDetail     `json:"models"`
+	PromptCredits    float64           `json:"promptCredits"`
+	MonthlyCredits   int               `json:"monthlyCredits"`
+	AICredits        []client.AICredit `json:"aiCredits"`
 }
 
 // ModelDetail is a per-model quota entry for the dashboard.
@@ -62,16 +63,17 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 		isStale := staleness > stalenessThreshold
 
 		ar := AccountReadiness{
-			AccountID:      snap.AccountID,
-			Email:          snap.Email,
-			PlanName:       snap.PlanName,
-			LastSeen:       snap.CapturedAt,
-			Staleness:      staleness,
-			StalenessLabel: formatStaleness(staleness),
-			IsReady:        true,
-			PromptCredits:  snap.PromptCredits,
-			MonthlyCredits: snap.MonthlyCredits,
-			AICredits:      snap.AICredits,
+			AccountID:        snap.AccountID,
+			LatestSnapshotID: snap.ID,
+			Email:            snap.Email,
+			PlanName:         snap.PlanName,
+			LastSeen:         snap.CapturedAt,
+			Staleness:        staleness,
+			StalenessLabel:   formatStaleness(staleness),
+			IsReady:          true,
+			PromptCredits:    snap.PromptCredits,
+			MonthlyCredits:   snap.MonthlyCredits,
+			AICredits:        snap.AICredits,
 		}
 
 		// Q3: Always show actual time-ago — the time IS the staleness indicator

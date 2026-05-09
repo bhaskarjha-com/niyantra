@@ -99,7 +99,7 @@ niyantra serve    # Dashboard shows your real data
 
 ### Know Your Quotas
 
-Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy and track Claude Code rate limits via statusline bridge. See who's ready, who's exhausted, and when resets happen.
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy and track Claude Code rate limits via statusline bridge. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. See who's ready, who's exhausted, and when resets happen.
 
 ### Control Your Spending
 
@@ -121,7 +121,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 | Tab | What it shows |
 |-----|---------------|
-| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude), per-model progress bars with reset timers, provider & status filters, split-button snap, twin-axis history chart, AI Credits tracking |
+| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider & status filters, split-button snap, twin-axis history chart, AI Credits tracking |
 | **Subscriptions** | Hybrid card + provider layout with spend summary, search, 26 platform presets, CSV export |
 | **Overview** | Monthly budget vs actual, switch advisor, provider health cards, Codex status, sessions timeline, renewal calendar |
 | **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, command palette (`Ctrl+K`) |
@@ -226,7 +226,7 @@ No web frameworks. No ORMs. No npm. Chart.js bundled locally from embedded asset
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phase 1-12.5), cloud architecture |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (29 endpoints) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v9 (11 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
 | [TESTING.md](docs/TESTING.md) | Test cases |

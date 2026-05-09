@@ -163,7 +163,7 @@ Manual snaps are **always** allowed regardless of mode. The auto-capture toggle 
 ## Data Sources
 
 ### Current (Implemented)
-- **Antigravity Language Server** — quota snapshots via local Connect RPC API. Includes Heartbeat RPC to refresh stale LS cache before quota fetch. Handles protobuf `*float64` semantics for `remainingFraction`.
+- **Antigravity Language Server** — quota snapshots via local Connect RPC API. Handles protobuf `*float64` semantics for `remainingFraction`. Users can fine-tune stale LS cache values post-snap via Quick Adjust (±5%/±10%).
 - **Claude Code Bridge** — real-time rate limit data via statusline file bridge. Auto-patches `~/.claude/settings.json` with a bash snippet that pipes stdin to `~/.niyantra/data/anthropic-statusline.json`. Zero API calls, zero dependencies.
 - **Codex / ChatGPT** — OAuth API polling with proactive token refresh, multi-quota tracking (5h window, 7d window, code review). Credentials from `~/.codex/auth.json`, account identity via JWT `id_token` parsing with OIDC name + picture extraction. (Phase 11)
 - **Manual Subscriptions** — 26 platform presets with expert-curated notes
@@ -292,7 +292,7 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - **Schema v9** — `email` column on `codex_snapshots` for multi-account Codex identity
 
 ### ✅ Phase 12.5: Data Integrity & Stability
-- **Heartbeat RPC** — send heartbeat to Antigravity Language Server before quota fetch to refresh stale cache
+- **Quick Adjust** — manual quota correction at group and model level; `PATCH /api/snap/adjust` endpoint with persistent DB updates
 - **Protobuf `*float64` handling** — correct handling of `remainingFraction` where protobuf zero values mean 0% (fully exhausted), not null (missing data)
 - **Reset-time-corrected aggregation** — group-level quota calculations (Claude+GPT) use reset-time-adjusted model values instead of raw snapshot data
 - **Readiness-based dimming** — accounts dimmed by `isReady` flag instead of `allExhausted`, ensuring consistency across new and stale data
@@ -369,7 +369,7 @@ Niyantra is successful when:
 1. **< 3 seconds** from `niyantra snap` to "snapshot stored"
 2. **< 100ms** from `niyantra status` to "readiness displayed"
 3. **Every data point traceable** — method, source, timestamp on every snapshot
-4. **1 API call** per manual snap — no more, ever (plus 1 heartbeat RPC for cache freshness)
+4. **1 API call** per manual snap — no more, ever
 5. **< 20 MB** binary size (includes embedded SQLite engine + web assets + Chart.js)
 6. **Zero surprise captures** — auto mode only when explicitly enabled
 7. **Multi-source** — at least 3 AI coding tools tracked in a unified view ✅ (Antigravity + Codex + Claude)

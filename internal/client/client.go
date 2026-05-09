@@ -25,9 +25,6 @@ var (
 // lsEndpoint is the Connect RPC service path for quota retrieval.
 const lsEndpoint = "/exa.language_server_pb.LanguageServerService/GetUserStatus"
 
-// heartbeatEndpoint triggers a cache refresh in the language server.
-const heartbeatEndpoint = "/exa.language_server_pb.LanguageServerService/Heartbeat"
-
 // processInfo holds auto-detected process metadata.
 type processInfo struct {
 	PID                 int
@@ -110,53 +107,18 @@ func (c *Client) Detect(ctx context.Context) error {
 	return nil
 }
 
-// sendHeartbeat sends a Heartbeat RPC to the language server to trigger
-// a cache refresh of quota data before we read it.
-func (c *Client) sendHeartbeat(ctx context.Context) {
-	if c.conn == nil {
-		return
-	}
-
-	url := c.conn.BaseURL + heartbeatEndpoint
-	payload := `{"metadata":{"ideName":"windsurf","extensionName":"windsurf","locale":"en"}}`
-
-	hbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(hbCtx, http.MethodPost, url, strings.NewReader(payload))
-	if err != nil {
-		c.logger.Debug("heartbeat: build request failed", "error", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Connect-Protocol-Version", "1")
-	if c.conn.CSRFToken != "" {
-		req.Header.Set("X-Codeium-Csrf-Token", c.conn.CSRFToken)
-	}
-
-	resp, err := c.transport.Do(req)
-	if err != nil {
-		c.logger.Debug("heartbeat: request failed", "error", err)
-		return
-	}
-	resp.Body.Close()
-
-	c.logger.Debug("heartbeat: sent", "status", resp.StatusCode)
-}
-
 // FetchQuotas retrieves the current quota status from the language server.
+//
+// The LS maintains its own cache that refreshes on a ~60-120s timer.
+// Data is always for the CORRECT current account but may be slightly stale.
+// Users can fine-tune quota values via the Quick Adjust feature after snapping.
 func (c *Client) FetchQuotas(ctx context.Context) (*UserStatusResponse, error) {
 	if err := c.Detect(ctx); err != nil {
 		return nil, err
 	}
 
-	// Send a heartbeat first to nudge the language server to refresh
-	// its internal quota cache from upstream servers.
-	c.sendHeartbeat(ctx)
-
 	url := c.conn.BaseURL + lsEndpoint
-	payload := `{"metadata":{"ideName":"windsurf","extensionName":"windsurf","locale":"en"}}`
+	payload := `{"metadata":{"ideName":"antigravity","extensionName":"antigravity","locale":"en"}}`
 
 	fetchCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
 	defer cancel()

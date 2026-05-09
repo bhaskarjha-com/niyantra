@@ -88,6 +88,22 @@ niyantra status            # Shows all accounts, no network calls
 
 Output shows a readiness grid: which accounts are ready, which are exhausted, when resets happen.
 
+### Quick Adjust (Manual Correction)
+
+The LS cache data may be up to ~2 minutes stale. After snapping, you can fine-tune quota values:
+
+**Group-level** (main grid view):
+- Hover over any quota group cell (Claude+GPT / Gemini Pro / Gemini Flash)
+- **−5** and **+5** buttons appear below the minibar
+- Click to adjust ALL models in that group by ±5%
+
+**Model-level** (expanded view):
+- Click an account row to expand, then hover over any model row
+- **−10**, **−5**, **+5**, **+10** buttons appear after the percentage
+- Click to adjust that specific model
+
+Adjustments are saved to the database immediately and recalculate group-level aggregates. Use this when you know you've used more quota than the cached LS data reflects.
+
 ---
 
 ## Dashboard
@@ -119,6 +135,7 @@ Each section has its own header with provider color coding and can be collapsed/
 **Click any row** to expand and see:
 - Per-model progress bars with exact percentages
 - Reset countdowns (e.g., "resets in 2h 15m")
+- **Quick Adjust** buttons (±5%, ±10%) on hover for manual quota correction
 - **Clear Snapshots** button — deletes all quota history for the account
 - **Remove Account** button — permanently deletes the account and all associated data
 
@@ -277,14 +294,13 @@ Niyantra calculates your daily burn rate from active subscriptions and projects 
 ### How It Works
 
 When enabled, Niyantra polls all configured data sources at your configured interval. Each poll:
-1. Sends a **Heartbeat RPC** to refresh the Language Server's cache
-2. Fetches quota data via one HTTP call (with `*float64` protobuf handling for precise quota values)
-3. Stores the snapshot with provenance tag `capture_method: auto`
-4. Detects reset cycles (when quotas jump back up)
-5. Updates session tracking
-6. Triggers notifications if thresholds are breached
-7. If Codex is enabled, polls Codex API in the same cycle
-8. If Claude bridge is enabled, reads statusline data in the same cycle
+1. Fetches quota data via one HTTP call (with `*float64` protobuf handling for precise quota values)
+2. Stores the snapshot with provenance tag `capture_method: auto`
+3. Detects reset cycles (when quotas jump back up)
+4. Updates session tracking
+5. Triggers notifications if thresholds are breached
+6. If Codex is enabled, polls Codex API in the same cycle
+7. If Claude bridge is enabled, reads statusline data in the same cycle
 
 ### Safety
 
