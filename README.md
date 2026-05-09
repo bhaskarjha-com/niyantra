@@ -121,10 +121,10 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 | Tab | What it shows |
 |-----|---------------|
-| **Quotas** | 6-col sortable readiness grid, AI Credits tracking, text search & filters, per-model progress bars, twin-axis history chart |
-| **Subscriptions** | Card view of all AI subs, search, 26 platform presets, CSV export |
-| **Overview** | Monthly budget vs actual, switch advisor, Codex status, sessions timeline, renewal calendar |
-| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, account management |
+| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude), per-model progress bars with reset timers, provider & status filters, split-button snap, twin-axis history chart, AI Credits tracking |
+| **Subscriptions** | Hybrid card + provider layout with spend summary, search, 26 platform presets, CSV export |
+| **Overview** | Monthly budget vs actual, switch advisor, provider health cards, Codex status, sessions timeline, renewal calendar |
+| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, command palette (`Ctrl+K`) |
 
 ---
 
@@ -217,17 +217,17 @@ Re-run the install command or download the latest from [Releases](https://github
 | [`go-sdk/mcp`](https://github.com/modelcontextprotocol/go-sdk) | Official MCP Go SDK for AI agent integration |
 | Go stdlib | Everything else -- HTTP, JSON, embed, crypto |
 
-No web frameworks. No ORMs. No npm. Chart.js loaded from CDN for visualization.
+No web frameworks. No ORMs. No npm. Chart.js bundled locally from embedded assets.
 
 ## Documentation
 
 | Document | Content |
 |----------|---------|
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
-| [VISION.md](docs/VISION.md) | Product vision, market position, roadmap, use cases |
+| [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phase 1-12.5), cloud architecture |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
-| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v7 (11 tables) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (29 endpoints) |
+| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v9 (11 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
 | [TESTING.md](docs/TESTING.md) | Test cases |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |

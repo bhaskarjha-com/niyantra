@@ -7,6 +7,9 @@ const GROUP_COLORS = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flas
 // Track which accounts are expanded (survives re-renders)
 const expandedAccounts = new Set();
 
+// Track which provider sections are collapsed (survives re-renders)
+const collapsedProviders = new Set();
+
 // Platform presets (loaded from API)
 var presetsData = [];
 
@@ -50,7 +53,7 @@ function initTabs() {
       document.getElementById('panel-' + tab).classList.add('active');
 
       // Load tab data on activation
-      if (tab === 'subscriptions') loadSubscriptions();
+      // Note: subscriptions are pre-loaded on init, only refreshed on filter change
       if (tab === 'overview') loadOverview();
       if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
     });
@@ -173,6 +176,17 @@ function allExhausted(acc) {
   return true;
 }
 
+// Bug 6: Determine status of Codex/Claude snapshot for filtering
+function getCodexClaudeStatus(snap) {
+  var fiveUsed = snap.fiveHourPct || 0;
+  var sevenUsed = snap.sevenDayPct || 0;
+  var fiveRem = Math.max(0, 100 - fiveUsed);
+  var sevenRem = Math.max(0, 100 - sevenUsed);
+  if (fiveRem === 0 && sevenRem === 0) return 'empty';
+  if (fiveUsed >= 80 || sevenUsed >= 80) return 'low';
+  return 'ready';
+}
+
 function sortAccountsArray(accounts) {
   var col = quotaSortState.column;
   var dir = quotaSortState.direction;
@@ -261,11 +275,13 @@ function renderAccounts(data) {
   if (acctCount > 0 && (pf === 'all' || pf === 'antigravity')) {
   var filtered = filterAccountsArray(data.accounts);
   var sorted = sortAccountsArray(filtered);
+  var agCollapseClass = collapsedProviders.has('section-antigravity') ? ' collapsed' : '';
+  var agChevron = collapsedProviders.has('section-antigravity') ? '▸' : '▾';
   html += '<div class="provider-section" data-provider="antigravity"><div class="provider-header" data-toggle-provider="section-antigravity">' +
-    '<div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">▾</span>' +
+    '<div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">' + agChevron + '</span>' +
     '<span class="provider-name">Antigravity</span>' +
     '<span class="provider-count">' + acctCount + ' account' + (acctCount !== 1 ? 's' : '') + '</span></div></div>' +
-    '<div class="provider-body" id="section-antigravity">';
+    '<div class="provider-body' + agCollapseClass + '" id="section-antigravity">';
   // Dynamic Antigravity grid header
   html += '<div class="grid-header">' +
     '<div class="grid-col-account sortable" data-sort="account">Account <span class="sort-indicator"></span></div>';
@@ -383,11 +399,11 @@ function renderAccounts(data) {
     }
 
     var chevronCls = isExpanded ? 'chevron expanded' : 'chevron';
-    // Q3: Dim rows older than 24h
+    // Bug 5 fix: Dim based on quota readiness, not snap age.
+    // Accounts with any depleted group get dimmed; fully ready = bright.
     var staleStyle = '';
-    if (acc.lastSeen) {
-      var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
-      if (ageMs > 86400000) staleStyle = ' style="opacity:0.65"';
+    if (!acc.isReady) {
+      staleStyle = ' style="opacity:0.6"';
     }
     html += '<div class="account-card"' + staleStyle + '>' +
       '<div class="account-row" data-toggle="' + accId + '">' +
@@ -408,8 +424,21 @@ function renderAccounts(data) {
   html += '</div></div>'; // close provider-body + provider-section
   } // end if acctCount > 0
 
-  if (data.codexSnapshot && (pf === 'all' || pf === 'codex')) html += renderCodexProviderSection(data.codexSnapshot);
-  if (data.claudeSnapshot && (pf === 'all' || pf === 'claude')) html += renderClaudeProviderSection(data.claudeSnapshot);
+  // Bug 6 fix: Apply status filter to Codex/Claude sections too
+  var sf = document.getElementById('quota-filter-status');
+  var statusVal = sf ? sf.value : 'all';
+  if (data.codexSnapshot && (pf === 'all' || pf === 'codex')) {
+    var cxStatus = getCodexClaudeStatus(data.codexSnapshot);
+    if (statusVal === 'all' || cxStatus === statusVal) {
+      html += renderCodexProviderSection(data.codexSnapshot);
+    }
+  }
+  if (data.claudeSnapshot && (pf === 'all' || pf === 'claude')) {
+    var clStatus = getCodexClaudeStatus(data.claudeSnapshot);
+    if (statusVal === 'all' || clStatus === statusVal) {
+      html += renderClaudeProviderSection(data.claudeSnapshot);
+    }
+  }
 
   // V3: Empty states when a specific provider is selected but has no data
   if (pf === 'antigravity' && acctCount === 0) {
@@ -433,7 +462,7 @@ function renderAccounts(data) {
 
   grid.innerHTML = html;
 
-  // Wire up provider section collapse
+  // Wire up provider section collapse (state already baked into HTML)
   grid.querySelectorAll('.provider-header[data-toggle-provider]').forEach(function(hdr) {
     hdr.addEventListener('click', function() {
       var targetId = hdr.dataset.toggleProvider;
@@ -442,6 +471,11 @@ function renderAccounts(data) {
       if (!body) return;
       var collapsed = body.classList.toggle('collapsed');
       if (chev) chev.textContent = collapsed ? '▸' : '▾';
+      if (collapsed) {
+        collapsedProviders.add(targetId);
+      } else {
+        collapsedProviders.delete(targetId);
+      }
     });
   });
 }
@@ -460,14 +494,16 @@ function renderCodexProviderSection(cs) {
   var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
   var displayName = cs.email || (cs.accountId && cs.accountId.length > 12 ? cs.accountId.substring(0,6) + '..' + cs.accountId.slice(-6) : (cs.accountId || 'Codex'));
   var creditsStr = cs.creditsBalance !== null && cs.creditsBalance !== undefined ? cs.creditsBalance.toFixed(2) : String.fromCharCode(8212);
+  var cxCollapseClass = collapsedProviders.has('section-codex') ? ' collapsed' : '';
+  var cxChevron = collapsedProviders.has('section-codex') ? '▸' : '▾';
   return '<div class="provider-section" data-provider="codex">' +
     '<div class="provider-header" data-toggle-provider="section-codex">' +
     '<div class="provider-header-left">' +
-    '<span class="provider-chevron" id="pchev-section-codex">▾</span>' +
+    '<span class="provider-chevron" id="pchev-section-codex">' + cxChevron + '</span>' +
     '<span class="provider-name">\ud83e\udd16 Codex / ChatGPT</span>' +
     '<span class="provider-count">1 account</span>' +
     '</div></div>' +
-    '<div class="provider-body" id="section-codex">' +
+    '<div class="provider-body' + cxCollapseClass + '" id="section-codex">' +
     '<div class="grid-header grid-codex">' +
     '<div>Account</div><div>Plan</div><div>5-Hour</div><div>7-Day</div><div>Credits</div><div>Last Snap</div><div>Status</div>' +
     '</div>' +
@@ -496,14 +532,16 @@ function renderClaudeProviderSection(cl) {
   var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : 'unknown';
   var dotCls = (clFive >= 80 || clSeven >= 80) ? 'dot-low' : 'dot-ready';
   var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  var clCollapseClass = collapsedProviders.has('section-claude') ? ' collapsed' : '';
+  var clChevron = collapsedProviders.has('section-claude') ? '▸' : '▾';
   return '<div class="provider-section" data-provider="claude">' +
     '<div class="provider-header" data-toggle-provider="section-claude">' +
     '<div class="provider-header-left">' +
-    '<span class="provider-chevron" id="pchev-section-claude">▾</span>' +
+    '<span class="provider-chevron" id="pchev-section-claude">' + clChevron + '</span>' +
     '<span class="provider-name">\ud83d\udd17 Claude Code</span>' +
     '<span class="provider-count">1 account \u00b7 Bridge</span>' +
     '</div></div>' +
-    '<div class="provider-body" id="section-claude">' +
+    '<div class="provider-body' + clCollapseClass + '" id="section-claude">' +
     '<div class="grid-header grid-claude">' +
     '<div>Source</div><div>5-Hour</div><div>7-Day</div><div>Last Snap</div><div>Status</div>' +
     '</div>' +
@@ -2365,7 +2403,7 @@ function switchToTab(tabName) {
   var panel = document.getElementById('panel-' + tabName);
   if (panel) panel.classList.add('active');
 
-  if (tabName === 'subscriptions') loadSubscriptions();
+  // Note: subscriptions are pre-loaded on init, only refreshed on filter change
   if (tabName === 'overview') loadOverview();
   if (tabName === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
 }
@@ -2438,9 +2476,24 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTimestamp();
     populateChartAccountSelect(data);
     loadHistoryChart();
+
+    // Bug 1 fix: If no codex/claude data on first load, retry after 3s
+    // (first serve often beats the initial codex capture to the DB)
+    if (!data.codexSnapshot || !data.claudeSnapshot) {
+      setTimeout(function() {
+        fetchStatus().then(function(data2) {
+          if (data2.codexSnapshot || data2.claudeSnapshot) {
+            renderAccounts(data2);
+          }
+        }).catch(function() {});
+      }, 3000);
+    }
   }).catch(function(err) {
     console.error('Failed to load status:', err);
   });
+
+  // Bug 3 fix: Pre-load subscriptions so tab is ready when first visited
+  loadSubscriptions();
 
   // Load presets for the datalist
   fetchPresets().then(function(data) {
@@ -2867,8 +2920,10 @@ function renderAdvisorWithGroup(container, groupKey) {
 
   var best = ranked[0];
   var worst = ranked[ranked.length - 1];
-  var actionIcon = best.pct > 20 ? '⚡' : '⏳';
-  var actionLabel = best.pct > 20 ? 'SWITCH' : 'WAIT';
+  // Bug 4 fix: Detect when all accounts are healthy
+  var allHealthy = ranked.every(function(a) { return a.pct > 80; });
+  var actionIcon = allHealthy ? '✅' : (best.pct > 20 ? '⚡' : '⏳');
+  var actionLabel = allHealthy ? 'ALL READY' : (best.pct > 20 ? 'SWITCH' : 'WAIT');
   var bestLabel = best.email.split('@')[0] + '@...';
 
   var html = '<div class="advisor-card">' +
@@ -2882,10 +2937,12 @@ function renderAdvisorWithGroup(container, groupKey) {
     '<option value="all"' + (groupKey === 'all' ? ' selected' : '') + '>All Models (avg)</option>' +
     '</select></div>';
 
-  html += '<div class="advisor-action ' + (best.pct > 20 ? 'switch' : 'wait') + '">' +
+  var actionCls = allHealthy ? 'stay' : (best.pct > 20 ? 'switch' : 'wait');
+  html += '<div class="advisor-action ' + actionCls + '">' +
     actionIcon + ' ' + actionLabel + '</div>' +
-    '<div class="advisor-reason">Best: ' + esc(best.email) + ' (' + best.pct + '% ' +
-    esc(groupNames[groupKey] || groupKey) + ' remaining)' +
+    '<div class="advisor-reason">' + (allHealthy ? 'All accounts have healthy quotas — no switch needed' :
+    'Best: ' + esc(best.email) + ' (' + best.pct + '% ' +
+    esc(groupNames[groupKey] || groupKey) + ' remaining)') +
     (best.stale ? ' ⚠️ stale data' : '') + '</div>';
 
   // Score bars — show top 5, toggle for rest

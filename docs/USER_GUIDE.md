@@ -76,7 +76,9 @@ niyantra snap              # Capture current account
 niyantra snap --debug      # Verbose output (useful for troubleshooting detection)
 ```
 
-Or click **Snap Now** in the dashboard's Quotas tab.
+Or use the dashboard's **split-button snap**:
+- **Snap Now** (primary button) — captures the current Antigravity account
+- **▾ Snap All Sources** (dropdown) — captures Antigravity + Codex + Claude in one click
 
 ### Status Check (offline)
 
@@ -94,30 +96,42 @@ Launch with `niyantra serve` and open `http://localhost:9222`.
 
 ### Quotas Tab
 
-The default view showing all tracked Antigravity accounts via a sortable 6-column grid layout.
+The default view showing all tracked accounts organized by **provider sections**.
 
-**Search & Filters**: 
-Above the grid is a toolbar that lets you fuzzy search by email/plan and filter accounts by specific conditions (`Ready`, `Low`, `Empty`).
+**Provider Sections**: Accounts are grouped into collapsible sections:
+- **Antigravity** — quota snapshots from the Antigravity Language Server
+- **Codex / ChatGPT** — multi-window quota data from OpenAI OAuth API
+- **Claude Code** — rate limit data from the statusline bridge
 
-**Readiness grid**: Each row is an account highlighting usage fractions across model families `(Claude + GPT | Gemini Pro | Gemini Flash)` and raw `AI Credits` count. Color-coded status:
-- **Green (Ready)**: All quota pools above threshold
-- **Yellow (Low)**: Some pools depleted
-- **Red (Exhausted)**: Account cannot be used
+Each section has its own header with provider color coding and can be collapsed/expanded.
+
+**Toolbar**:
+- **Search**: Fuzzy search by email or plan name
+- **Provider filter**: Dropdown to show All / Antigravity / Codex / Claude accounts
+- **Status filter**: Filter by readiness state — Ready (green), Low (yellow), Empty (red)
+- **Split-button snap**: Snap Now / Snap All Sources
+
+**Account rows** show:
+- Email, plan name, and time since last snapshot ("2m ago")
+- Color-coded status badge (Ready / Low / Exhausted)
+- Accounts with low/empty quota are visually dimmed
 
 **Click any row** to expand and see:
 - Per-model progress bars with exact percentages
 - Reset countdowns (e.g., "resets in 2h 15m")
-- **Clear Snapshots** button — deletes all quota history for the account (keeps the account)
+- **Clear Snapshots** button — deletes all quota history for the account
 - **Remove Account** button — permanently deletes the account and all associated data
 
-**Quota History Chart**: Below the grid. Shows quota trends over time as a twin Y-Axis line chart.
-- The left Y-Axis charts the 0-100% burnout rate across LLM models.
-- The right Y-Axis maps the absolute AI Credits token burn across time.
+**Quota History Chart**: Below the provider sections. Twin Y-axis line chart:
+- Left Y-Axis: 0-100% quota burndown across LLM models
+- Right Y-Axis: absolute AI Credits token balance over time
 - Adapts to dark/light theme automatically
 
 ### Subscriptions Tab
 
-Card-based view of all your AI subscriptions.
+Hybrid card + provider layout with inline spend summary.
+
+**Layout**: Subscriptions are organized by provider with a spend summary bar at the top showing total monthly cost across all active subscriptions.
 
 **Adding a subscription:**
 1. Click **+ Add Subscription**
@@ -130,6 +144,7 @@ Card-based view of all your AI subscriptions.
 - Status badge (Active, Trial, Cancelled, Paused)
 - Next renewal date
 - Dashboard URL link (click to go to the provider's billing page)
+- Auto-tracked badge if created automatically from a snap
 
 **Search**: Type in the search box to filter subscriptions by name, plan, or email.
 
@@ -148,12 +163,21 @@ The intelligence hub combining data from all sources.
 - Recommends which account to use right now
 - Actions: "switch" (use a different account), "stay" (current is best), "wait" (all exhausted, reset coming soon)
 - Shows score breakdown: remaining% (60% weight), burn rate (20%), reset time (20%)
+- Detects "All Ready" state and shows "Stay" recommendation when overall health > 80%
+
+**Provider Health Cards:**
+- Per-provider status summary (Antigravity, Codex, Claude)
+- Shows accounts tracked, overall health percentage, and last capture time
 
 **Codex Status** (if configured):
 - Shows Codex/ChatGPT quota across 5-hour, 7-day, and code review windows
+- Displays profile name and picture (extracted from OIDC JWT)
 
 **Sessions Timeline:**
 - Shows detected usage sessions with duration, provider, and snapshot count
+
+**Quick Links:**
+- Per-platform dashboard links (deduplicated) for one-click access to provider billing pages
 
 **Renewal Calendar:**
 - Visual month-view grid with pins on renewal dates
@@ -252,13 +276,15 @@ Niyantra calculates your daily burn rate from active subscriptions and projects 
 
 ### How It Works
 
-When enabled, Niyantra polls the Antigravity language server at your configured interval. Each poll:
-1. Detects the running language server process
-2. Makes one HTTP call to fetch quota data
+When enabled, Niyantra polls all configured data sources at your configured interval. Each poll:
+1. Sends a **Heartbeat RPC** to refresh the Language Server's cache
+2. Fetches quota data via one HTTP call (with `*float64` protobuf handling for precise quota values)
 3. Stores the snapshot with provenance tag `capture_method: auto`
 4. Detects reset cycles (when quotas jump back up)
 5. Updates session tracking
 6. Triggers notifications if thresholds are breached
+7. If Codex is enabled, polls Codex API in the same cycle
+8. If Claude bridge is enabled, reads statusline data in the same cycle
 
 ### Safety
 
@@ -359,7 +385,7 @@ Niyantra can poll the Codex/ChatGPT API to track multi-window quotas:
 
 ### Dashboard
 
-The **Overview** tab shows a Codex status card with all three quota windows and their current usage.
+The **Overview** tab shows a Codex status card with all three quota windows and their current usage. If OIDC JWT contains profile data, the card also shows the account's display name and profile picture.
 
 ---
 

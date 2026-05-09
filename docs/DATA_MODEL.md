@@ -17,7 +17,8 @@
 | v5 | `claude_snapshots` + config keys | Claude Code rate limits, notifications, bridge config |
 | v6 | `system_alerts` | System-level alerts with hybrid TTL, advisor integration |
 | v7 | `codex_snapshots`, `usage_sessions`, `usage_logs` | Codex/ChatGPT tracking, session timeline, manual usage logging |
-| v8 | `snapshots.ai_credits` column | Native AI Credits tracking from Antigravity |
+| v8 | `snapshots.ai_credits_json` column | Native AI Credits tracking from Antigravity |
+| v9 | `codex_snapshots.email` column | Multi-account Codex identity tracking via OIDC JWT |
 
 ---
 
@@ -504,7 +505,7 @@ Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
 PRAGMA user_version;      -- read current version
-PRAGMA user_version = 8;  -- current target (v8)
+PRAGMA user_version = 9;  -- current target (v9)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -569,6 +570,12 @@ func (s *Store) migrate() error {
         // v8: AI credits column on snapshots
         s.exec(addAICreditsColumnSQL)
         s.setUserVersion(8)
+    }
+
+    if version < 9 {
+        // v9: Codex email column for multi-account identity
+        s.exec(addCodexEmailColumnSQL)
+        s.setUserVersion(9)
     }
 }
 ```
@@ -647,4 +654,32 @@ Manual usage log entries linked to subscriptions.
 |-----|---------|-------------|
 | `codex_capture` | `false` | Enable Codex auto-polling |
 | `session_idle_timeout` | `1200` | Seconds of idle before session closes |
+
+---
+
+## Schema v8 — AI Credits Tracking
+
+Adds native Google AI Credits tracking to snapshots.
+
+```sql
+ALTER TABLE snapshots ADD COLUMN ai_credits_json TEXT DEFAULT '';
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `ai_credits_json` | TEXT | JSON blob containing `availableCredits`, `promptCredits`, `flowCredits` from Antigravity `GetUserStatus` API |
+
+---
+
+## Schema v9 — Codex Multi-Account Identity
+
+Adds email tracking per Codex snapshot for multi-account support.
+
+```sql
+ALTER TABLE codex_snapshots ADD COLUMN email TEXT DEFAULT '';
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `email` | TEXT | Email address extracted from Codex OIDC JWT `id_token` claims. Enables per-account Codex tracking. |
 

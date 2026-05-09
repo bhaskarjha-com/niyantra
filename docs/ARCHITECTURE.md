@@ -5,21 +5,21 @@
 ```
 User Interfaces
   CLI (snap/status/serve/mcp/demo/backup)
-  Dashboard (4 tabs, embedded web app)
+  Dashboard (4 tabs, embedded web app, PWA)
   MCP Server (8 tools, AI agent access)
           |
 Application Layer
   agent/        - polling loop + session management
-  client/       - LS detection + quota fetch
-  codex/        - OAuth + Codex API polling
+  client/       - LS detection + Heartbeat RPC + quota fetch
+  codex/        - OAuth + Codex API polling + OIDC JWT parsing
   claudebridge/ - statusline patch + read
   advisor/      - switch recommendation engine
   tracker/      - cycle detection + intelligence
-  readiness/    - pure readiness computation
+  readiness/    - pure readiness computation (reset-time-corrected)
   notify/       - OS-native notifications
           |
 Storage Layer
-  store/  - SQLite v7 (11 tables)
+  store/  - SQLite v9 (11 tables)
   config  - typed key-value settings
   Pure Go: modernc.org/sqlite (no CGo)
 ```
@@ -62,11 +62,13 @@ Detection flow:
 
 Key types:
 - Snapshot - captured quota data with provenance fields
-- ModelQuota - per-model remainingFraction, resetTime, label
+- ModelQuota - per-model `*float64` remainingFraction (protobuf semantics: nil=missing, 0=exhausted), resetTime, label
 - GroupedQuota - logical group (claude_gpt, gemini_pro, gemini_flash)
 
-Note: The language server does NOT expose "AI Credits" (the overage pool shown in Agent Manager).
-Those are served by a separate Codeium cloud API, not the local LS.
+Data integrity:
+- Heartbeat RPC sent before quota fetch to refresh stale LS cache
+- `remainingFraction` uses `*float64` to distinguish protobuf zero (0% = exhausted) from missing/null
+- AI Credits (`availableCredits`, `promptCredits`, `flowCredits`) extracted from `GetUserStatus` API and stored in `ai_credits_json`
 
 ## 2. internal/store/ - SQLite Ledger
 
@@ -84,8 +86,10 @@ Uses modernc.org/sqlite (pure Go, no CGo) for true single-binary cross-compilati
 | v5 | claude_snapshots | Claude Code rate limit data (Phase 9) |
 | v6 | system_alerts | System-level alerts with hybrid TTL (Phase 10) |
 | v7 | codex_snapshots, usage_sessions, usage_logs | Codex integration + sessions (Phase 11) |
+| v8 | snapshots.ai_credits_json column | AI Credits tracking (Phase 12) |
+| v9 | codex_snapshots.email column | Codex multi-account identity (Phase 12) |
 
-### Tables (v7 - Current)
+### Tables (v9 - Current)
 
 - accounts: id, email, plan_name, created_at, updated_at
 - snapshots: id, account_id, captured_at, email, plan_name, prompt_credits, monthly_credits, models_json, raw_json, capture_method, capture_source, source_id
@@ -126,7 +130,7 @@ For each group:
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### Endpoints (30 REST)
+### Endpoints (29 REST)
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -171,10 +175,13 @@ Stack: Go embed.FS + vanilla HTML/CSS/JS. No frameworks, no bundler, no npm.
 User invokes "snap" (CLI or UI)
   |
   v
-client.FetchQuotas(ctx)               <-- 1 HTTP POST to localhost
+client.HeartbeatRPC(ctx)               <-- Refresh stale LS cache
   |
   v
-Parse response: extract models, email, plan
+client.FetchQuotas(ctx)                <-- 1 HTTP POST to localhost
+  |
+  v
+Parse response: extract models (*float64 remainingFraction), email, plan, AI credits
   |
   v
 Tag provenance:
@@ -183,16 +190,16 @@ Tag provenance:
   source_id      = "antigravity"
   |
   v
-store.GetOrCreateAccount(email)       <-- SQLite lookup/insert
+store.GetOrCreateAccount(email)        <-- SQLite lookup/insert
   |
   v
-store.InsertSnapshot(snap)            <-- SQLite insert (with provenance)
+store.InsertSnapshot(snap)             <-- SQLite insert (with provenance + ai_credits_json)
   |
   v
-store.LogActivity("snap", ...)        <-- Activity log entry
+store.LogActivity("snap", ...)         <-- Activity log entry
   |
   v
-Auto-link: create/update subscription <-- If auto_link_subs=true
+Auto-link: create/update subscription  <-- If auto_link_subs=true
 ```
 
 ### Status Flow (0 network calls)
@@ -229,4 +236,4 @@ Print readiness table / return JSON
 | Go stdlib | Everything else | HTTP server, JSON, templates, embed, crypto |
 
 No other dependencies. No web frameworks, no ORM, no logging libraries.
-Chart.js is loaded from CDN at runtime (not embedded) for quota history visualization.
+Chart.js is bundled locally from embedded assets (no CDN dependency) for quota history visualization.

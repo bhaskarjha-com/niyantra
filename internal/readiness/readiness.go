@@ -77,10 +77,14 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 		// Q3: Always show actual time-ago — the time IS the staleness indicator
 		// Visual dimming in the UI handles the "stale" signal instead
 
-		// Per-model details
+		// Per-model details + build corrected models for group computation
+		// Bug fix: GroupModels must use reset-time-corrected values, not raw snapshot data.
+		// Without this, group-level columns (Claude+GPT) show stale values even after reset.
+		correctedModels := make([]client.ModelQuota, 0, len(snap.Models))
 		for _, m := range snap.Models {
 			resetSec := 0.0
 			remainingPct := m.RemainingPercent
+			remainingFrac := m.RemainingFraction
 			exhausted := m.IsExhausted
 
 			if m.ResetTime != nil {
@@ -91,6 +95,7 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 					// infer quota has refilled (rolling 5h resets)
 					if isStale {
 						remainingPct = 100
+						remainingFrac = 1.0
 						exhausted = false
 					}
 				}
@@ -103,10 +108,21 @@ func Calculate(snapshots []*client.Snapshot, threshold float64) []AccountReadine
 				ResetSeconds:     resetSec,
 				GroupKey:         client.GroupForModel(m.ModelID, m.Label),
 			})
+
+			// Build corrected ModelQuota for group computation
+			correctedModels = append(correctedModels, client.ModelQuota{
+				ModelID:           m.ModelID,
+				Label:             m.Label,
+				RemainingFraction: remainingFrac,
+				RemainingPercent:  remainingPct,
+				IsExhausted:       exhausted,
+				ResetTime:         m.ResetTime,
+				TimeUntilReset:    m.TimeUntilReset,
+			})
 		}
 
-		// Group models into logical quota groups
-		groups := client.GroupModels(snap.Models)
+		// Group models using CORRECTED values (not raw snapshot)
+		groups := client.GroupModels(correctedModels)
 		for _, g := range groups {
 			gr := GroupReadiness{
 				GroupKey:         g.GroupKey,

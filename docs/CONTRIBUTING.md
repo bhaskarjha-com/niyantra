@@ -70,7 +70,7 @@ internal/
     types.go                          API response structs
     helpers.go                        Model grouping logic (claude_gpt / gemini_pro / gemini_flash)
 
-  store/                           ← SQLite persistence (schema v7, 11 tables)
+  store/                           ← SQLite persistence (schema v9, 11 tables)
     store.go                          Open, migrate schema, close
     snapshots.go                      InsertSnapshot, LatestPerAccount, History
     accounts.go                       GetOrCreateAccount (upsert by email)
@@ -108,7 +108,7 @@ internal/
     server.go                         8 tools: quota, models, usage, budget, best_model, spending, switch, codex
 
   web/                             ← HTTP server + embedded dashboard
-    server.go                         Setup, handlers (30 REST endpoints)
+    server.go                         Setup, handlers (29 REST endpoints)
     static/                           Embedded via Go embed.FS
       index.html                       Single-page dashboard shell
       style.css                        Design system (CSS variables, dark/light themes)

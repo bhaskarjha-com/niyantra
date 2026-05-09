@@ -40,21 +40,32 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 - [ ] Account count badge shows `0`
 
 ### 2.2 Snap
-- [ ] Click **Snap Now** button
+- [ ] Click **Snap Now** button (primary action on split-button)
 - [ ] If Antigravity is running: toast shows "✅ Snapshot captured" with email
 - [ ] If NOT running: toast shows error "Could not detect..." (red)
-- [ ] Account row appears in grid after successful snap
+- [ ] Account row appears in Antigravity provider section after successful snap
+- [ ] Click **▾** dropdown on snap button → "Snap All Sources" option visible
+- [ ] Click "Snap All Sources" → captures Antigravity + Codex + Claude in one action
 
-### 2.3 Account Grid (requires at least 1 snap)
-- [ ] Row shows: email, plan badge, staleness ("2 min ago"), 3 quota cells, status badge
-- [ ] Quota cells show percentage with color-coded bar:
+### 2.3 Provider-Sectioned Layout (requires at least 1 snap)
+- [ ] Accounts grouped by provider: Antigravity, Codex/ChatGPT, Claude Code
+- [ ] Each section has collapsible header with provider name and color
+- [ ] Click section header → collapses/expands the section
+- [ ] **Provider filter dropdown**: All / Antigravity / Codex / Claude
+- [ ] Select "Antigravity" → only Antigravity section visible
+- [ ] **Status filter**: Ready / Low / Empty
+- [ ] Select "Empty" → only exhausted accounts shown
+- [ ] Filters combine: provider + status work simultaneously
+- [ ] Row shows: email, plan badge, staleness ("2m ago"), status badge
+- [ ] Accounts with low/empty quota are visually dimmed
+- [ ] Quota cells show color-coded progress bars:
   - Orange = Claude+GPT
   - Green = Gemini Pro
   - Blue = Gemini Flash
-- [ ] Status badge: "Ready" (green) if any group > 0%, "Exhausted" (red) if all 0%
+- [ ] Status badge: "Ready" (green), "Low" (yellow), "Exhausted" (red)
 - [ ] **Click row** → expands to show per-model breakdown with progress bars
 - [ ] Click expanded row again → collapses
-- [ ] Multiple rows can be expanded simultaneously
+- [ ] Collapse state persists across filter changes (no flash-expand)
 
 ### 2.4 Quota History Chart
 - [ ] Chart section appears below the account grid
@@ -243,7 +254,7 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 - [ ] Data Sources section shows 3 sources:
   - Antigravity (ls_poll, Active)
   - Claude Code (log_parse, Disabled)
-  - Codex (log_parse, Disabled)
+  - Codex (oauth_api, Disabled)
 - [ ] Antigravity shows capture count and last capture time
 
 ### 5.2 Budget & Display
@@ -277,7 +288,7 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 
 ### 5.6 About
 - [ ] Shows "Niyantra — AI Operations Dashboard"
-- [ ] Shows "Schema v3 · 26 presets · Mode: Manual · 1 active source"
+- [ ] Shows "Schema v9 · 26 presets · Mode: Manual · 1 active source"
 - [ ] Mode text updates when Auto Capture is toggled
 
 ---
@@ -371,7 +382,7 @@ Test each shortcut from the Quotas tab with no modal open:
 ### 10.3 Database
 - [ ] Delete `~/.niyantra/niyantra.db`
 - [ ] Restart server → database recreated with empty state
-- [ ] All tables created (v2 migration runs)
+- [ ] All tables created (v9 migration runs)
 
 ---
 
@@ -427,16 +438,15 @@ Test each shortcut from the Quotas tab with no modal open:
 
 ---
 
-## 14. Database Migration (v2 → v3)
+## 14. Database Migration (v7 → v9)
 
 - [ ] Delete `~/.niyantra/niyantra.db`
-- [ ] Start server → v3 schema created from scratch (all tables)
-- [ ] OR: use existing v2 database → v3 migration runs automatically:
-  - `config` table created with 6 seeded rows
-  - `activity_log` table created
-  - `data_sources` table created with 3 seeded rows
-  - `snapshots` table gains 3 new columns (capture_method, capture_source, source_id)
-  - Existing snapshots default to capture_method='manual'
+- [ ] Start server → v9 schema created from scratch (all tables)
+- [ ] OR: use existing v7 database → v8+v9 migrations run automatically:
+  - `snapshots` table gains `ai_credits_json` column (v8)
+  - `codex_snapshots` table gains `email` column (v9)
+  - Existing data preserved
+- [ ] `PRAGMA user_version` returns `9`
 
 ---
 
@@ -595,12 +605,15 @@ Test each shortcut from the Quotas tab with no modal open:
 - [ ] Protocol version `2025-03-26` in response
 
 ### 17.3 Tools List
-- [ ] `tools/list` returns exactly 5 tools:
+- [ ] `tools/list` returns exactly 8 tools:
   - [ ] `quota_status`
   - [ ] `model_availability`
   - [ ] `usage_intelligence`
   - [ ] `budget_forecast`
   - [ ] `best_model`
+  - [ ] `analyze_spending`
+  - [ ] `switch_recommendation`
+  - [ ] `codex_status`
 - [ ] Each tool has a non-empty description
 - [ ] `model_availability` has input schema with `model` field
 - [ ] `best_model` has input schema with `group` field

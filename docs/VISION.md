@@ -163,9 +163,9 @@ Manual snaps are **always** allowed regardless of mode. The auto-capture toggle 
 ## Data Sources
 
 ### Current (Implemented)
-- **Antigravity Language Server** — quota snapshots via local Connect RPC API
+- **Antigravity Language Server** — quota snapshots via local Connect RPC API. Includes Heartbeat RPC to refresh stale LS cache before quota fetch. Handles protobuf `*float64` semantics for `remainingFraction`.
 - **Claude Code Bridge** — real-time rate limit data via statusline file bridge. Auto-patches `~/.claude/settings.json` with a bash snippet that pipes stdin to `~/.niyantra/data/anthropic-statusline.json`. Zero API calls, zero dependencies.
-- **Codex / ChatGPT** — OAuth API polling with proactive token refresh, multi-quota tracking (5h window, 7d window, code review). Credentials from `~/.codex/auth.json`, account identity via JWT `id_token` parsing. (Phase 11)
+- **Codex / ChatGPT** — OAuth API polling with proactive token refresh, multi-quota tracking (5h window, 7d window, code review). Credentials from `~/.codex/auth.json`, account identity via JWT `id_token` parsing with OIDC name + picture extraction. (Phase 11)
 - **Manual Subscriptions** — 26 platform presets with expert-curated notes
 
 ### Planned
@@ -213,12 +213,12 @@ Daily:
 
 ### Dashboard
 
-Four-tab dashboard at `http://localhost:9222`:
+Four-tab dashboard at `http://localhost:9222` (also deployed as PWA at `https://niyantra.bhaskarjha.com`):
 
-- **Quotas** — readiness grid, per-model detail, history chart
-- **Subscriptions** — card-based view, 26 presets, search, filters
-- **Overview** — budget alerts, switch advisor, intelligence insights, renewal calendar, Codex status card, sessions timeline, spend breakdown, JSON/CSV export
-- **Settings** — capture config (Antigravity + Codex + Claude), budget, data sources, import/export, activity log, shortcuts
+- **Quotas** — provider-sectioned layout (Antigravity / Codex / Claude), per-model progress bars with reset timers, provider filter dropdown, status filter (Ready / Low / Empty), text search, split-button snap (Snap Now / Snap All Sources), twin-axis history chart, AI Credits tracking
+- **Subscriptions** — hybrid card + provider layout with spend summary bar, search, 26 platform presets, CSV export, platform filter, status filter
+- **Overview** — monthly budget vs actual, switch advisor, provider health cards, Codex status card, sessions timeline, renewal calendar, spending breakdown, JSON/CSV export
+- **Settings** — capture config (Antigravity + Codex + Claude), budget, data sources, import/export, activity log, keyboard shortcuts, command palette (`Ctrl+K`)
 
 ## Roadmap
 
@@ -278,17 +278,46 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - **GitHub Actions** — CI (build+vet+test on 3 OS) + release (multi-arch binaries on tag push)
 - **Code independence audit** — zero references to prior art in tracked files or git history
 
-### 🔲 Phase 12: Remote & Enterprise (NEXT)
+### ✅ Phase 12: UX Overhaul
+- **Provider-sectioned Quotas** — Antigravity, Codex, Claude Code shown in dedicated collapsible sections with provider-specific headers and color coding
+- **Provider filter dropdown** — filter by provider (All / Antigravity / Codex / Claude)
+- **Status filter** — filter accounts by readiness state (Ready / Low / Empty) with provider-aware logic
+- **Split-button snap** — primary "Snap Now" (current account) + secondary "Snap All Sources" (all providers)
+- **Hybrid subscription layout** — card + provider grouping with inline spend summary bar
+- **Provider health cards** — overview tab shows per-provider health status
+- **Codex OIDC enhancement** — extract display name + profile picture from JWT `id_token` claims
+- **Visual polish** — hover accents, UUID truncation, time-ago columns, dynamic advisor labels, quick links deduplication
+- **Chart.js bundled locally** — removed CDN dependency, Chart.js served from embedded assets
+- **Schema v8** — `ai_credits_json` column on snapshots for native Google AI Credits tracking
+- **Schema v9** — `email` column on `codex_snapshots` for multi-account Codex identity
+
+### ✅ Phase 12.5: Data Integrity & Stability
+- **Heartbeat RPC** — send heartbeat to Antigravity Language Server before quota fetch to refresh stale cache
+- **Protobuf `*float64` handling** — correct handling of `remainingFraction` where protobuf zero values mean 0% (fully exhausted), not null (missing data)
+- **Reset-time-corrected aggregation** — group-level quota calculations (Claude+GPT) use reset-time-adjusted model values instead of raw snapshot data
+- **Readiness-based dimming** — accounts dimmed by `isReady` flag instead of `allExhausted`, ensuring consistency across new and stale data
+- **Collapse state persistence** — provider section collapse/expand state baked into HTML generation, preventing flash-expand on filter change
+- **Subscription tab pre-loading** — subscription data loaded on init, eliminating white flash on tab switch
+- **Tab animation removed** — `tabFadeIn` CSS animation removed (was causing background flickering during DOM re-paints)
+
+### 🔲 Phase 13: Remote & Enterprise (NEXT)
 - **Streamable HTTP MCP transport** — remote agent access (SSE is deprecated; modern MCP requires Streamable HTTP)
 - **SMTP/Email notifications** — enterprise notification channel with TLS/STARTTLS support
 - **Multi-machine sync** — encrypted export/import with merge logic
 
-### 🔲 Phase 13+: Ecosystem
+### 🔲 Phase 14+: Ecosystem
+- Activity heatmap (GitHub-style contribution grid)
+- Estimated cost tracking (quota delta × model pricing)
+- Quota forecast engine (time-to-exhaustion predictions)
+- Account notes + tags with tag-based filtering
+- Token usage analytics (parse local conversation data)
+- Conversation recovery CLI (detect orphaned Antigravity conversations)
 - Timeline view across all data sources
 - Git commit correlation (ROI tracking — cost per feature shipped)
 - Plugin system for custom data sources
+- Provider expansion (Cursor, Copilot, Gemini)
 - WebPush notifications (VAPID)
-- Copilot/Gemini API integration
+- Context window dashboard (LS bridge)
 
 ## Real-World Use Cases
 
@@ -311,11 +340,27 @@ You have work and personal Antigravity accounts. Auto-capture polls both every 6
 
 Things Niyantra deliberately does **not** do:
 
-- **Cloud sync** — Data stays local, period. No accounts, no SaaS.
-- **Account switching** — Niyantra reads state, it doesn't write it
+- **Programmatic account switching** — Niyantra reads state, it doesn't write it. Programmatic switching via `registerGdmUser` or similar RPC calls triggers Google's AI-driven Trust & Safety systems, which can result in **immediate account suspension** (Gmail, Drive, everything — not just the IDE). This is a conscious safety decision, not a missing feature.
+- **Proactive token refresh** — Aggressive automated token management is flagged as botting behavior by Google's anomaly detection.
+- **IDE extension / status bar** — Niyantra is a standalone dashboard, not an IDE plugin. This is architecturally intentional to avoid coupling to any single IDE's lifecycle.
 - **Payment processing** — This is a consumer tracker, not a billing system
-- **Multi-user/team** — Single-user, single-machine design
+- **Multi-user/team** — Single-user, single-machine design (cloud sync is optional, not multi-tenant)
 - **API gateway/proxy** — We monitor usage, we don't route or block requests
+
+## Cloud Architecture (Planned)
+
+Niyantra has a designed (not yet implemented) cloud tier for optional multi-device sync:
+
+- **Domain:** `niyantra.bhaskarjha.com` (PWA already deployed via Cloudflare Pages)
+- **Backend:** PocketBase on Oracle Cloud ARM instance
+- **Auth:** Google OAuth with device binding
+- **Sync:** End-to-end encrypted, conflict-free merge logic
+- **Mobile:** PWA-first approach with push notifications
+- **Monetization:** Free (local-only) / Pro (cloud sync + push + priority support)
+
+Full architecture documented in `draft/cloud/` (11 design documents covering auth, sync, schema, desktop client, backend, phases, mobile, monetization).
+
+> **Note:** The free tier will always be fully functional local-only. Cloud features are additive, never required.
 
 ## Success Metrics
 
@@ -324,7 +369,7 @@ Niyantra is successful when:
 1. **< 3 seconds** from `niyantra snap` to "snapshot stored"
 2. **< 100ms** from `niyantra status` to "readiness displayed"
 3. **Every data point traceable** — method, source, timestamp on every snapshot
-4. **1 API call** per manual snap — no more, ever
-5. **< 20 MB** binary size (includes embedded SQLite engine + web assets)
+4. **1 API call** per manual snap — no more, ever (plus 1 heartbeat RPC for cache freshness)
+5. **< 20 MB** binary size (includes embedded SQLite engine + web assets + Chart.js)
 6. **Zero surprise captures** — auto mode only when explicitly enabled
-7. **Multi-source** — at least 2 AI coding tools tracked in a unified view
+7. **Multi-source** — at least 3 AI coding tools tracked in a unified view ✅ (Antigravity + Codex + Claude)

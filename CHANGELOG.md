@@ -2,6 +2,42 @@
 
 All notable changes to Niyantra are documented here.
 
+
+## [0.15.0] - 2026-05-09
+
+### Fixed
+- **Heartbeat RPC** before quota fetch — refreshes stale Antigravity Language Server cache, preventing stale data on first snap after idle
+- **Protobuf `*float64` handling** — correct treatment of `remainingFraction` where protobuf zero means 0% (exhausted), not null (missing data)
+- **Reset-time-corrected aggregation** — group-level calculations (Claude+GPT total) now use time-adjusted model values instead of raw snapshot data
+- **Account dimming logic** — dimmed by `isReady` flag instead of `allExhausted`, fixing visual inconsistency between fresh and stale snapshots
+- **Provider collapse persistence** — collapse/expand state baked into HTML generation, preventing flash-expand on filter change
+- **Subscription tab white flash** — pre-load data on init, removed re-fetch from tab switch handler
+- **Tab animation flickering** — removed `tabFadeIn` CSS animation causing background color flash during DOM re-paints
+
+### Changed
+- Advisor now detects "All Ready" state and shows "Stay" recommendation when health > 80%
+
+## [0.14.0] - 2026-04-30
+
+### Added
+- **Provider-sectioned Quotas** — Antigravity, Codex, Claude Code shown in dedicated collapsible sections with provider-specific headers and color coding
+- **Provider filter dropdown** — filter by provider (All / Antigravity / Codex / Claude)
+- **Status filter** — filter accounts by readiness state (Ready / Low / Empty) with provider-aware logic for Codex and Claude
+- **Split-button snap** — primary "Snap Now" (current account) + secondary dropdown "Snap All Sources" (all providers)
+- **Hybrid subscription layout** — card + provider grouping with inline spend summary bar
+- **Provider health cards** — Overview tab shows per-provider health status
+- **Codex OIDC profile** — extract display name + profile picture from JWT `id_token` claims
+- **Chart.js bundled locally** — removed CDN dependency, Chart.js served from embedded assets
+- **Schema v9** — `email` column on `codex_snapshots` for multi-account Codex identity
+
+### Changed
+- Quotas tab completely redesigned from flat grid to provider-sectioned layout
+- Subscriptions tab redesigned with progressive disclosure and provider grouping
+- Overview tab now includes provider health cards and per-platform quick links
+- UUID-style Codex display names truncated for readability
+- Time-ago columns replace absolute timestamps in quota rows
+- Dynamic advisor labels update based on current quota context
+
 ## [0.13.0] - 2026-04-20
 
 ### Added

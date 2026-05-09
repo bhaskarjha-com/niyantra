@@ -12,19 +12,21 @@
 
 ## What Niyantra Does NOT Access
 
-- No cloud APIs (all calls to `127.0.0.1` only)
-- No API keys stored or transmitted
-- No user credentials (except optional dashboard HTTP basic auth)
+- No programmatic account switching (see "Why Not Account Switching" below)
+- No user credentials stored or transmitted (except Codex OAuth for explicit opt-in polling)
 - No telemetry, analytics, or phone-home
-- No third-party services contacted
+- No third-party services contacted (Codex polling is opt-in only)
 - No file system writes outside its own database directory
 
 ## Network Behavior
 
-- **`niyantra snap`**: 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
+- **`niyantra snap`**: 1 Heartbeat RPC + 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
 - **`niyantra serve`**: Binds HTTP server on `localhost:9222` (configurable)
 - **`niyantra mcp`**: stdio only, no network
+- **Codex polling (opt-in)**: HTTPS to OpenAI authorization servers (`auth0.openai.com`) using locally-stored OAuth tokens from `~/.codex/auth.json`
 - **All other commands**: 0 network calls
+
+> **Note:** Codex polling is the ONLY feature that makes external network calls. It is off by default and must be explicitly enabled in Settings.
 
 ## TLS
 
@@ -56,3 +58,17 @@ This creates an audit trail — you can always verify *how* and *when* data ente
 ## Reporting Vulnerabilities
 
 If you discover a security issue, please email security@bhaskarjha.com rather than opening a public issue.
+
+## Why NOT Account Switching
+
+Niyantra deliberately avoids any feature that programmatically switches IDE accounts. This is a safety decision:
+
+- **Google's Trust & Safety systems** use AI-driven anomaly detection that flags programmatic OAuth/RPC manipulation (e.g., `registerGdmUser`, automated token injection) as "botting" or "malicious behavior"
+- **The punishment is account-wide**: a flagged violation can result in suspension of the user's **entire Google account** (Gmail, Drive, Calendar, YouTube — not just the IDE service)
+- **Competitors that offer switching** (e.g., AG Switchboard's one-click account switch) expose users to this risk by injecting OAuth credentials into the Language Server process
+- **Niyantra's principle: "Observe, never act"** — we read quota data, we never write to or manipulate external services
+
+This applies equally to:
+- Proactive token refresh (automated credential management)
+- IDE account auto-sync (detecting and reacting to external switches)
+- Any feature requiring `registerGdmUser` or similar RPC calls
