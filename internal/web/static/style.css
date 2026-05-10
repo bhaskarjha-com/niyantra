@@ -10,9 +10,9 @@
   --bg-gradient-start: #0a0e17;
   --bg-gradient-end: #0f1423;
   --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-  --bg-card: rgba(17, 24, 39, 0.45);
-  --bg-card-hover: rgba(26, 35, 50, 0.65);
-  --bg-elevated: rgba(30, 41, 59, 0.55);
+  --bg-card: rgba(17, 24, 39, 0.92);
+  --bg-card-hover: rgba(26, 35, 50, 0.95);
+  --bg-elevated: rgba(30, 41, 59, 0.90);
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.15);
   --text: #f8fafc;
@@ -42,9 +42,9 @@
   --bg-gradient-start: #f8fafc;
   --bg-gradient-end: #e2e8f0;
   --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-  --bg-card: rgba(255, 255, 255, 0.6);
-  --bg-card-hover: rgba(255, 255, 255, 0.85);
-  --bg-elevated: rgba(241, 245, 249, 0.7);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --bg-elevated: rgba(241, 245, 249, 0.92);
   --border: rgba(0, 0, 0, 0.06);
   --border-hover: rgba(0, 0, 0, 0.12);
   --text: #0f172a;
@@ -188,7 +188,7 @@ body {
 .snap-option {
   padding: 8px 14px;
   font-size: 13px;
-  color: var(--text-primary);
+  color: var(--text);
   cursor: pointer;
   transition: background 150ms;
   white-space: nowrap;
@@ -302,8 +302,6 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .grid-header {
@@ -347,8 +345,6 @@ body {
   font-family: var(--font);
   font-size: 13px;
   transition: all var(--transition);
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 .search-input:hover { border-color: var(--border-hover); }
 .search-input:focus { border-color: var(--accent); outline: none; background: var(--bg-card); box-shadow: 0 0 0 2px var(--accent-glow); }
@@ -1232,16 +1228,13 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 20px;
-  transition: all var(--transition);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
   position: relative;
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .sub-card:hover {
   border-color: var(--border-hover);
-  box-shadow: var(--shadow);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .sub-card-header {
@@ -1429,58 +1422,8 @@ body {
 }
 
 /* ════════════════════════════════════════════
-   PROVIDER SECTIONS (Quotas Tab)
+   PROVIDER SECTIONS (shared: Quotas + Subscriptions)
    ════════════════════════════════════════════ */
-
-.provider-section {
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--bg-card);
-}
-
-.provider-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-elevated);
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid var(--border);
-}
-.provider-header:hover { background: rgba(255,255,255,0.04); }
-
-.provider-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.provider-chevron {
-  font-size: 12px;
-  color: var(--text-muted);
-  width: 12px;
-  text-align: center;
-}
-
-.provider-name {
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text);
-}
-
-.provider-count {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: rgba(255,255,255,0.06);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.provider-body { }
-.provider-body.collapsed { display: none; }
 
 /* Codex grid: Account | Plan | 5-Hour | 7-Day | Credits | Last Snap | Status */
 .grid-codex {
@@ -1525,7 +1468,6 @@ body {
   grid-column: 1 / -1;
 }
 
-/* S2: Provider Sections for auto-tracked subs */
 
 .provider-section {
   background: var(--bg-card);
@@ -1570,6 +1512,7 @@ body {
   justify-content: space-between;
   padding: 14px 20px;
   cursor: pointer;
+  user-select: none;
   transition: background 150ms;
   border-bottom: 1px solid var(--border);
 }
@@ -1585,13 +1528,15 @@ body {
 .provider-chevron {
   font-size: 12px;
   color: var(--text-muted);
+  width: 12px;
+  text-align: center;
   transition: transform 200ms ease;
 }
 
 .provider-name {
   font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .provider-count {
@@ -1645,7 +1590,7 @@ body {
 
 .provider-row-email {
   font-weight: 600;
-  color: var(--text-primary) !important;
+  color: var(--text) !important;
   max-width: 250px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1730,7 +1675,7 @@ body {
 .spend-amount {
   font-size: 32px;
   font-weight: 800;
-  color: var(--text-primary);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
@@ -1770,7 +1715,7 @@ body {
 }
 
 .spend-chip strong {
-  color: var(--text-primary);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1816,13 +1761,11 @@ body {
   border-radius: var(--radius);
   padding: 20px;
   box-shadow: var(--shadow);
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
-  transition: transform var(--transition), box-shadow var(--transition);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .overview-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  border-color: var(--border-hover);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
 .overview-card.full-width {
@@ -3391,7 +3334,7 @@ kbd {
 }
 .advisor-show-all:hover {
   background: var(--bg-elevated);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 /* ════════════════════════════════════════════
