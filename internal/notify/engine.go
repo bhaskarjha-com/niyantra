@@ -15,6 +15,8 @@ type Engine struct {
 	threshold float64         // alert when remaining% drops below this (default 10)
 	guard     map[string]bool // model → has been notified this cycle
 	logger    *slog.Logger
+
+	onNotify func(model string, remainingPct float64) // callback when notification fires
 }
 
 // NewEngine creates a notification engine with default settings.
@@ -54,6 +56,14 @@ func (e *Engine) Threshold() float64 {
 	return e.threshold
 }
 
+// SetOnNotify registers a callback invoked after a notification is successfully sent.
+// Used by the server to create system_alerts and log activity.
+func (e *Engine) SetOnNotify(fn func(model string, remainingPct float64)) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.onNotify = fn
+}
+
 // CheckQuota fires a notification if remaining% drops below threshold.
 // remainingPct is the percentage of quota remaining (0-100).
 // Guard: fires at most once per model until OnReset() is called.
@@ -89,7 +99,13 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 	// Mark as notified for this cycle
 	e.mu.Lock()
 	e.guard[model] = true
+	cb := e.onNotify
 	e.mu.Unlock()
+
+	// Fire the notification callback (system alert + activity log)
+	if cb != nil {
+		cb(model, remainingPct)
+	}
 }
 
 // CheckClaudeQuota fires a notification for Claude Code rate limits.

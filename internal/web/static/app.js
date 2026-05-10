@@ -2809,6 +2809,8 @@ function loadMode() {
     if (data.isPolling) {
       modeRefreshTimer = setInterval(function() {
         loadMode();
+        // F9: Refresh alert banner so new quota alerts appear without page reload
+        loadSystemAlerts();
         // Also refresh activity log if settings tab is active
         var activeTab = document.querySelector('.tab-btn.active');
         if (activeTab && activeTab.getAttribute('data-tab') === 'settings') {
@@ -2931,6 +2933,8 @@ function formatActivityDetail(entry) {
         return esc(acctId) + (d.plan ? ' (' + esc(d.plan) + ')' : '');
       case 'model_reset':
         return esc(entry.accountEmail || '');
+      case 'quota_alert':
+        return '🔔 ' + esc(d.model || '') + ' — ' + (d.remainingPct != null ? d.remainingPct.toFixed(1) + '% remaining' : '');
       default:
         return entry.accountEmail ? esc(entry.accountEmail) : '';
     }

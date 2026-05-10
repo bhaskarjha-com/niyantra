@@ -397,7 +397,7 @@ Returns recent activity log entries.
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
 | `limit` | `int` | 50 | Max entries to return |
-| `type` | `string` | all | Filter by event type (e.g., `snap`, `config_change`) |
+| `type` | `string` | all | Filter by event type (e.g., `snap`, `config_change`, `quota_alert`) |
 
 **Response:** `200 OK`
 

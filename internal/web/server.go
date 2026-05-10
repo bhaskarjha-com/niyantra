@@ -60,6 +60,26 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		s.GetConfigFloat("notify_threshold", 10),
 	)
 
+	// F9: Wire tracker → notifier reset callback.
+	// When tracker detects a model cycle reset, clear the notification guard
+	// so the next low-quota event can fire a fresh notification.
+	srv.tracker.SetOnReset(srv.notifier.OnReset)
+
+	// F9: Wire notification → system_alert + activity log.
+	// When an OS notification fires, also create an in-app alert and log the event.
+	srv.notifier.SetOnNotify(func(model string, remainingPct float64) {
+		title := fmt.Sprintf("⚠️ %s quota low", model)
+		msg := fmt.Sprintf("%.1f%% remaining — consider switching models", remainingPct)
+		s.CreateAlert("quota_low_"+model, "warning", title, msg, map[string]interface{}{
+			"model":        model,
+			"remainingPct": remainingPct,
+		})
+		s.LogInfo("notify", "quota_alert", "", map[string]interface{}{
+			"model":        model,
+			"remainingPct": remainingPct,
+		})
+	})
+
 	// Setup Claude Code bridge if enabled
 	if s.GetConfigBool("claude_bridge") {
 		if err := claudebridge.SetupBridge(logger); err != nil {

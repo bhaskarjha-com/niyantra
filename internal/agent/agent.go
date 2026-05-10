@@ -501,6 +501,14 @@ func (a *PollingAgent) pollCodex(ctx context.Context) {
 	// Update data source bookkeeping
 	a.store.UpdateSourceCapture("codex")
 
+	// F9: Check Codex notification thresholds
+	if a.notifier != nil {
+		a.notifier.CheckClaudeQuota("codex_five_hour", snap.FiveHourPct)
+		if snap.SevenDayPct != nil {
+			a.notifier.CheckClaudeQuota("codex_seven_day", *snap.SevenDayPct)
+		}
+	}
+
 	// Feed session manager
 	if a.codexSM != nil {
 		var vals []float64
