@@ -869,13 +869,18 @@ body {
   top: 100%;
   left: 0;
   z-index: 100;
-  background: var(--bg-card);
+  background: #1a2233;
   border: 1px solid var(--border-hover);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
   padding: 8px;
   min-width: 180px;
   animation: fadeIn 120ms ease;
+}
+
+[data-theme="light"] .tag-picker {
+  background: #f1f5f9;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 @keyframes fadeIn {

@@ -284,8 +284,17 @@ function renderTagFilterStrip(data) {
 
   // Only show strip if there are tags to filter by
   if (tagNames.length === 0) {
+    // Bug fix: if active filter was set to a now-deleted tag, reset to show all
+    if (activeTagFilter) {
+      activeTagFilter = null;
+    }
     strip.innerHTML = '';
     return;
+  }
+
+  // Bug fix: if the active tag no longer exists in the data, reset to show all
+  if (activeTagFilter && tagNames.indexOf(activeTagFilter) < 0) {
+    activeTagFilter = null;
   }
 
   var html = '<span class="tag-filter-label">🏷️ Filter:</span>';
@@ -1157,6 +1166,13 @@ function setupToggle() {
     }
 
     // Handle row toggle (existing)
+    // Guard: skip expand/collapse if clicking on tag/note/pin/renewal controls
+    if (e.target.closest('[data-tag-add]') || e.target.closest('[data-remove-tag]') ||
+        e.target.closest('[data-note-edit]') || e.target.closest('[data-pin-group]') ||
+        e.target.closest('[data-renewal-edit]') || e.target.closest('.tag-picker') ||
+        e.target.closest('.tag-chip')) {
+      return;
+    }
     var row = e.target.closest('.account-row[data-toggle]');
     if (!row) return;
     var id = row.getAttribute('data-toggle');
