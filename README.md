@@ -167,22 +167,22 @@ Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much 
 
 ## How Does Niyantra Compare?
 
-| Feature | Niyantra | Quota trackers (e.g. onWatch) | Sub trackers (e.g. Wallos) |
-|---------|----------|-------------------------------|---------------------------|
-| AI quota monitoring | Antigravity + Codex + Claude | Up to 9 providers | -- |
-| Subscription management | 26 AI platforms, renewals, CSV | -- | Generic subs |
-| Budget forecasting | Monthly budget with projections | -- | Basic budget |
-| Switch advisor (account routing) | Multi-factor scoring engine | -- | -- |
-| MCP for AI agents | 8 tools over stdio | -- | -- |
-| Renewal calendar | Visual month view | -- | -- |
-| Activity audit trail | Full provenance on every data point | -- | -- |
-| Zero-daemon default | Manual mode, opt-in auto | Daemon by default | N/A |
-| Docker support | -- | Yes | Yes |
-| Homebrew install | -- | Yes | -- |
-| Email notifications | OS-only | SMTP + WebPush | Email + Discord + Telegram |
-| License | MIT | GPL-3 | MIT |
+| Feature | Niyantra | Quota trackers (onWatch, CodexBar) | Sub trackers (Wallos) | Account managers (Antigravity-Manager) |
+|---------|----------|-------------------------------|---------------------------|-----------|
+| AI quota monitoring | 3 providers (AG + Codex + Claude) | 9-16+ providers | — | 4+ providers |
+| Multi-account per provider | ✅ 28+ (passive, safe) | ❌ Single-account | — | ✅ (active switching ⚠️) |
+| Subscription management | 26 AI platforms, renewals, CSV | — | Generic subs | — |
+| Budget forecasting | Monthly budget with projections | — | Basic budget | — |
+| Switch advisor (account routing) | Multi-factor scoring engine | — | — | — |
+| MCP for AI agents | 8 tools over stdio | — | — | — |
+| Renewal calendar | Visual month view | — | Calendar view | — |
+| Activity audit trail | Full provenance on every data point | — | — | — |
+| Zero-daemon default | Manual mode, opt-in auto | Daemon by default | N/A | Daemon |
+| Account switching | ❌ (by design — safety) | ❌ | — | ✅ (⚠️ T&S risk) |
+| Docker support | Planned (Phase 14) | ✅ | ✅ | — |
+| License | MIT | MIT / GPL-3 | GPL-3 | MIT |
 
-> Quota trackers like **onWatch** excel at multi-provider coverage (9+ providers) with burn rate analytics and Prometheus metrics. Niyantra focuses on combining quota data with **subscription economics** and **AI agent integration** that quota trackers don't cover.
+> **Competitive position:** Niyantra scores **24/37 features** in our competitive analysis — leading all 28 tools evaluated across 8 market categories. The closest competitor (onWatch) scores 12/37. See [VISION.md](docs/VISION.md) for full market positioning.
 
 ---
 
@@ -224,7 +224,7 @@ No web frameworks. No ORMs. No npm. Chart.js bundled locally from embedded asset
 | Document | Content |
 |----------|---------|
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
-| [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phase 1-12.5), cloud architecture |
+| [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
 | [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v9 (11 tables) |

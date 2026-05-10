@@ -38,18 +38,28 @@ Each tool has its own dashboard, its own billing page, its own quota display, it
 
 | Approach | What it does well | What it doesn't do |
 |----------|-------------------|-------------------|
-| **Quota trackers** (e.g. onWatch) | Multi-provider API quota monitoring (9+ providers), historical trends, burn rate projections | No subscription management, no budget forecasting, no MCP, no account routing |
-| **Subscription trackers** (e.g. Wallos) | Generic subscription tracking with notifications | No AI quota awareness, no usage analytics, manual entry only |
+| **Quota trackers** (e.g. onWatch, CodexBar) | Multi-provider API quota monitoring (9-16+ providers), historical trends, burn rate projections | No subscription management, no budget forecasting, no MCP, no multi-account routing |
+| **Subscription trackers** (e.g. Wallos) | Generic subscription tracking with 10+ notification channels | No AI quota awareness, no usage analytics, manual entry only |
+| **Account managers** (e.g. cockpit-tools, Antigravity-Manager, ag-manager) | Multi-account switching, auto-rotation, local API proxy | High T&S risk — programmatic switching triggers account suspension |
 | **Enterprise SaaS platforms** (CloudEagle, Torii) | Team license management, compliance | $10K+/yr, team-focused, not for individual developers |
-| **Personal finance apps** (Rocket Money, Monarch) | Bank-connected expense tracking | Cloud-only, not developer-focused, no API quotas |
-| **IDE extensions** (Cursor Quota Checker) | Quick status bar indicator for one provider | Single-provider, no history, no budget context |
+| **LLM observability** (Langfuse, Helicone, Portkey) | API-level trace logging, cost attribution | For apps *building with* LLMs, not developers *using* AI coding tools |
+| **IDE extensions** (Windsurf Quota, Claude Quota Tracker) | Quick status bar indicator for one provider | Single-provider, no history, no budget context, ephemeral |
 
 ### Market Position
 
 Niyantra sits in a gap between these categories: **quota monitoring + subscription management + budget intelligence + AI agent integration** in a single local-first tool.
 
-- Quota trackers like **onWatch** (590+ stars, GPL-3) excel at multi-provider coverage (Synthetic, Z.ai, Anthropic, Codex, Copilot, MiniMax, Gemini CLI, Cursor, Antigravity) with historical trends and burn rate analytics.
-- Niyantra currently tracks fewer providers (Antigravity, Codex, Claude Code) but adds the **subscription economics layer** (26 platform presets, budget forecasting, renewal calendar, CSV export) and **AI agent integration layer** (8 MCP tools, switch advisor) that quota trackers don't cover.
+Based on a 28-tool competitive analysis across 8 market categories:
+
+- **Quota trackers** like **onWatch** (600+ stars, Go+SQLite) and **CodexBar** (10+ providers) lead on provider breadth but have zero subscription management, zero MCP, and single-account tracking only.
+- **CLI tools** like **caut** (Rust, 16+ providers) generate agent-ready JSON output but lack persistence, dashboards, and cost intelligence.
+- **Subscription trackers** like **Wallos** (4K+ stars) excel at renewal management with 10+ notification channels but know nothing about AI quotas.
+- **Nobody** combines quota monitoring + subscription economics + AI agent integration.
+
+**Niyantra leads with 24/37 features** in the competitive matrix — next closest is onWatch at 12/37. Our unique moats:
+1. **Multi-account observability** (28+ accounts, passive read-only) — unlike the 6+ account managers (Antigravity-Manager, ag-manager, cockpit-tools, etc.) that support multi-account via risky active switching, Niyantra monitors all accounts without triggering T&S
+2. **MCP server** (8 AI-agent tools) — completely uncontested, zero competitors
+3. **Combined quota + subscription + budget** in one tool — nobody else bridges this
 
 **Niyantra's thesis:** Knowing your quota is only half the problem. You also need to know what you're spending, when renewals hit, which account to switch to, and your AI agents need this context too.
 
@@ -300,24 +310,40 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - **Subscription tab pre-loading** — subscription data loaded on init, eliminating white flash on tab switch
 - **Tab animation removed** — `tabFadeIn` CSS animation removed (was causing background flickering during DOM re-paints)
 
-### 🔲 Phase 13: Remote & Enterprise (NEXT)
-- **Streamable HTTP MCP transport** — remote agent access (SSE is deprecated; modern MCP requires Streamable HTTP)
-- **SMTP/Email notifications** — enterprise notification channel with TLS/STARTTLS support
-- **Multi-machine sync** — encrypted export/import with merge logic
+### 🔲 Phase 13: Foundation Sprint (NEXT) — ~9 days
+- **Account notes + tags** — per-account metadata with predefined palette + custom tags (schema v10)
+- **Live poll interval reload** — poll interval read inside ticker loop, not just at startup
+- **Pinned/favorite model** — star one group per account, shows in collapsed view
+- **Tag-based filtering** — filter accounts by tag in Quotas toolbar
+- **Model pricing config** — per-model $/1M token pricing stored in config (prerequisite for cost tracking)
+- **Notification wiring** — connect existing `notify/` engine to polling loop with threshold alerts
 
-### 🔲 Phase 14+: Ecosystem
-- Activity heatmap (GitHub-style contribution grid)
-- Estimated cost tracking (quota delta × model pricing)
-- Quota forecast engine (time-to-exhaustion predictions)
-- Account notes + tags with tag-based filtering
-- Token usage analytics (parse local conversation data)
-- Conversation recovery CLI (detect orphaned Antigravity conversations)
-- Timeline view across all data sources
-- Git commit correlation (ROI tracking — cost per feature shipped)
-- Plugin system for custom data sources
-- Provider expansion (Cursor, Copilot, Gemini)
-- WebPush notifications (VAPID)
-- Context window dashboard (LS bridge)
+### 🔲 Phase 14: Competitive Parity Sprint — ~5 weeks
+- **Quota time-to-exhaustion** — linear regression burn rate: "Claude+GPT will hit 0% in ~2.3h"
+- **Estimated cost tracking** — quota delta × model pricing = estimated spend
+- **Activity heatmap** — GitHub-style 365-day contribution grid from existing snapshot data
+- **Claude Code: deep tracking** — extend existing bridge to parse `~/.claude/stats-cache.json` for full token analytics
+- **Provider: Cursor** — session token → HTTP API (`cursor.com/api/usage`) for quota/usage data
+- **Provider: Gemini CLI** — local `/stats` parsing + optional GCP Monitoring API integration
+- **Docker deployment** — `Dockerfile` + `docker-compose.yml` for self-hosted deployment
+
+### 🔲 Phase 15: Deep Analytics Sprint — ~6 weeks
+- **Token usage analytics** — parse AG conversation data for per-conversation token costs
+- **Conversation recovery CLI** — detect and rebuild orphaned AG conversations
+- **Conversation export (Markdown)** — export AG conversations as formatted .md files
+- **Git commit correlation** — cost per feature branch (unique — no competitor does this)
+- **Streamable HTTP MCP** — remote agent access over HTTP transport
+- **Provider: GitHub Copilot** — GitHub PAT → billing endpoints (deferred until AI Credits model stabilizes post-June 2026)
+
+### 🔲 Phase 16: Ecosystem & Growth — ~12 weeks
+- **SMTP/Email notifications** — enterprise notification channel with TLS/STARTTLS
+- **Webhook notifications** — Discord, Telegram, Slack, ntfy, Gotify, generic webhooks
+- **Cloud sync (Pro tier)** — encrypted multi-device sync via PocketBase
+- **Plugin system** — `DataSource` interface for custom provider integrations
+- **WebPush notifications** — VAPID-based push to phone/browser
+- **Context window dashboard** — visualize IDE context consumption (requires LS research)
+
+> **Full details:** The internal development roadmap contains 24 features with quantified scoring across Gap, Value, Effort, and Moat dimensions, plus a 37-feature × 12-tool competitive comparison matrix.
 
 ## Real-World Use Cases
 
@@ -340,12 +366,13 @@ You have work and personal Antigravity accounts. Auto-capture polls both every 6
 
 Things Niyantra deliberately does **not** do:
 
-- **Programmatic account switching** — Niyantra reads state, it doesn't write it. Programmatic switching via `registerGdmUser` or similar RPC calls triggers Google's AI-driven Trust & Safety systems, which can result in **immediate account suspension** (Gmail, Drive, everything — not just the IDE). This is a conscious safety decision, not a missing feature.
+- **Programmatic account switching** — Niyantra reads state, it doesn't write it. Programmatic switching via `registerGdmUser` or similar RPC calls triggers Google's AI-driven Trust & Safety systems, which can result in **immediate account suspension** (Gmail, Drive, everything — not just the IDE). Tools like AG Switchboard, cockpit-tools, and windsurf-assistant take this risk — we deliberately don't.
+- **Account pool rotation** — Tools like WindsurfPoolAPI pool multiple accounts for load balancing. Same T&S risk, amplified at scale.
 - **Proactive token refresh** — Aggressive automated token management is flagged as botting behavior by Google's anomaly detection.
-- **IDE extension / status bar** — Niyantra is a standalone dashboard, not an IDE plugin. This is architecturally intentional to avoid coupling to any single IDE's lifecycle.
+- **IDE extension / status bar** — Niyantra is a standalone dashboard, not an IDE plugin. The macOS menu bar space is saturated (CodexBar, ClaudeBar, AgentBar, TokenBar). We complement, not compete.
 - **Payment processing** — This is a consumer tracker, not a billing system
 - **Multi-user/team** — Single-user, single-machine design (cloud sync is optional, not multi-tenant)
-- **API gateway/proxy** — We monitor usage, we don't route or block requests
+- **API gateway/proxy** — We monitor usage, we don't route or block requests. LiteLLM, Portkey, OmniRoute serve that need.
 
 ## Cloud Architecture (Planned)
 
@@ -358,7 +385,7 @@ Niyantra has a designed (not yet implemented) cloud tier for optional multi-devi
 - **Mobile:** PWA-first approach with push notifications
 - **Monetization:** Free (local-only) / Pro (cloud sync + push + priority support)
 
-Full architecture documented in `draft/cloud/` (11 design documents covering auth, sync, schema, desktop client, backend, phases, mobile, monetization).
+Full architecture documented in 11 internal design documents covering auth, sync, schema, desktop client, backend, phases, mobile, and monetization.
 
 > **Note:** The free tier will always be fully functional local-only. Cloud features are additive, never required.
 
@@ -373,3 +400,6 @@ Niyantra is successful when:
 5. **< 20 MB** binary size (includes embedded SQLite engine + web assets + Chart.js)
 6. **Zero surprise captures** — auto mode only when explicitly enabled
 7. **Multi-source** — at least 3 AI coding tools tracked in a unified view ✅ (Antigravity + Codex + Claude)
+8. **6 providers** by end of Phase 14 (Antigravity + Codex + Claude deep + Cursor + Gemini CLI), **7** by Phase 15 (+Copilot)
+9. **25+ features** shipped across Phases 13-16, closing all competitive gaps vs onWatch
+10. **Competitive score** of 34/37 features by end of Phase 14 (currently 24/37)
