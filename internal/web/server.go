@@ -193,6 +193,16 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	accounts := readiness.Calculate(snapshots, 0.0)
 
+	// F1: Enrich readiness results with account notes/tags/pinned_group
+	for i := range accounts {
+		notes, tags, pinnedGroup, err := s.store.AccountMeta(accounts[i].AccountID)
+		if err == nil {
+			accounts[i].Notes = notes
+			accounts[i].Tags = tags
+			accounts[i].PinnedGroup = pinnedGroup
+		}
+	}
+
 	result := map[string]interface{}{
 		"accounts":      accounts,
 		"snapshotCount": s.store.SnapshotCount(),
@@ -591,7 +601,7 @@ func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		if origin == allowedOrigin || origin == allowedOrigin2 {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		}
 
@@ -602,7 +612,7 @@ func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Enforce Content-Type: application/json on mutation endpoints
-		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				ct := r.Header.Get("Content-Type")
 				// Allow empty content-type for DELETE and requests with no body
@@ -1194,20 +1204,72 @@ func (s *Server) handleAccounts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"accounts": accounts})
 }
 
-// handleAccountByID handles DELETE /api/accounts/:id and DELETE /api/accounts/:id/snapshots
+// handleAccountByID handles DELETE /api/accounts/:id, DELETE /api/accounts/:id/snapshots,
+// and PATCH /api/accounts/:id/meta (F1: account notes/tags).
 func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse path: /api/accounts/123 or /api/accounts/123/snapshots
+	// Parse path: /api/accounts/123 or /api/accounts/123/snapshots or /api/accounts/123/meta
 	path := strings.TrimPrefix(r.URL.Path, "/api/accounts/")
 	parts := strings.SplitN(path, "/", 2)
 
 	accountID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil || accountID <= 0 {
 		jsonError(w, "invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	// F1: PATCH /api/accounts/:id/meta — update notes/tags/pinned_group
+	if r.Method == http.MethodPatch && len(parts) > 1 && parts[1] == "meta" {
+		var req struct {
+			Notes       *string `json:"notes"`
+			Tags        *string `json:"tags"`
+			PinnedGroup *string `json:"pinnedGroup"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+			jsonError(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Read current values to preserve unchanged fields
+		currentNotes, currentTags, currentPinned, err := s.store.AccountMeta(accountID)
+		if err != nil {
+			jsonError(w, "account not found", http.StatusNotFound)
+			return
+		}
+
+		notes := currentNotes
+		tags := currentTags
+		pinnedGroup := currentPinned
+		if req.Notes != nil {
+			notes = *req.Notes
+		}
+		if req.Tags != nil {
+			tags = *req.Tags
+		}
+		if req.PinnedGroup != nil {
+			pinnedGroup = *req.PinnedGroup
+		}
+
+		if err := s.store.UpdateAccountMeta(accountID, notes, tags, pinnedGroup); err != nil {
+			jsonError(w, "update failed", http.StatusInternalServerError)
+			return
+		}
+
+		s.store.LogInfo("ui", "account_meta_update", "", map[string]interface{}{
+			"accountId": accountID, "notes": notes, "tags": tags, "pinnedGroup": pinnedGroup,
+		})
+
+		writeJSON(w, map[string]interface{}{
+			"message":     "account meta updated",
+			"notes":       notes,
+			"tags":        tags,
+			"pinnedGroup": pinnedGroup,
+		})
+		return
+	}
+
+	// DELETE operations
+	if r.Method != http.MethodDelete {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 

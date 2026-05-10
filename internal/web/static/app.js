@@ -442,8 +442,10 @@ function renderAccounts(data) {
       '<div class="account-row" data-toggle="' + accId + '">' +
       '<div class="account-info">' +
       '<div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">▸</span> ' + esc(acc.email) + '</div>' +
-      '<div class="account-meta">' +
+      '<div class="account-meta" style="position:relative">' +
       (acc.planName ? '<span class="plan-badge">' + esc(acc.planName) + '</span>' : '') +
+      renderAccountTags(acc) +
+      renderAccountNote(acc) +
       '</div></div>' +
       groupCells +
       creditsCell +
@@ -2036,6 +2038,228 @@ function renderOverviewEnhanced(data, subs, usageData) {
 }
 
 // ════════════════════════════════════════════
+//  F1: ACCOUNT TAGS + NOTES
+// ════════════════════════════════════════════
+
+var TAG_PRESETS = ['work', 'personal', 'primary', 'backup', 'shared', 'test', 'dev'];
+
+function renderAccountTags(acc) {
+  var tags = (acc.tags || '').split(',').filter(function(t) { return t.trim(); });
+  var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
+  for (var i = 0; i < tags.length; i++) {
+    html += '<span class="tag-chip" data-tag="' + esc(tags[i].trim()) + '">' +
+      esc(tags[i].trim()) +
+      '<span class="tag-remove" data-remove-tag="' + esc(tags[i].trim()) + '" data-account-id="' + acc.accountId + '" title="Remove tag">✕</span>' +
+      '</span>';
+  }
+  html += '</span>';
+  html += '<button class="tag-add-btn" data-tag-add="' + acc.accountId + '" title="Add tag">+</button>';
+  return html;
+}
+
+function renderAccountNote(acc) {
+  if (acc.notes) {
+    return '<span class="account-note" data-note-edit="' + acc.accountId + '" data-current-note="' + esc(acc.notes) + '" title="' + esc(acc.notes) + ' — click to edit">📝 ' + esc(acc.notes) + '</span>';
+  }
+  return '<span class="account-note-empty" data-note-edit="' + acc.accountId + '" data-current-note="">+ note</span>';
+}
+
+function updateAccountMeta(accountId, patch) {
+  return fetch('/api/accounts/' + accountId + '/meta', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  }).then(function(r) { return r.json(); });
+}
+
+function addTagToAccount(accountId, newTag) {
+  newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  if (!newTag) return;
+
+  // Get current tags from the DOM
+  var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+  var existing = [];
+  if (container) {
+    container.querySelectorAll('.tag-chip').forEach(function(chip) {
+      existing.push(chip.getAttribute('data-tag'));
+    });
+  }
+  if (existing.indexOf(newTag) >= 0) return; // already has this tag
+
+  existing.push(newTag);
+  updateAccountMeta(accountId, { tags: existing.join(',') }).then(function() {
+    showToast('🏷️ Tag "' + newTag + '" added', 'success');
+    fetchStatus().then(renderAccounts);
+  });
+}
+
+function removeTagFromAccount(accountId, tag) {
+  var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+  var tags = [];
+  if (container) {
+    container.querySelectorAll('.tag-chip').forEach(function(chip) {
+      var t = chip.getAttribute('data-tag');
+      if (t !== tag) tags.push(t);
+    });
+  }
+  updateAccountMeta(accountId, { tags: tags.join(',') }).then(function() {
+    showToast('🏷️ Tag removed', 'success');
+    fetchStatus().then(renderAccounts);
+  });
+}
+
+function openTagPicker(btn) {
+  // Close any existing picker
+  closeTagPicker();
+
+  var accountId = btn.getAttribute('data-tag-add');
+  var meta = btn.closest('.account-meta');
+  if (!meta) return;
+
+  // Get existing tags for this account
+  var existing = [];
+  var container = meta.querySelector('.account-tags');
+  if (container) {
+    container.querySelectorAll('.tag-chip').forEach(function(chip) {
+      existing.push(chip.getAttribute('data-tag'));
+    });
+  }
+
+  var picker = document.createElement('div');
+  picker.className = 'tag-picker';
+  picker.id = 'active-tag-picker';
+  picker.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20">' +
+    '<div class="tag-picker-hint">Enter to add</div>' +
+    '<div class="tag-picker-presets">' +
+    TAG_PRESETS.map(function(p) {
+      var active = existing.indexOf(p) >= 0 ? ' active' : '';
+      return '<button class="tag-preset' + active + '" data-preset-tag="' + p + '">' + p + '</button>';
+    }).join('') +
+    '</div>';
+
+  meta.appendChild(picker);
+
+  var input = picker.querySelector('.tag-picker-input');
+  input.focus();
+
+  // Stop click from bubbling to account-row toggle
+  picker.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var val = input.value.trim();
+      if (val) {
+        addTagToAccount(accountId, val);
+        closeTagPicker();
+      }
+    }
+    if (e.key === 'Escape') {
+      closeTagPicker();
+    }
+  });
+
+  picker.querySelectorAll('.tag-preset').forEach(function(btn2) {
+    btn2.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var tag = btn2.getAttribute('data-preset-tag');
+      if (btn2.classList.contains('active')) {
+        removeTagFromAccount(accountId, tag);
+      } else {
+        addTagToAccount(accountId, tag);
+      }
+      closeTagPicker();
+    });
+  });
+
+  // Close on outside click (deferred to avoid immediate close)
+  setTimeout(function() {
+    document.addEventListener('click', closeTagPickerOnOutside);
+  }, 10);
+}
+
+function closeTagPicker() {
+  var picker = document.getElementById('active-tag-picker');
+  if (picker) picker.remove();
+  document.removeEventListener('click', closeTagPickerOnOutside);
+}
+
+function closeTagPickerOnOutside(e) {
+  var picker = document.getElementById('active-tag-picker');
+  if (picker && !picker.contains(e.target)) {
+    closeTagPicker();
+  }
+}
+
+function openNoteEditor(el) {
+  var accountId = el.getAttribute('data-note-edit');
+  var currentNote = el.getAttribute('data-current-note') || '';
+
+  var editor = document.createElement('span');
+  editor.className = 'note-inline-editor';
+  editor.innerHTML = '<input type="text" class="note-inline-input" value="' + esc(currentNote) + '" placeholder="Add a note..." maxlength="100">';
+
+  el.replaceWith(editor);
+  var input = editor.querySelector('.note-inline-input');
+  input.focus();
+  input.select();
+
+  // Stop bubbling to prevent row toggle
+  editor.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  function save() {
+    var val = input.value.trim();
+    updateAccountMeta(accountId, { notes: val }).then(function() {
+      if (val) showToast('📝 Note saved', 'success');
+      fetchStatus().then(renderAccounts);
+    });
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { fetchStatus().then(renderAccounts); }
+  });
+  input.addEventListener('blur', save);
+}
+
+// Wire F1 interactions via delegation on the grid
+function initAccountMetaHandlers() {
+  var grid = document.getElementById('account-grid');
+  if (!grid) return;
+
+  grid.addEventListener('click', function(e) {
+    // Tag remove
+    var removeBtn = e.target.closest('[data-remove-tag]');
+    if (removeBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      var tag = removeBtn.getAttribute('data-remove-tag');
+      var accId = removeBtn.getAttribute('data-account-id');
+      removeTagFromAccount(accId, tag);
+      return;
+    }
+
+    // Tag add button
+    var addBtn = e.target.closest('[data-tag-add]');
+    if (addBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      openTagPicker(addBtn);
+      return;
+    }
+
+    // Note editor
+    var noteEl = e.target.closest('[data-note-edit]');
+    if (noteEl) {
+      e.stopPropagation();
+      e.preventDefault();
+      openNoteEditor(noteEl);
+      return;
+    }
+  });
+}
+
+// ════════════════════════════════════════════
 //  SETTINGS
 // ════════════════════════════════════════════
 
@@ -2616,6 +2840,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initSettings();
   initSearch();
   initKeyboardShortcuts();
+  initAccountMetaHandlers();
 
   document.getElementById('snap-btn').addEventListener('click', handleSnap);
   initSnapDropdown();

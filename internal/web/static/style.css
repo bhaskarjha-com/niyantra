@@ -732,6 +732,179 @@ body {
   border-color: var(--red) !important;
 }
 
+/* ── F1: Account Tags ── */
+
+.account-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 100px;
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: default;
+  transition: all 120ms ease;
+}
+
+.tag-chip .tag-remove {
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  margin-left: 1px;
+  transition: opacity 120ms ease;
+}
+.tag-chip:hover .tag-remove { opacity: 0.7; }
+.tag-chip .tag-remove:hover { opacity: 1; color: var(--red); }
+
+.tag-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 100px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 150ms ease;
+  padding: 0;
+  font-family: var(--font);
+  line-height: 1;
+}
+.account-meta:hover .tag-add-btn,
+.account-tags:hover + .tag-add-btn,
+.tag-add-btn:focus { opacity: 1; }
+.tag-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+/* Tag Picker Popover */
+.tag-picker {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 100;
+  background: var(--bg-card);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  padding: 8px;
+  min-width: 180px;
+  animation: fadeIn 120ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tag-picker-input {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.tag-picker-input:focus { border-color: var(--accent); }
+.tag-picker-input::placeholder { color: var(--text-muted); }
+
+.tag-picker-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.tag-picker-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.tag-preset {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 120ms ease;
+  font-family: var(--font);
+}
+.tag-preset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.tag-preset.active {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── F1: Account Notes ── */
+
+.account-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 120ms ease;
+}
+.account-note:hover { color: var(--text-secondary); }
+.account-note-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+  font-style: italic;
+}
+.account-meta:hover .account-note-empty { opacity: 0.6; }
+.account-note-empty:hover { opacity: 1 !important; color: var(--text-secondary); }
+
+.note-inline-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.note-inline-input {
+  padding: 2px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  width: 180px;
+  outline: none;
+}
+
 /* ── C4: Provider Cards (Codex/Claude on Quotas grid) ── */
 
 .provider-card {

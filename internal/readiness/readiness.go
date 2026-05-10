@@ -14,6 +14,9 @@ type AccountReadiness struct {
 	LatestSnapshotID int64             `json:"latestSnapshotId"`
 	Email            string            `json:"email"`
 	PlanName         string            `json:"planName"`
+	Notes            string            `json:"notes"`
+	Tags             string            `json:"tags"`
+	PinnedGroup      string            `json:"pinnedGroup"`
 	LastSeen         time.Time         `json:"lastSeen"`
 	Staleness        time.Duration     `json:"-"`
 	StalenessLabel   string            `json:"stalenessLabel"`

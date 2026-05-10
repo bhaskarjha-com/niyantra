@@ -394,6 +394,26 @@ func (s *Store) migrate() error {
 		s.setUserVersion(9)
 	}
 
+	// ── v10: Account notes, tags, pinned group (Phase 13: F1, F3) ────
+	if s.getUserVersion() < 10 {
+		if _, err := s.db.Exec(`ALTER TABLE accounts ADD COLUMN notes TEXT DEFAULT ''`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter accounts (notes): %w", err)
+			}
+		}
+		if _, err := s.db.Exec(`ALTER TABLE accounts ADD COLUMN tags TEXT DEFAULT ''`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter accounts (tags): %w", err)
+			}
+		}
+		if _, err := s.db.Exec(`ALTER TABLE accounts ADD COLUMN pinned_group TEXT DEFAULT ''`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter accounts (pinned_group): %w", err)
+			}
+		}
+		s.setUserVersion(10)
+	}
+
 	return nil
 }
 
