@@ -364,12 +364,14 @@ function renderAccounts(data) {
     if (allExhausted(acc)) { dotCls = 'dot-empty'; badgeText = 'Empty'; }
     else if (!acc.isReady) { dotCls = 'dot-low'; badgeText = 'Low'; }
 
-    var creditsCell = '<div class="credits-cell">';
+    var creditsCell = '<div class="credits-cell" style="position:relative">';
     if (acc.aiCredits && acc.aiCredits.length > 0) {
       var credits = acc.aiCredits[0].creditAmount;
       var creditCls = credits > 500 ? 'good' : credits > 100 ? 'ok' : 'warning';
       creditsCell += '<span class="credit-amount ' + creditCls + '" title="AI Credits">✦ ' +
         formatCredits(credits) + '</span>';
+      // Credit renewal countdown
+      creditsCell += renderCreditRenewal(acc.accountId, acc.creditRenewalDay);
     } else {
       creditsCell += '<span class="credit-amount muted">—</span>';
     }
@@ -2101,6 +2103,77 @@ function unpinGroup(accountId) {
 }
 
 // ════════════════════════════════════════════
+//  CREDIT RENEWAL DAY
+// ════════════════════════════════════════════
+
+function daysUntilRenewal(day) {
+  if (!day || day < 1 || day > 31) return -1;
+  var now = new Date();
+  var y = now.getFullYear();
+  var m = now.getMonth();
+  var today = now.getDate();
+  // If renewal day hasn't passed this month, it's this month
+  // Otherwise it's next month
+  var targetMonth = today < day ? m : m + 1;
+  var target = new Date(y, targetMonth, day);
+  var diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  return diff < 0 ? 0 : diff;
+}
+
+function renderCreditRenewal(accountId, renewalDay) {
+  if (!renewalDay || renewalDay < 1) {
+    return '<span class="credit-renewal-set" data-renewal-edit="' + accountId + '" title="Set credit renewal day">↻ set</span>';
+  }
+  var days = daysUntilRenewal(renewalDay);
+  var label = days === 0 ? 'today' : days === 1 ? '1d' : days + 'd';
+  return '<span class="credit-renewal" data-renewal-edit="' + accountId + '" data-renewal-day="' + renewalDay + '" title="Credits renew on day ' + renewalDay + ' (↻ ' + label + ')">↻ ' + label + '</span>';
+}
+
+function openRenewalPicker(el) {
+  // Close any existing picker
+  var existing = document.querySelector('.renewal-picker');
+  if (existing) existing.remove();
+
+  var accountId = el.getAttribute('data-renewal-edit');
+  var currentDay = parseInt(el.getAttribute('data-renewal-day')) || 0;
+
+  var picker = document.createElement('div');
+  picker.className = 'renewal-picker';
+  picker.innerHTML =
+    '<div class="renewal-picker-label">Credit Renewal Day</div>' +
+    '<input type="number" class="renewal-picker-input" min="1" max="31" value="' + (currentDay || '') + '" placeholder="1–31">' +
+    '<div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>';
+
+  el.closest('.credits-cell').appendChild(picker);
+  var input = picker.querySelector('input');
+  input.focus();
+  input.select();
+
+  function save() {
+    var day = parseInt(input.value) || 0;
+    if (day > 31) day = 31;
+    if (day < 0) day = 0;
+    picker.remove();
+    updateAccountMeta(accountId, { creditRenewalDay: day }).then(function() {
+      if (day > 0) {
+        showToast('↻ Renewal day set to ' + day, 'success');
+      } else {
+        showToast('↻ Renewal day cleared', 'info');
+      }
+      fetchStatus().then(renderAccounts);
+    });
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { e.preventDefault(); picker.remove(); }
+  });
+  input.addEventListener('blur', function() {
+    setTimeout(function() { if (picker.parentNode) save(); }, 150);
+  });
+}
+
+// ════════════════════════════════════════════
 //  F1: ACCOUNT TAGS + NOTES
 // ════════════════════════════════════════════
 
@@ -2332,6 +2405,15 @@ function initAccountMetaHandlers() {
       } else {
         pinGroup(pinAccountId, pinGroupKey);
       }
+      return;
+    }
+
+    // Credit renewal day picker
+    var renewalEl = e.target.closest('[data-renewal-edit]');
+    if (renewalEl) {
+      e.stopPropagation();
+      e.preventDefault();
+      openRenewalPicker(renewalEl);
       return;
     }
   });

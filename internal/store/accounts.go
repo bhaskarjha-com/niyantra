@@ -35,19 +35,20 @@ func (s *Store) AccountCount() int {
 
 // Account represents a tracked email account.
 type Account struct {
-	ID          int64  `json:"id"`
-	Email       string `json:"email"`
-	PlanName    string `json:"planName"`
-	Notes       string `json:"notes"`
-	Tags        string `json:"tags"`        // comma-separated: "work,primary"
-	PinnedGroup string `json:"pinnedGroup"` // for F3: pinned quota group key
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	ID               int64  `json:"id"`
+	Email            string `json:"email"`
+	PlanName         string `json:"planName"`
+	Notes            string `json:"notes"`
+	Tags             string `json:"tags"`             // comma-separated: "work,primary"
+	PinnedGroup      string `json:"pinnedGroup"`      // for F3: pinned quota group key
+	CreditRenewalDay int    `json:"creditRenewalDay"` // day of month (1-31) when AI credits refresh
+	CreatedAt        string `json:"createdAt"`
+	UpdatedAt        string `json:"updatedAt"`
 }
 
 // AllAccounts returns all tracked accounts.
 func (s *Store) AllAccounts() ([]*Account, error) {
-	rows, err := s.db.Query(`SELECT id, email, plan_name, COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), created_at, updated_at FROM accounts ORDER BY email`)
+	rows, err := s.db.Query(`SELECT id, email, plan_name, COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), COALESCE(credit_renewal_day,0), created_at, updated_at FROM accounts ORDER BY email`)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (s *Store) AllAccounts() ([]*Account, error) {
 	var accounts []*Account
 	for rows.Next() {
 		a := &Account{}
-		if err := rows.Scan(&a.ID, &a.Email, &a.PlanName, &a.Notes, &a.Tags, &a.PinnedGroup, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Email, &a.PlanName, &a.Notes, &a.Tags, &a.PinnedGroup, &a.CreditRenewalDay, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			continue
 		}
 		accounts = append(accounts, a)
@@ -64,20 +65,20 @@ func (s *Store) AllAccounts() ([]*Account, error) {
 	return accounts, nil
 }
 
-// AccountMeta returns the notes, tags, and pinned_group for a specific account.
-func (s *Store) AccountMeta(accountID int64) (notes, tags, pinnedGroup string, err error) {
+// AccountMeta returns the notes, tags, pinned_group, and credit_renewal_day for a specific account.
+func (s *Store) AccountMeta(accountID int64) (notes, tags, pinnedGroup string, creditRenewalDay int, err error) {
 	err = s.db.QueryRow(
-		`SELECT COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,'') FROM accounts WHERE id = ?`,
+		`SELECT COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), COALESCE(credit_renewal_day,0) FROM accounts WHERE id = ?`,
 		accountID,
-	).Scan(&notes, &tags, &pinnedGroup)
+	).Scan(&notes, &tags, &pinnedGroup, &creditRenewalDay)
 	return
 }
 
-// UpdateAccountMeta updates notes, tags, and pinned_group for an account.
-func (s *Store) UpdateAccountMeta(accountID int64, notes, tags, pinnedGroup string) error {
+// UpdateAccountMeta updates notes, tags, pinned_group, and credit_renewal_day for an account.
+func (s *Store) UpdateAccountMeta(accountID int64, notes, tags, pinnedGroup string, creditRenewalDay int) error {
 	_, err := s.db.Exec(
-		`UPDATE accounts SET notes = ?, tags = ?, pinned_group = ?, updated_at = datetime('now') WHERE id = ?`,
-		notes, tags, pinnedGroup, accountID,
+		`UPDATE accounts SET notes = ?, tags = ?, pinned_group = ?, credit_renewal_day = ?, updated_at = datetime('now') WHERE id = ?`,
+		notes, tags, pinnedGroup, creditRenewalDay, accountID,
 	)
 	return err
 }

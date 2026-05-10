@@ -414,6 +414,16 @@ func (s *Store) migrate() error {
 		s.setUserVersion(10)
 	}
 
+	// ── v11: AI credit renewal day (per-account monthly renewal) ──
+	if s.getUserVersion() < 11 {
+		if _, err := s.db.Exec(`ALTER TABLE accounts ADD COLUMN credit_renewal_day INTEGER DEFAULT 0`); err != nil {
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("store: alter accounts (credit_renewal_day): %w", err)
+			}
+		}
+		s.setUserVersion(11)
+	}
+
 	return nil
 }
 

@@ -17,6 +17,7 @@ type AccountReadiness struct {
 	Notes            string            `json:"notes"`
 	Tags             string            `json:"tags"`
 	PinnedGroup      string            `json:"pinnedGroup"`
+	CreditRenewalDay int               `json:"creditRenewalDay"`
 	LastSeen         time.Time         `json:"lastSeen"`
 	Staleness        time.Duration     `json:"-"`
 	StalenessLabel   string            `json:"stalenessLabel"`

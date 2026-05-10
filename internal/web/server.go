@@ -193,13 +193,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	accounts := readiness.Calculate(snapshots, 0.0)
 
-	// F1: Enrich readiness results with account notes/tags/pinned_group
+	// F1: Enrich readiness results with account notes/tags/pinned_group/creditRenewalDay
 	for i := range accounts {
-		notes, tags, pinnedGroup, err := s.store.AccountMeta(accounts[i].AccountID)
+		notes, tags, pinnedGroup, creditRenewalDay, err := s.store.AccountMeta(accounts[i].AccountID)
 		if err == nil {
 			accounts[i].Notes = notes
 			accounts[i].Tags = tags
 			accounts[i].PinnedGroup = pinnedGroup
+			accounts[i].CreditRenewalDay = creditRenewalDay
 		}
 	}
 
@@ -1217,12 +1218,13 @@ func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// F1: PATCH /api/accounts/:id/meta — update notes/tags/pinned_group
+	// F1: PATCH /api/accounts/:id/meta — update notes/tags/pinned_group/creditRenewalDay
 	if r.Method == http.MethodPatch && len(parts) > 1 && parts[1] == "meta" {
 		var req struct {
-			Notes       *string `json:"notes"`
-			Tags        *string `json:"tags"`
-			PinnedGroup *string `json:"pinnedGroup"`
+			Notes            *string `json:"notes"`
+			Tags             *string `json:"tags"`
+			PinnedGroup      *string `json:"pinnedGroup"`
+			CreditRenewalDay *int    `json:"creditRenewalDay"`
 		}
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 			jsonError(w, "invalid JSON", http.StatusBadRequest)
@@ -1230,7 +1232,7 @@ func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Read current values to preserve unchanged fields
-		currentNotes, currentTags, currentPinned, err := s.store.AccountMeta(accountID)
+		currentNotes, currentTags, currentPinned, currentRenewalDay, err := s.store.AccountMeta(accountID)
 		if err != nil {
 			jsonError(w, "account not found", http.StatusNotFound)
 			return
@@ -1239,6 +1241,7 @@ func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
 		notes := currentNotes
 		tags := currentTags
 		pinnedGroup := currentPinned
+		creditRenewalDay := currentRenewalDay
 		if req.Notes != nil {
 			notes = *req.Notes
 		}
@@ -1248,21 +1251,30 @@ func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
 		if req.PinnedGroup != nil {
 			pinnedGroup = *req.PinnedGroup
 		}
+		if req.CreditRenewalDay != nil {
+			day := *req.CreditRenewalDay
+			if day < 0 || day > 31 {
+				jsonError(w, "creditRenewalDay must be 0-31", http.StatusBadRequest)
+				return
+			}
+			creditRenewalDay = day
+		}
 
-		if err := s.store.UpdateAccountMeta(accountID, notes, tags, pinnedGroup); err != nil {
+		if err := s.store.UpdateAccountMeta(accountID, notes, tags, pinnedGroup, creditRenewalDay); err != nil {
 			jsonError(w, "update failed", http.StatusInternalServerError)
 			return
 		}
 
 		s.store.LogInfo("ui", "account_meta_update", "", map[string]interface{}{
-			"accountId": accountID, "notes": notes, "tags": tags, "pinnedGroup": pinnedGroup,
+			"accountId": accountID, "notes": notes, "tags": tags, "pinnedGroup": pinnedGroup, "creditRenewalDay": creditRenewalDay,
 		})
 
 		writeJSON(w, map[string]interface{}{
-			"message":     "account meta updated",
-			"notes":       notes,
-			"tags":        tags,
-			"pinnedGroup": pinnedGroup,
+			"message":          "account meta updated",
+			"notes":            notes,
+			"tags":             tags,
+			"pinnedGroup":      pinnedGroup,
+			"creditRenewalDay": creditRenewalDay,
 		})
 		return
 	}

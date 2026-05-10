@@ -22,10 +22,10 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 10
+	// Verify schema version is 11
 	v := s.getUserVersion()
-	if v != 10 {
-		t.Errorf("expected schema version 10, got %d", v)
+	if v != 11 {
+		t.Errorf("expected schema version 11, got %d", v)
 	}
 
 	// Insert a snapshot and query it back
@@ -276,22 +276,22 @@ func TestAccountMeta(t *testing.T) {
 		t.Fatalf("GetOrCreateAccount: %v", err)
 	}
 
-	// Default meta should be empty strings
-	notes, tags, pinned, err := s.AccountMeta(accountID)
+	// Default meta should be empty/zero
+	notes, tags, pinned, renewalDay, err := s.AccountMeta(accountID)
 	if err != nil {
 		t.Fatalf("AccountMeta: %v", err)
 	}
-	if notes != "" || tags != "" || pinned != "" {
-		t.Errorf("expected empty defaults, got notes=%q tags=%q pinned=%q", notes, tags, pinned)
+	if notes != "" || tags != "" || pinned != "" || renewalDay != 0 {
+		t.Errorf("expected empty defaults, got notes=%q tags=%q pinned=%q renewalDay=%d", notes, tags, pinned, renewalDay)
 	}
 
 	// Update meta
-	if err := s.UpdateAccountMeta(accountID, "Test account", "work,primary", "claude_gpt"); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "Test account", "work,primary", "claude_gpt", 7); err != nil {
 		t.Fatalf("UpdateAccountMeta: %v", err)
 	}
 
 	// Verify read-back
-	notes, tags, pinned, err = s.AccountMeta(accountID)
+	notes, tags, pinned, renewalDay, err = s.AccountMeta(accountID)
 	if err != nil {
 		t.Fatalf("AccountMeta after update: %v", err)
 	}
@@ -303,6 +303,9 @@ func TestAccountMeta(t *testing.T) {
 	}
 	if pinned != "claude_gpt" {
 		t.Errorf("expected pinned 'claude_gpt', got %q", pinned)
+	}
+	if renewalDay != 7 {
+		t.Errorf("expected renewalDay 7, got %d", renewalDay)
 	}
 
 	// Verify AllAccounts includes meta
@@ -322,23 +325,26 @@ func TestAccountMeta(t *testing.T) {
 	if accounts[0].PinnedGroup != "claude_gpt" {
 		t.Errorf("AllAccounts.PinnedGroup: expected 'claude_gpt', got %q", accounts[0].PinnedGroup)
 	}
+	if accounts[0].CreditRenewalDay != 7 {
+		t.Errorf("AllAccounts.CreditRenewalDay: expected 7, got %d", accounts[0].CreditRenewalDay)
+	}
 
 	// Partial update — only notes
-	if err := s.UpdateAccountMeta(accountID, "Updated note", "work,primary", "claude_gpt"); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "Updated note", "work,primary", "claude_gpt", 7); err != nil {
 		t.Fatalf("UpdateAccountMeta partial: %v", err)
 	}
-	notes, _, _, _ = s.AccountMeta(accountID)
+	notes, _, _, _, _ = s.AccountMeta(accountID)
 	if notes != "Updated note" {
 		t.Errorf("expected notes 'Updated note', got %q", notes)
 	}
 
 	// Clear all meta
-	if err := s.UpdateAccountMeta(accountID, "", "", ""); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "", "", "", 0); err != nil {
 		t.Fatalf("UpdateAccountMeta clear: %v", err)
 	}
-	notes, tags, pinned, _ = s.AccountMeta(accountID)
-	if notes != "" || tags != "" || pinned != "" {
-		t.Errorf("expected empty after clear, got notes=%q tags=%q pinned=%q", notes, tags, pinned)
+	notes, tags, pinned, renewalDay, _ = s.AccountMeta(accountID)
+	if notes != "" || tags != "" || pinned != "" || renewalDay != 0 {
+		t.Errorf("expected empty after clear, got notes=%q tags=%q pinned=%q renewalDay=%d", notes, tags, pinned, renewalDay)
 	}
 }
 
@@ -351,16 +357,16 @@ func TestPinnedGroupPartialUpdate(t *testing.T) {
 	}
 
 	// Set initial meta: notes + tags + no pinned group
-	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", ""); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "", 0); err != nil {
 		t.Fatalf("UpdateAccountMeta initial: %v", err)
 	}
 
 	// Pin a group — should preserve notes and tags
-	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_pro"); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_pro", 0); err != nil {
 		t.Fatalf("UpdateAccountMeta pin: %v", err)
 	}
 
-	notes, tags, pinned, err := s.AccountMeta(accountID)
+	notes, tags, pinned, _, err := s.AccountMeta(accountID)
 	if err != nil {
 		t.Fatalf("AccountMeta after pin: %v", err)
 	}
@@ -375,25 +381,91 @@ func TestPinnedGroupPartialUpdate(t *testing.T) {
 	}
 
 	// Change pin to another group
-	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_flash"); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_flash", 0); err != nil {
 		t.Fatalf("UpdateAccountMeta repin: %v", err)
 	}
 
-	_, _, pinned, _ = s.AccountMeta(accountID)
+	_, _, pinned, _, _ = s.AccountMeta(accountID)
 	if pinned != "gemini_flash" {
 		t.Errorf("expected pinned 'gemini_flash', got %q", pinned)
 	}
 
 	// Unpin (clear pinned group)
-	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", ""); err != nil {
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "", 0); err != nil {
 		t.Fatalf("UpdateAccountMeta unpin: %v", err)
 	}
 
-	notes, tags, pinned, _ = s.AccountMeta(accountID)
+	notes, tags, pinned, _, _ = s.AccountMeta(accountID)
 	if pinned != "" {
 		t.Errorf("expected empty pinned after unpin, got %q", pinned)
 	}
 	if notes != "My notes" || tags != "work,dev" {
 		t.Errorf("unpin should preserve notes+tags, got notes=%q tags=%q", notes, tags)
+	}
+}
+
+func TestCreditRenewalDay(t *testing.T) {
+	s := openTestDB(t)
+
+	accountID, err := s.GetOrCreateAccount("renewal@example.com", "Pro")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount: %v", err)
+	}
+
+	// Default renewal day is 0 (not set)
+	_, _, _, renewalDay, err := s.AccountMeta(accountID)
+	if err != nil {
+		t.Fatalf("AccountMeta: %v", err)
+	}
+	if renewalDay != 0 {
+		t.Errorf("expected default renewalDay=0, got %d", renewalDay)
+	}
+
+	// Set renewal day to 7 (from Google One AI credits page)
+	if err := s.UpdateAccountMeta(accountID, "Main account", "work", "", 7); err != nil {
+		t.Fatalf("UpdateAccountMeta set renewalDay: %v", err)
+	}
+
+	notes, tags, _, renewalDay, _ := s.AccountMeta(accountID)
+	if renewalDay != 7 {
+		t.Errorf("expected renewalDay=7, got %d", renewalDay)
+	}
+	if notes != "Main account" || tags != "work" {
+		t.Errorf("setting renewalDay should preserve other fields, got notes=%q tags=%q", notes, tags)
+	}
+
+	// Change renewal day (e.g., plan changed)
+	if err := s.UpdateAccountMeta(accountID, "Main account", "work", "", 15); err != nil {
+		t.Fatalf("UpdateAccountMeta change renewalDay: %v", err)
+	}
+
+	_, _, _, renewalDay, _ = s.AccountMeta(accountID)
+	if renewalDay != 15 {
+		t.Errorf("expected renewalDay=15, got %d", renewalDay)
+	}
+
+	// Clear renewal day
+	if err := s.UpdateAccountMeta(accountID, "Main account", "work", "", 0); err != nil {
+		t.Fatalf("UpdateAccountMeta clear renewalDay: %v", err)
+	}
+
+	_, _, _, renewalDay, _ = s.AccountMeta(accountID)
+	if renewalDay != 0 {
+		t.Errorf("expected renewalDay=0 after clear, got %d", renewalDay)
+	}
+
+	// Verify AllAccounts surfaces creditRenewalDay
+	if err := s.UpdateAccountMeta(accountID, "", "", "", 22); err != nil {
+		t.Fatalf("UpdateAccountMeta for AllAccounts check: %v", err)
+	}
+	accounts, err := s.AllAccounts()
+	if err != nil {
+		t.Fatalf("AllAccounts: %v", err)
+	}
+	if len(accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(accounts))
+	}
+	if accounts[0].CreditRenewalDay != 22 {
+		t.Errorf("AllAccounts.CreditRenewalDay: expected 22, got %d", accounts[0].CreditRenewalDay)
 	}
 }
