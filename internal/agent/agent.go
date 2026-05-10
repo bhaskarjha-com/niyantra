@@ -91,6 +91,8 @@ func (a *PollingAgent) LastPollOK() bool {
 }
 
 // Run starts the polling loop. Blocks until ctx is cancelled.
+// The poll interval is re-read from the store on each iteration,
+// so changes via Settings take effect on the next cycle without restart.
 func (a *PollingAgent) Run(ctx context.Context) error {
 	a.logger.Info("Auto-capture agent started", "interval", a.interval)
 	defer func() {
@@ -110,14 +112,19 @@ func (a *PollingAgent) Run(ctx context.Context) error {
 	// Poll immediately on start
 	a.poll(ctx)
 
-	ticker := time.NewTicker(a.interval)
-	defer ticker.Stop()
-
 	for {
+		// Re-read interval from store each iteration (F2: live reload)
+		interval := a.store.GetConfigInt("poll_interval", 300)
+		if interval < 30 {
+			interval = 30
+		}
+
+		timer := time.NewTimer(time.Duration(interval) * time.Second)
 		select {
-		case <-ticker.C:
+		case <-timer.C:
 			a.poll(ctx)
 		case <-ctx.Done():
+			timer.Stop()
 			return nil
 		}
 	}

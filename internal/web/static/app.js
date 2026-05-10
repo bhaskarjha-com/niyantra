@@ -2112,8 +2112,13 @@ function initSettings() {
     });
 
     pollEl.addEventListener('change', function() {
-      var v = parseInt(pollEl.value);
-      if (v >= 30 && v <= 3600) updateConfig('poll_interval', v.toString());
+      var v = pollEl.value;
+      updateConfig('poll_interval', v).then(function() {
+        // Show human-readable label from the selected option
+        var label = pollEl.options[pollEl.selectedIndex].text;
+        showToast('⏱️ Interval updated to ' + label + ' — takes effect on next cycle.', 'success');
+        loadMode();
+      });
     });
 
     retentionEl.addEventListener('change', function() {
@@ -2297,7 +2302,7 @@ function loadMode() {
           lastMsg = 'Starting...';
         }
         statusEl.innerHTML = '<span class="polling-dot"></span> Polling every ' +
-          data.pollInterval + 's · ' + lastMsg;
+          formatPollInterval(data.pollInterval) + ' · ' + lastMsg;
         statusEl.style.display = '';
       } else {
         statusEl.style.display = 'none';
@@ -2372,6 +2377,12 @@ function formatTimeAgo(isoStr) {
   if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
   if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
   return Math.floor(sec / 86400) + 'd ago';
+}
+
+// F2: Format poll interval seconds into a human-readable label
+function formatPollInterval(seconds) {
+  if (seconds >= 3600) return Math.floor(seconds / 3600) + 'h';
+  return Math.floor(seconds / 60) + 'm';
 }
 
 // ════════════════════════════════════════════

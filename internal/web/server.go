@@ -424,11 +424,8 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		// React to poll_interval change while running
-		if req.Key == "poll_interval" && s.agentMgr.IsRunning() {
-			s.stopPollingAgent()
-			s.startPollingAgent()
-		}
+		// F2: poll_interval changes are picked up automatically by the agent
+		// on the next tick — no restart needed.
 
 		// React to bridge/notification config changes
 		s.onConfigChanged(req.Key, req.Value)
