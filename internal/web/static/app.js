@@ -14,6 +14,9 @@ const collapsedProviders = new Set();
 // Platform presets (loaded from API)
 var presetsData = [];
 
+// F4: Active tag filter for Quotas tab (null = show all)
+var activeTagFilter = null;
+
 // ════════════════════════════════════════════
 //  THEME
 // ════════════════════════════════════════════
@@ -230,7 +233,14 @@ function filterAccountsArray(accounts) {
     else if (status === 'low') matchesStatus = !acc.isReady && !allExhausted(acc);
     else if (status === 'empty') matchesStatus = allExhausted(acc);
 
-    return matchesSearch && matchesStatus;
+    // F4: Tag-based filtering
+    var matchesTag = true;
+    if (activeTagFilter) {
+      var accTags = (acc.tags || '').split(',').map(function(t) { return t.trim().toLowerCase(); });
+      matchesTag = accTags.indexOf(activeTagFilter) >= 0;
+    }
+
+    return matchesSearch && matchesStatus && matchesTag;
   });
 }
 
@@ -246,12 +256,80 @@ function updateSortHeaders() {
   });
 }
 
+// ════════════════════════════════════════════
+//  F4: TAG-BASED FILTERING
+// ════════════════════════════════════════════
+
+function getUniqueTagsFromData(data) {
+  var tagCounts = {};
+  var accounts = data.accounts || [];
+  for (var i = 0; i < accounts.length; i++) {
+    var tags = (accounts[i].tags || '').split(',');
+    for (var j = 0; j < tags.length; j++) {
+      var t = tags[j].trim().toLowerCase();
+      if (t) {
+        tagCounts[t] = (tagCounts[t] || 0) + 1;
+      }
+    }
+  }
+  return tagCounts;
+}
+
+function renderTagFilterStrip(data) {
+  var strip = document.getElementById('tag-filter-strip');
+  if (!strip) return;
+
+  var tagCounts = getUniqueTagsFromData(data);
+  var tagNames = Object.keys(tagCounts).sort();
+
+  // Only show strip if there are tags to filter by
+  if (tagNames.length === 0) {
+    strip.innerHTML = '';
+    return;
+  }
+
+  var html = '<span class="tag-filter-label">🏷️ Filter:</span>';
+
+  // "All" chip
+  var allActive = !activeTagFilter ? ' active' : '';
+  var totalAccounts = (data.accounts || []).length;
+  html += '<button class="tag-filter-chip' + allActive + '" data-tag-filter="">' +
+    'All <span class="tag-filter-count">' + totalAccounts + '</span></button>';
+
+  // Tag chips
+  for (var i = 0; i < tagNames.length; i++) {
+    var tag = tagNames[i];
+    var isActive = activeTagFilter === tag ? ' active' : '';
+    html += '<button class="tag-filter-chip' + isActive + '" data-tag-filter="' + esc(tag) + '">' +
+      esc(tag) + ' <span class="tag-filter-count">' + tagCounts[tag] + '</span></button>';
+  }
+
+  strip.innerHTML = html;
+}
+
+function handleTagFilterClick(e) {
+  var chip = e.target.closest('.tag-filter-chip');
+  if (!chip) return;
+
+  var tag = chip.getAttribute('data-tag-filter');
+  activeTagFilter = tag || null;
+
+  // Re-render with filter applied
+  if (latestQuotaData) {
+    renderTagFilterStrip(latestQuotaData);
+    renderAccounts(latestQuotaData);
+  }
+}
+
 function renderAccounts(data) {
   latestQuotaData = data;
   var grid = document.getElementById('account-grid');
   var countBadge = document.getElementById('account-count');
   var snapCount = document.getElementById('snap-count');
   if (!grid) return;
+
+  // F4: Update tag filter strip on data refresh
+  renderTagFilterStrip(data);
 
   var acctCount = (data.accounts || []).length;
   var parts = [];
@@ -3176,6 +3254,12 @@ function initQuotas() {
       }
       if (latestQuotaData) renderAccounts(latestQuotaData);
     });
+  }
+
+  // F4: Tag filter chip click handler (delegated)
+  var tagStrip = document.getElementById('tag-filter-strip');
+  if (tagStrip) {
+    tagStrip.addEventListener('click', handleTagFilterClick);
   }
 }
 

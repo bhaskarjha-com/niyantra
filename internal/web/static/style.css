@@ -360,6 +360,79 @@ body {
   gap: 8px;
 }
 
+/* ── F4: Tag-Based Filtering ── */
+
+.tag-filter-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.tag-filter-strip:empty {
+  display: none;
+  margin: 0;
+}
+
+.tag-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tag-filter-chip:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+
+.tag-filter-chip.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.tag-filter-chip.active:hover {
+  filter: brightness(1.1);
+}
+
+.tag-filter-chip .tag-filter-count {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag-filter-chip.active .tag-filter-count {
+  opacity: 0.8;
+}
+
+.tag-filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-right: 4px;
+  opacity: 0.7;
+}
+
 .sortable {
   cursor: pointer;
   user-select: none;
