@@ -923,3 +923,95 @@ Returns Codex detection state, token info, and latest snapshot for AI agents.
 }
 ```
 
+---
+
+## Phase 13: Model Pricing Config (F5)
+
+### `GET /api/config/pricing`
+
+Returns per-model token pricing. On first call, seeds with current market defaults (Claude Opus/Sonnet/Haiku, GPT-4o, Gemini Pro/Flash).
+
+**Response:** `200 OK`
+
+```json
+{
+  "pricing": [
+    {
+      "modelId": "claude-sonnet-4.6",
+      "displayName": "Claude Sonnet 4.6",
+      "provider": "anthropic",
+      "inputPer1M": 3.00,
+      "outputPer1M": 15.00,
+      "cachePer1M": 0.30
+    },
+    {
+      "modelId": "gpt-4o",
+      "displayName": "GPT-4o",
+      "provider": "openai",
+      "inputPer1M": 2.50,
+      "outputPer1M": 10.00,
+      "cachePer1M": 1.25
+    }
+  ]
+}
+```
+
+**Field Reference — ModelPrice:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `modelId` | `string` | Unique model identifier (e.g., `claude-sonnet-4.6`) |
+| `displayName` | `string` | Human-readable name |
+| `provider` | `string` | Provider key: `anthropic`, `openai`, `google`, or `custom` |
+| `inputPer1M` | `float64` | Cost per 1M input tokens ($) |
+| `outputPer1M` | `float64` | Cost per 1M output tokens ($) |
+| `cachePer1M` | `float64` | Cost per 1M cached/prompt-cache tokens ($) |
+
+---
+
+### `PUT /api/config/pricing`
+
+Updates the full pricing configuration. Replaces all existing entries.
+
+**Request:** `application/json`
+
+```json
+{
+  "pricing": [
+    {
+      "modelId": "claude-sonnet-4.6",
+      "displayName": "Claude Sonnet 4.6",
+      "provider": "anthropic",
+      "inputPer1M": 4.00,
+      "outputPer1M": 20.00,
+      "cachePer1M": 0.40
+    }
+  ]
+}
+```
+
+**Validation:**
+- `pricing` array must not be empty
+- Each entry requires a non-empty `modelId`
+- All price values must be ≥ 0
+
+**Response (success):** `200 OK`
+
+```json
+{
+  "message": "pricing updated",
+  "pricing": [...]
+}
+```
+
+**Response (validation error):** `400 Bad Request`
+
+```json
+{ "error": "each pricing entry requires a modelId" }
+```
+
+---
+
+**Storage:** Model pricing is stored as a JSON blob in the `config` table under the key `model_pricing`. No schema migration is required — it uses the existing config key-value infrastructure with `INSERT OR IGNORE ... ON CONFLICT` upsert.
+
+**Prerequisite for:** F8 (Estimated Cost Tracking) — pricing data will be used to compute cost from quota deltas.

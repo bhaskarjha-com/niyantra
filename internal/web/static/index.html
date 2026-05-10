@@ -272,6 +272,30 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>💰 Model Pricing</h3>
+                        <p class="settings-desc">Per-model token pricing ($/1M tokens). Used by cost estimation features. Prices are pre-filled with current market rates.</p>
+                        <div class="pricing-table-wrap" id="pricing-table-wrap">
+                            <table class="pricing-table" id="pricing-table">
+                                <thead>
+                                    <tr>
+                                        <th>Model</th>
+                                        <th>Provider</th>
+                                        <th>Input $/1M</th>
+                                        <th>Output $/1M</th>
+                                        <th>Cache $/1M</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pricing-tbody"></tbody>
+                            </table>
+                            <div class="pricing-actions">
+                                <button class="btn-add-sm" id="pricing-add-btn" title="Add custom model pricing">+ Add Model</button>
+                                <button class="btn-reset-sm" id="pricing-reset-btn" title="Reset all prices to current market defaults">↻ Reset Defaults</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>🔔 Notifications</h3>
                         <div class="settings-row">
                             <div class="settings-label">

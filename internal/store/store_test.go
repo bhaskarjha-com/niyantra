@@ -469,3 +469,113 @@ func TestCreditRenewalDay(t *testing.T) {
 		t.Errorf("AllAccounts.CreditRenewalDay: expected 22, got %d", accounts[0].CreditRenewalDay)
 	}
 }
+
+func TestModelPricingDefaults(t *testing.T) {
+	s := openTestDB(t)
+
+	// First call should seed defaults
+	prices, err := s.GetModelPricing()
+	if err != nil {
+		t.Fatalf("GetModelPricing: %v", err)
+	}
+	if len(prices) != 6 {
+		t.Fatalf("expected 6 default models, got %d", len(prices))
+	}
+
+	// Verify specific defaults
+	var found bool
+	for _, p := range prices {
+		if p.ModelID == "claude-sonnet-4.6" {
+			found = true
+			if p.InputPer1M != 3.00 {
+				t.Errorf("Claude Sonnet input: expected 3.00, got %f", p.InputPer1M)
+			}
+			if p.OutputPer1M != 15.00 {
+				t.Errorf("Claude Sonnet output: expected 15.00, got %f", p.OutputPer1M)
+			}
+			if p.CachePer1M != 0.30 {
+				t.Errorf("Claude Sonnet cache: expected 0.30, got %f", p.CachePer1M)
+			}
+			if p.Provider != "anthropic" {
+				t.Errorf("Claude Sonnet provider: expected 'anthropic', got %q", p.Provider)
+			}
+		}
+	}
+	if !found {
+		t.Error("claude-sonnet-4.6 not found in defaults")
+	}
+
+	// Verify config key was created
+	raw := s.GetConfig("model_pricing")
+	if raw == "" {
+		t.Error("expected model_pricing config key to be set after first access")
+	}
+
+	// Second call should return same data (from stored config, not re-seed)
+	prices2, err := s.GetModelPricing()
+	if err != nil {
+		t.Fatalf("GetModelPricing second call: %v", err)
+	}
+	if len(prices2) != 6 {
+		t.Fatalf("expected 6 models on second call, got %d", len(prices2))
+	}
+}
+
+func TestModelPricingCustomUpdate(t *testing.T) {
+	s := openTestDB(t)
+
+	// Seed defaults
+	_, _ = s.GetModelPricing()
+
+	// Update with custom pricing
+	custom := []ModelPrice{
+		{ModelID: "claude-sonnet-4.6", DisplayName: "Claude Sonnet 4.6", Provider: "anthropic", InputPer1M: 4.00, OutputPer1M: 20.00, CachePer1M: 0.40},
+		{ModelID: "my-custom-model", DisplayName: "My Custom Model", Provider: "custom", InputPer1M: 10.00, OutputPer1M: 30.00, CachePer1M: 2.00},
+	}
+
+	if err := s.SetModelPricing(custom); err != nil {
+		t.Fatalf("SetModelPricing: %v", err)
+	}
+
+	// Read back
+	prices, err := s.GetModelPricing()
+	if err != nil {
+		t.Fatalf("GetModelPricing after update: %v", err)
+	}
+	if len(prices) != 2 {
+		t.Fatalf("expected 2 custom models, got %d", len(prices))
+	}
+
+	// Verify updated values
+	if prices[0].InputPer1M != 4.00 {
+		t.Errorf("expected custom input 4.00, got %f", prices[0].InputPer1M)
+	}
+	if prices[1].ModelID != "my-custom-model" {
+		t.Errorf("expected custom model ID, got %q", prices[1].ModelID)
+	}
+}
+
+func TestGetModelPrice(t *testing.T) {
+	s := openTestDB(t)
+
+	// Seed defaults
+	_, _ = s.GetModelPricing()
+
+	// Lookup existing model
+	p := s.GetModelPrice("gpt-4o")
+	if p == nil {
+		t.Fatal("expected to find gpt-4o pricing")
+	}
+	if p.InputPer1M != 2.50 {
+		t.Errorf("GPT-4o input: expected 2.50, got %f", p.InputPer1M)
+	}
+	if p.OutputPer1M != 10.00 {
+		t.Errorf("GPT-4o output: expected 10.00, got %f", p.OutputPer1M)
+	}
+
+	// Lookup non-existent model
+	p = s.GetModelPrice("nonexistent-model")
+	if p != nil {
+		t.Error("expected nil for nonexistent model")
+	}
+}

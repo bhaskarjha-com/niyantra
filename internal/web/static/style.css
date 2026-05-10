@@ -2552,6 +2552,199 @@ kbd {
 .data-source-status.disabled { color: var(--text-muted); background: var(--bg-elevated); }
 
 /* ═══════════════════════════════════════════
+   MODEL PRICING TABLE (Phase 13: F5)
+   ═══════════════════════════════════════════ */
+
+.settings-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -8px 0 14px;
+  line-height: 1.5;
+}
+
+.pricing-table-wrap {
+  overflow-x: auto;
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.pricing-table thead th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.pricing-table thead th:nth-child(n+3) {
+  text-align: right;
+}
+
+.pricing-table tbody tr {
+  transition: background var(--transition);
+}
+
+.pricing-table tbody tr:hover {
+  background: var(--bg-elevated);
+}
+
+.pricing-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.pricing-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pricing-model-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pricing-provider {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.pricing-provider.anthropic {
+  color: #D97757;
+  background: rgba(217, 119, 87, 0.12);
+}
+
+.pricing-provider.openai {
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.pricing-provider.google {
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.pricing-provider.custom {
+  color: var(--purple);
+  background: var(--purple-bg);
+}
+
+.pricing-input {
+  width: 80px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 12px;
+  text-align: right;
+  transition: border-color var(--transition);
+}
+
+.pricing-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pricing-input::-webkit-inner-spin-button {
+  opacity: 0;
+}
+
+.pricing-input:hover::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
+.pricing-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: all var(--transition);
+}
+
+.pricing-table tbody tr:hover .pricing-delete-btn {
+  opacity: 1;
+}
+
+.pricing-delete-btn:hover {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.pricing-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.btn-reset-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-reset-sm:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+/* New model row input (inline add form) */
+.pricing-new-row td {
+  padding: 6px 10px;
+}
+
+.pricing-new-input {
+  width: 100%;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  transition: border-color var(--transition);
+}
+
+.pricing-new-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pricing-new-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ═══════════════════════════════════════════
    ACTIVITY LOG
    ═══════════════════════════════════════════ */
 .activity-controls {

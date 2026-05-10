@@ -155,6 +155,9 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/usage-logs/", s.handleUsageLogByID)
 	mux.HandleFunc("/api/import/json", s.handleImportJSON)
 
+	// Phase 13 routes
+	mux.HandleFunc("/api/config/pricing", s.handleModelPricing)
+
 	// Data management routes
 	mux.HandleFunc("/api/accounts", s.handleAccounts)
 	mux.HandleFunc("/api/accounts/", s.handleAccountByID)
@@ -1451,4 +1454,61 @@ func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
 		"adjustments": adjustCount,
 		"models":      targetSnap.Models,
 	})
+}
+
+// ── Phase 13: Model Pricing Config (F5) ─────────────────────────
+
+// handleModelPricing handles GET (read) and PUT (update) for per-model token pricing.
+func (s *Server) handleModelPricing(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		prices, err := s.store.GetModelPricing()
+		if err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]interface{}{"pricing": prices})
+
+	case http.MethodPut:
+		var req struct {
+			Pricing []store.ModelPrice `json:"pricing"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+			jsonError(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		if len(req.Pricing) == 0 {
+			jsonError(w, "pricing array is required", http.StatusBadRequest)
+			return
+		}
+
+		// Validate: every entry needs a modelId and non-negative prices
+		for _, p := range req.Pricing {
+			if p.ModelID == "" {
+				jsonError(w, "each pricing entry requires a modelId", http.StatusBadRequest)
+				return
+			}
+			if p.InputPer1M < 0 || p.OutputPer1M < 0 || p.CachePer1M < 0 {
+				jsonError(w, "prices cannot be negative", http.StatusBadRequest)
+				return
+			}
+		}
+
+		if err := s.store.SetModelPricing(req.Pricing); err != nil {
+			jsonError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		s.store.LogInfo("ui", "pricing_updated", "", map[string]interface{}{
+			"modelCount": len(req.Pricing),
+		})
+
+		writeJSON(w, map[string]interface{}{
+			"message": "pricing updated",
+			"pricing": req.Pricing,
+		})
+
+	default:
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
 }
