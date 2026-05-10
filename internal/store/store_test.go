@@ -267,3 +267,77 @@ func TestUpdateSnapshotModels_NotFound(t *testing.T) {
 		t.Error("expected error for non-existent snapshot, got nil")
 	}
 }
+
+func TestAccountMeta(t *testing.T) {
+	s := openTestDB(t)
+
+	accountID, err := s.GetOrCreateAccount("meta@example.com", "Pro")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount: %v", err)
+	}
+
+	// Default meta should be empty strings
+	notes, tags, pinned, err := s.AccountMeta(accountID)
+	if err != nil {
+		t.Fatalf("AccountMeta: %v", err)
+	}
+	if notes != "" || tags != "" || pinned != "" {
+		t.Errorf("expected empty defaults, got notes=%q tags=%q pinned=%q", notes, tags, pinned)
+	}
+
+	// Update meta
+	if err := s.UpdateAccountMeta(accountID, "Test account", "work,primary", "claude_gpt"); err != nil {
+		t.Fatalf("UpdateAccountMeta: %v", err)
+	}
+
+	// Verify read-back
+	notes, tags, pinned, err = s.AccountMeta(accountID)
+	if err != nil {
+		t.Fatalf("AccountMeta after update: %v", err)
+	}
+	if notes != "Test account" {
+		t.Errorf("expected notes 'Test account', got %q", notes)
+	}
+	if tags != "work,primary" {
+		t.Errorf("expected tags 'work,primary', got %q", tags)
+	}
+	if pinned != "claude_gpt" {
+		t.Errorf("expected pinned 'claude_gpt', got %q", pinned)
+	}
+
+	// Verify AllAccounts includes meta
+	accounts, err := s.AllAccounts()
+	if err != nil {
+		t.Fatalf("AllAccounts: %v", err)
+	}
+	if len(accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(accounts))
+	}
+	if accounts[0].Notes != "Test account" {
+		t.Errorf("AllAccounts.Notes: expected 'Test account', got %q", accounts[0].Notes)
+	}
+	if accounts[0].Tags != "work,primary" {
+		t.Errorf("AllAccounts.Tags: expected 'work,primary', got %q", accounts[0].Tags)
+	}
+	if accounts[0].PinnedGroup != "claude_gpt" {
+		t.Errorf("AllAccounts.PinnedGroup: expected 'claude_gpt', got %q", accounts[0].PinnedGroup)
+	}
+
+	// Partial update — only notes
+	if err := s.UpdateAccountMeta(accountID, "Updated note", "work,primary", "claude_gpt"); err != nil {
+		t.Fatalf("UpdateAccountMeta partial: %v", err)
+	}
+	notes, _, _, _ = s.AccountMeta(accountID)
+	if notes != "Updated note" {
+		t.Errorf("expected notes 'Updated note', got %q", notes)
+	}
+
+	// Clear all meta
+	if err := s.UpdateAccountMeta(accountID, "", "", ""); err != nil {
+		t.Fatalf("UpdateAccountMeta clear: %v", err)
+	}
+	notes, tags, pinned, _ = s.AccountMeta(accountID)
+	if notes != "" || tags != "" || pinned != "" {
+		t.Errorf("expected empty after clear, got notes=%q tags=%q pinned=%q", notes, tags, pinned)
+	}
+}

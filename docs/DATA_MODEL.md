@@ -19,6 +19,7 @@
 | v7 | `codex_snapshots`, `usage_sessions`, `usage_logs` | Codex/ChatGPT tracking, session timeline, manual usage logging |
 | v8 | `snapshots.ai_credits_json` column | Native AI Credits tracking from Antigravity |
 | v9 | `codex_snapshots.email` column | Multi-account Codex identity tracking via OIDC JWT |
+| v10 | `accounts.notes`, `accounts.tags`, `accounts.pinned_group` columns | Account notes, tags, and pinned model group (Phase 13 F1/F3) |
 
 ---
 
@@ -30,11 +31,14 @@ Unique account identities, keyed by email address.
 
 ```sql
 CREATE TABLE IF NOT EXISTS accounts (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    email      TEXT    UNIQUE NOT NULL,
-    plan_name  TEXT    DEFAULT '',
-    created_at DATETIME DEFAULT (datetime('now')),
-    updated_at DATETIME DEFAULT (datetime('now'))
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    email        TEXT    UNIQUE NOT NULL,
+    plan_name    TEXT    DEFAULT '',
+    notes        TEXT    DEFAULT '',  -- v10: user-defined note
+    tags         TEXT    DEFAULT '',  -- v10: comma-separated tags
+    pinned_group TEXT    DEFAULT '',  -- v10: pinned quota group key
+    created_at   DATETIME DEFAULT (datetime('now')),
+    updated_at   DATETIME DEFAULT (datetime('now'))
 );
 ```
 
@@ -43,6 +47,9 @@ CREATE TABLE IF NOT EXISTS accounts (
 | `id` | INTEGER | PK, AUTO | Internal account ID |
 | `email` | TEXT | UNIQUE, NOT NULL | Antigravity account email |
 | `plan_name` | TEXT | DEFAULT '' | Latest known plan (Free, Pro, Enterprise) |
+| `notes` | TEXT | DEFAULT '' | **v10:** Free-text note about this account |
+| `tags` | TEXT | DEFAULT '' | **v10:** Comma-separated tags (e.g., `"work,primary"`) |
+| `pinned_group` | TEXT | DEFAULT '' | **v10:** Pinned quota group key for quick view |
 | `created_at` | DATETIME | DEFAULT now | First seen timestamp |
 | `updated_at` | DATETIME | DEFAULT now | Last snapshot timestamp |
 
@@ -506,8 +513,8 @@ SQLite handles this trivially. Configurable retention (`config.retention_days`) 
 Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
-PRAGMA user_version;      -- read current version
-PRAGMA user_version = 9;  -- current target (v9)
+PRAGMA user_version;       -- read current version
+PRAGMA user_version = 10;  -- current target (v10)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -578,6 +585,14 @@ func (s *Store) migrate() error {
         // v9: Codex email column for multi-account identity
         s.exec(addCodexEmailColumnSQL)
         s.setUserVersion(9)
+    }
+
+    if version < 10 {
+        // v10: Account notes, tags, pinned group (Phase 13 F1/F3)
+        s.exec(`ALTER TABLE accounts ADD COLUMN notes TEXT DEFAULT ''`)
+        s.exec(`ALTER TABLE accounts ADD COLUMN tags TEXT DEFAULT ''`)
+        s.exec(`ALTER TABLE accounts ADD COLUMN pinned_group TEXT DEFAULT ''`)
+        s.setUserVersion(10)
     }
 }
 ```
@@ -684,4 +699,30 @@ ALTER TABLE codex_snapshots ADD COLUMN email TEXT DEFAULT '';
 | Column | Type | Description |
 |--------|------|-------------|
 | `email` | TEXT | Email address extracted from Codex OIDC JWT `id_token` claims. Enables per-account Codex tracking. |
+
+---
+
+## Schema v10 — Account Notes, Tags, Pinned Group (Phase 13)
+
+Adds user-defined metadata to accounts for organization and quick access.
+
+```sql
+ALTER TABLE accounts ADD COLUMN notes TEXT DEFAULT '';
+ALTER TABLE accounts ADD COLUMN tags TEXT DEFAULT '';         -- comma-separated
+ALTER TABLE accounts ADD COLUMN pinned_group TEXT DEFAULT ''; -- quota group key
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `notes` | TEXT | Free-text note about the account (max ~100 chars). Rendered inline in Quotas tab. |
+| `tags` | TEXT | Comma-separated tags (e.g., `"work,primary"`). Rendered as pill chips. Preset options: work, personal, primary, backup, shared, test, dev. |
+| `pinned_group` | TEXT | Pinned quota group key (e.g., `claude_gpt`). Reserved for F3 implementation. |
+
+**API:** `PATCH /api/accounts/:id/meta` — partial update (omitted fields preserved).
+
+**Store methods:**
+- `AccountMeta(accountID)` — read notes, tags, pinned_group
+- `UpdateAccountMeta(accountID, notes, tags, pinnedGroup)` — write all three fields
+
+**Data flow:** `handleStatus` enriches readiness results with account meta from DB before sending to frontend.
 

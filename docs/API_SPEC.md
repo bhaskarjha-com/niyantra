@@ -106,6 +106,9 @@ Returns the readiness state of all tracked accounts. **Zero network calls** — 
 | `latestSnapshotId` | `int64` | ID of the most recent snapshot (used by Quick Adjust) |
 | `email` | `string` | Antigravity account email |
 | `planName` | `string` | Subscription plan (Free, Pro, Enterprise) |
+| `notes` | `string` | User-defined note for this account (Phase 13 F1) |
+| `tags` | `string` | Comma-separated tags (e.g., `"work,primary"`) (Phase 13 F1) |
+| `pinnedGroup` | `string` | Pinned quota group key for this account (Phase 13 F3) |
 | `lastSeen` | `string` | ISO 8601 timestamp of last snapshot |
 | `stalenessLabel` | `string` | Human-readable age ("just now", "3 min ago") |
 | `isReady` | `bool` | `true` if ALL groups have remaining > 0 |
@@ -855,6 +858,48 @@ Imports data from a Niyantra JSON export with additive merge strategy.
   "snapshotsDuped": 2,
   "errors": []
 }
+```
+
+---
+
+---
+
+## Phase 13 Endpoints
+
+### `PATCH /api/accounts/:id/meta`
+
+Updates account notes, tags, and/or pinned group. Supports partial updates — omitted fields are preserved.
+
+**Request:** `application/json`
+
+```json
+{
+  "notes": "Main work account",
+  "tags": "work,primary"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `notes` | `string?` | Free-text note (max 100 chars). Omit to preserve current. |
+| `tags` | `string?` | Comma-separated tags (alphanumeric + underscore/dash). Omit to preserve. |
+| `pinnedGroup` | `string?` | Pinned quota group key (`claude_gpt`, `gemini_pro`, etc.). Omit to preserve. |
+
+**Response (success):** `200 OK`
+
+```json
+{
+  "message": "account meta updated",
+  "notes": "Main work account",
+  "tags": "work,primary",
+  "pinnedGroup": ""
+}
+```
+
+**Response (not found):** `404 Not Found`
+
+```json
+{ "error": "account not found" }
 ```
 
 ---
