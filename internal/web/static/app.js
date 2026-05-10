@@ -309,6 +309,14 @@ function renderAccounts(data) {
       }
     }
 
+    // F3: Determine pinned group for this account (default to first group)
+    var pinnedKey = acc.pinnedGroup || (acc.groups && acc.groups.length > 0 ? acc.groups[0].groupKey : 'claude_gpt');
+    var pinnedGroupData = null;
+    var groups = acc.groups || [];
+    for (var pg = 0; pg < groups.length; pg++) {
+      if (groups[pg].groupKey === pinnedKey) { pinnedGroupData = groups[pg]; break; }
+    }
+
     for (var gi = 0; gi < GROUP_ORDER.length; gi++) {
       var key = GROUP_ORDER[gi];
       var g = null;
@@ -369,9 +377,33 @@ function renderAccounts(data) {
 
     var modelsHTML = '';
     if (acc.models && acc.models.length > 0) {
-      var modelRows = '';
+      // F3: Build group headers with pin stars in expanded view
+      var groupedModels = {};
       for (var mi = 0; mi < acc.models.length; mi++) {
         var m = acc.models[mi];
+        var gk2 = m.groupKey || 'claude_gpt';
+        if (!groupedModels[gk2]) groupedModels[gk2] = [];
+        groupedModels[gk2].push(m);
+      }
+
+      var modelRows = '';
+      for (var goi = 0; goi < GROUP_ORDER.length; goi++) {
+        var groupKey2 = GROUP_ORDER[goi];
+        var groupModels = groupedModels[groupKey2];
+        if (!groupModels || groupModels.length === 0) continue;
+
+        // F3: Group header with pin star
+        var isPinned = pinnedKey === groupKey2;
+        var starCls = isPinned ? 'pin-star pinned' : 'pin-star';
+        var starTitle = isPinned ? 'Pinned — click to unpin' : 'Click to pin this group';
+        var starChar = isPinned ? '★' : '☆';
+        modelRows += '<div class="model-group-header">' +
+          '<button class="' + starCls + '" data-pin-group="' + groupKey2 + '" data-pin-account="' + acc.accountId + '" title="' + starTitle + '">' + starChar + '</button>' +
+          '<span class="model-group-name" style="color:' + (GROUP_COLORS[groupKey2] || 'var(--text-secondary)') + '">' + (GROUP_NAMES[groupKey2] || groupKey2) + '</span>' +
+          '</div>';
+
+        for (var mi3 = 0; mi3 < groupModels.length; mi3++) {
+          var m = groupModels[mi3];
         var mpct = Math.round(m.remainingPercent);
         var mcls = 'good';
         if (m.isExhausted || mpct === 0) mcls = 'exhausted';
@@ -422,6 +454,7 @@ function renderAccounts(data) {
           '<span class="model-reset">' + resetStr + '</span>' +
           intellBadges +
           '</div>';
+        }
       }
       var expandedCls = isExpanded ? ' is-expanded' : '';
       modelsHTML = '<div class="model-details' + expandedCls + '" id="' + accId + '">' + modelRows +
@@ -441,7 +474,8 @@ function renderAccounts(data) {
     html += '<div class="account-card"' + staleStyle + '>' +
       '<div class="account-row" data-toggle="' + accId + '">' +
       '<div class="account-info">' +
-      '<div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">▸</span> ' + esc(acc.email) + '</div>' +
+      '<div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">▸</span> ' + esc(acc.email) +
+      renderPinnedBadge(pinnedGroupData, pinnedKey) + '</div>' +
       '<div class="account-meta" style="position:relative">' +
       (acc.planName ? '<span class="plan-badge">' + esc(acc.planName) + '</span>' : '') +
       renderAccountTags(acc) +
@@ -2038,6 +2072,35 @@ function renderOverviewEnhanced(data, subs, usageData) {
 }
 
 // ════════════════════════════════════════════
+//  F3: PINNED/FAVORITE MODEL
+// ════════════════════════════════════════════
+
+function renderPinnedBadge(groupData, pinnedKey) {
+  if (!groupData) return '';
+  var pct = Math.round(groupData.remainingPercent);
+  var cls = 'good';
+  if (groupData.isExhausted || pct === 0) cls = 'exhausted';
+  else if (pct < 20) cls = 'warning';
+  else if (pct < 50) cls = 'ok';
+  return ' <span class="pinned-badge ' + cls + '" title="Pinned: ' + esc(groupData.displayName || pinnedKey) + '">' +
+    '★ ' + esc(groupData.displayName || GROUP_NAMES[pinnedKey] || pinnedKey) + ': ' + pct + '%</span>';
+}
+
+function pinGroup(accountId, groupKey) {
+  updateAccountMeta(accountId, { pinnedGroup: groupKey }).then(function() {
+    showToast('⭐ Pinned ' + (GROUP_NAMES[groupKey] || groupKey), 'success');
+    fetchStatus().then(renderAccounts);
+  });
+}
+
+function unpinGroup(accountId) {
+  updateAccountMeta(accountId, { pinnedGroup: '' }).then(function() {
+    showToast('☆ Unpinned — will show first group', 'info');
+    fetchStatus().then(renderAccounts);
+  });
+}
+
+// ════════════════════════════════════════════
 //  F1: ACCOUNT TAGS + NOTES
 // ════════════════════════════════════════════
 
@@ -2254,6 +2317,21 @@ function initAccountMetaHandlers() {
       e.stopPropagation();
       e.preventDefault();
       openNoteEditor(noteEl);
+      return;
+    }
+
+    // F3: Pin/unpin group star
+    var pinBtn = e.target.closest('[data-pin-group]');
+    if (pinBtn) {
+      e.stopPropagation();
+      e.preventDefault();
+      var pinAccountId = pinBtn.getAttribute('data-pin-account');
+      var pinGroupKey = pinBtn.getAttribute('data-pin-group');
+      if (pinBtn.classList.contains('pinned')) {
+        unpinGroup(pinAccountId);
+      } else {
+        pinGroup(pinAccountId, pinGroupKey);
+      }
       return;
     }
   });

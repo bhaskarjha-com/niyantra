@@ -905,6 +905,79 @@ body {
   outline: none;
 }
 
+/* ── F3: Pinned/Favorite Model ── */
+
+.pinned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 100px;
+  background: rgba(99, 102, 241, 0.08);
+  white-space: nowrap;
+  vertical-align: middle;
+  letter-spacing: 0.01em;
+}
+
+.pinned-badge.good { color: var(--green); background: var(--green-bg); }
+.pinned-badge.ok { color: var(--accent); background: var(--accent-glow); }
+.pinned-badge.warning { color: var(--amber); background: var(--amber-bg); }
+.pinned-badge.exhausted { color: var(--red); background: var(--red-bg); }
+
+.model-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 2px;
+  margin-top: 4px;
+}
+
+.model-group-header:first-child {
+  margin-top: 0;
+}
+
+.model-group-name {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pin-star {
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  color: var(--text-muted);
+  transition: all 150ms ease;
+  line-height: 1;
+  opacity: 0.5;
+}
+
+.model-group-header:hover .pin-star {
+  opacity: 1;
+}
+
+.pin-star.pinned {
+  color: var(--amber);
+  opacity: 1;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.pin-star:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+.pin-star.pinned:hover {
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
 /* ── C4: Provider Cards (Codex/Claude on Quotas grid) ── */
 
 .provider-card {

@@ -341,3 +341,59 @@ func TestAccountMeta(t *testing.T) {
 		t.Errorf("expected empty after clear, got notes=%q tags=%q pinned=%q", notes, tags, pinned)
 	}
 }
+
+func TestPinnedGroupPartialUpdate(t *testing.T) {
+	s := openTestDB(t)
+
+	accountID, err := s.GetOrCreateAccount("pin@example.com", "Pro")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount: %v", err)
+	}
+
+	// Set initial meta: notes + tags + no pinned group
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", ""); err != nil {
+		t.Fatalf("UpdateAccountMeta initial: %v", err)
+	}
+
+	// Pin a group — should preserve notes and tags
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_pro"); err != nil {
+		t.Fatalf("UpdateAccountMeta pin: %v", err)
+	}
+
+	notes, tags, pinned, err := s.AccountMeta(accountID)
+	if err != nil {
+		t.Fatalf("AccountMeta after pin: %v", err)
+	}
+	if notes != "My notes" {
+		t.Errorf("pinning should preserve notes, got %q", notes)
+	}
+	if tags != "work,dev" {
+		t.Errorf("pinning should preserve tags, got %q", tags)
+	}
+	if pinned != "gemini_pro" {
+		t.Errorf("expected pinned 'gemini_pro', got %q", pinned)
+	}
+
+	// Change pin to another group
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", "gemini_flash"); err != nil {
+		t.Fatalf("UpdateAccountMeta repin: %v", err)
+	}
+
+	_, _, pinned, _ = s.AccountMeta(accountID)
+	if pinned != "gemini_flash" {
+		t.Errorf("expected pinned 'gemini_flash', got %q", pinned)
+	}
+
+	// Unpin (clear pinned group)
+	if err := s.UpdateAccountMeta(accountID, "My notes", "work,dev", ""); err != nil {
+		t.Fatalf("UpdateAccountMeta unpin: %v", err)
+	}
+
+	notes, tags, pinned, _ = s.AccountMeta(accountID)
+	if pinned != "" {
+		t.Errorf("expected empty pinned after unpin, got %q", pinned)
+	}
+	if notes != "My notes" || tags != "work,dev" {
+		t.Errorf("unpin should preserve notes+tags, got notes=%q tags=%q", notes, tags)
+	}
+}
