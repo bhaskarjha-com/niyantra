@@ -39,3 +39,6 @@ draft/
 
 # Antigravity payload dump
 antigravity_payload_dump.json
+
+# Node (esbuild)
+node_modules/

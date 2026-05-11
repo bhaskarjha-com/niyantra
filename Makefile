@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION)"
 
-.PHONY: build run test vet lint vulncheck clean demo
+.PHONY: build run test vet lint vulncheck clean demo js js-prod js-watch
 
 ## Build the binary with version injection
 build:
@@ -27,6 +27,21 @@ lint:
 vulncheck:
 	govulncheck ./...
 
+## Bundle frontend JS
+js:
+	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
+		--outfile=internal/web/static/app.js --target=es2020
+
+## Bundle + minify for production
+js-prod:
+	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
+		--outfile=internal/web/static/app.js --target=es2020 --minify
+
+## Development: watch + rebuild
+js-watch:
+	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
+		--outfile=internal/web/static/app.js --target=es2020 --watch
+
 ## Remove built binaries
 clean:
 	rm -f niyantra niyantra.exe
@@ -35,3 +50,4 @@ clean:
 demo: build
 	./niyantra demo
 	./niyantra serve
+
