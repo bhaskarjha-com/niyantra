@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION)"
 
-.PHONY: build run test vet clean demo
+.PHONY: build run test vet lint vulncheck clean demo
 
 ## Build the binary with version injection
 build:
@@ -18,6 +18,14 @@ test:
 ## Run Go vet
 vet:
 	go vet ./...
+
+## Run golangci-lint (includes staticcheck, errcheck, etc.)
+lint:
+	golangci-lint run ./...
+
+## Run govulncheck for dependency vulnerability scanning
+vulncheck:
+	govulncheck ./...
 
 ## Remove built binaries
 clean:
