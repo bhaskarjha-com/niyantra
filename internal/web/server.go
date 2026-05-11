@@ -18,6 +18,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
+	"github.com/bhaskarjha-com/niyantra/internal/costtrack"
 	"github.com/bhaskarjha-com/niyantra/internal/forecast"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
@@ -181,6 +182,7 @@ func (s *Server) ListenAndServe() error {
 
 	// Phase 14 routes
 	mux.HandleFunc("/api/forecast", s.handleForecast)
+	mux.HandleFunc("/api/cost", s.handleCost)
 
 	// Data management routes
 	mux.HandleFunc("/api/accounts", s.handleAccounts)
@@ -253,6 +255,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	forecastsByAccount := s.computeAccountForecasts(snapshots)
 	if forecastsByAccount != nil {
 		result["forecasts"] = forecastsByAccount
+	}
+
+	// F8: Compute per-account estimated costs using forecast rates + model pricing
+	costsByAccount := s.computeAccountCosts(snapshots, forecastsByAccount)
+	if costsByAccount != nil {
+		result["estimatedCosts"] = costsByAccount
 	}
 
 	writeJSON(w, result)
@@ -1543,6 +1551,154 @@ func (s *Server) handleModelPricing(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ── Phase 14: Cost Tracking (F8) ─────────────────────────────────
+
+// computeAccountCosts estimates dollar costs for each account using
+// burn rates from the forecast engine + model pricing from F5.
+func (s *Server) computeAccountCosts(
+	snapshots []*client.Snapshot,
+	forecasts map[int64][]forecast.GroupForecast,
+) map[int64]costtrack.AccountCostEstimate {
+	if len(snapshots) == 0 {
+		return nil
+	}
+
+	// Load pricing and ceilings from config
+	pricing, err := s.store.GetModelPricing()
+	if err != nil {
+		s.logger.Warn("cost tracking: pricing load failed", "error", err)
+		return nil
+	}
+
+	ceilings, err := costtrack.ParseCeilings(s.store.GetQuotaCeilings())
+	if err != nil {
+		s.logger.Warn("cost tracking: ceilings parse failed", "error", err)
+		ceilings = costtrack.DefaultQuotaCeilings()
+	}
+
+	// Convert store.ModelPrice to costtrack.ModelPricing
+	ctPricing := make([]costtrack.ModelPricing, len(pricing))
+	for i, p := range pricing {
+		ctPricing[i] = costtrack.ModelPricing{
+			ModelID:     p.ModelID,
+			DisplayName: p.DisplayName,
+			Provider:    p.Provider,
+			InputPer1M:  p.InputPer1M,
+			OutputPer1M: p.OutputPer1M,
+			CachePer1M:  p.CachePer1M,
+		}
+	}
+
+	assigner := func(modelID string) string {
+		return client.GroupForModel(modelID, "")
+	}
+
+	result := make(map[int64]costtrack.AccountCostEstimate)
+
+	for _, snap := range snapshots {
+		if snap == nil || snap.AccountID == 0 {
+			continue
+		}
+
+		// Build GroupRate from forecast data (if available) or from latest snapshot
+		var rates []costtrack.GroupRate
+
+		if forecastGroups, ok := forecasts[snap.AccountID]; ok && len(forecastGroups) > 0 {
+			// Use forecast data (has burn rates)
+			for _, fg := range forecastGroups {
+				rates = append(rates, costtrack.GroupRate{
+					GroupKey:   fg.GroupKey,
+					BurnRate:  fg.BurnRate,
+					Remaining: fg.Remaining,
+					HasData:   fg.Confidence != "none",
+				})
+			}
+		} else {
+			// No forecast data — compute remaining from latest snapshot
+			groupRemaining := map[string]struct {
+				sum   float64
+				count int
+			}{}
+			for _, m := range snap.Models {
+				gk := client.GroupForModel(m.ModelID, m.Label)
+				acc := groupRemaining[gk]
+				acc.sum += m.RemainingFraction
+				acc.count++
+				groupRemaining[gk] = acc
+			}
+			for _, key := range client.GroupOrder {
+				if acc, ok := groupRemaining[key]; ok && acc.count > 0 {
+					rates = append(rates, costtrack.GroupRate{
+						GroupKey:   key,
+						Remaining: acc.sum / float64(acc.count),
+						HasData:   true,
+					})
+				}
+			}
+		}
+
+		if len(rates) == 0 {
+			continue
+		}
+
+		est := costtrack.EstimateAccountCost(
+			snap.AccountID, snap.Email,
+			rates, ceilings, ctPricing, assigner,
+		)
+		result[snap.AccountID] = est
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// handleCost returns estimated costs for all tracked accounts.
+func (s *Server) handleCost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	snapshots, err := s.store.LatestPerAccount()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Compute forecasts first (needed for burn rates)
+	forecasts := s.computeAccountForecasts(snapshots)
+
+	// Compute costs
+	costs := s.computeAccountCosts(snapshots, forecasts)
+
+	// Aggregate total
+	var totalCost float64
+	var accounts []costtrack.AccountCostEstimate
+	for _, snap := range snapshots {
+		if snap == nil {
+			continue
+		}
+		if est, ok := costs[snap.AccountID]; ok {
+			accounts = append(accounts, est)
+			totalCost += est.TotalCost
+		}
+	}
+
+	result := map[string]interface{}{
+		"accounts":   accounts,
+		"totalCost":  totalCost,
+		"totalLabel": costtrack.FormatCost(totalCost),
+	}
+
+	// Include ceilings for transparency
+	ceilings, _ := costtrack.ParseCeilings(s.store.GetQuotaCeilings())
+	result["quotaCeilings"] = ceilings
+
+	writeJSON(w, result)
+}
+
 // ── Phase 14: Forecast Handlers ──────────────────────────────────
 
 // computeAccountForecasts builds sliding-window TTX forecasts for all accounts.
@@ -1597,10 +1753,18 @@ func (s *Server) computeAccountForecasts(snapshots []*client.Snapshot) map[int64
 		rates := forecast.ComputeRates(points)
 
 		// Build current remaining + reset times from latest snapshot
+		// Apply stale-correction: if a model's reset time is in the past,
+		// the quota has refilled — infer remaining = 1.0 to match readiness display.
 		remaining := make(map[string]float64)
 		resetTimes := make(map[string]*time.Time)
+		now := time.Now()
 		for _, m := range snap.Models {
-			remaining[m.ModelID] = m.RemainingFraction
+			frac := m.RemainingFraction
+			if m.ResetTime != nil && m.ResetTime.Before(now) && frac <= 0 {
+				// Reset time passed and model was exhausted → quota has refilled
+				frac = 1.0
+			}
+			remaining[m.ModelID] = frac
 			resetTimes[m.ModelID] = m.ResetTime
 		}
 

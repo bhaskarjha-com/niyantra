@@ -318,7 +318,7 @@ func GroupModels(models []ModelQuota) []GroupedQuota {
 			DisplayName:       GroupDisplayNames[key],
 			RemainingFraction: remaining,
 			RemainingPercent:  remaining * 100,
-			IsExhausted:       a != nil && (a.anyExhausted || (a.count > 0 && remaining <= 0)),
+			IsExhausted:       a != nil && a.count > 0 && remaining <= 0,
 			Color:             GroupColors[key],
 		}
 

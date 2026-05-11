@@ -453,11 +453,36 @@ function renderAccounts(data) {
         }
       }
 
+      // F8: Cost badge — shows estimated $ cost per group
+      // Only shown when: (a) group has consumed quota (pct < 95), (b) cost > $0.01
+      var costBadge = '';
+      if (pct < 95 && data.estimatedCosts && data.estimatedCosts[acc.accountId]) {
+        var acctCosts = data.estimatedCosts[acc.accountId];
+        if (acctCosts.groups) {
+          for (var ci = 0; ci < acctCosts.groups.length; ci++) {
+            if (acctCosts.groups[ci].groupKey === key && acctCosts.groups[ci].hasData) {
+              var costVal = acctCosts.groups[ci].estimatedCost || 0;
+              if (costVal < 0.01) break; // Skip negligible costs
+              var costLabel = acctCosts.groups[ci].costLabel || '—';
+              var costCls = 'cost-low';
+              if (costVal >= 10) costCls = 'cost-high';
+              else if (costVal >= 3) costCls = 'cost-medium';
+              var costTitle = 'Estimated cost this cycle';
+              if (acctCosts.groups[ci].hourlyLabel) {
+                costTitle += ' (' + acctCosts.groups[ci].hourlyLabel + ')';
+              }
+              costBadge = '<span class="cost-badge ' + costCls + '" title="' + costTitle + '">' + esc(costLabel) + '</span>';
+              break;
+            }
+          }
+        }
+      }
+
       groupCells += '<div class="quota-cell">' +
         '<span class="quota-pct ' + cls + '">' + pct + '%</span>' +
         '<div class="quota-minibar"><div class="quota-minibar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' +
         groupAdjust +
-        reset + ttxBadge + '</div>';
+        reset + ttxBadge + costBadge + '</div>';
     }
 
 
@@ -2163,8 +2188,11 @@ function renderOverviewEnhanced(data, subs, usageData) {
   }
   providerHTML += '</div></div>';
 
-  // P1: Content order — advisor first (most actionable), then budget, provider health, spend, insights
-  el.innerHTML = advisorHTML + forecastHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  // ── F8: Estimated Cost KPI (async — fetched from /api/cost) ──
+  var costKPIHTML = '<div id="cost-kpi-container"></div>';
+
+  // P1: Content order — advisor first (most actionable), then budget, cost KPI, provider health, spend, insights
+  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // Async load Claude Code data
   if (serverConfig['claude_bridge'] === 'true') {
@@ -2174,6 +2202,9 @@ function renderOverviewEnhanced(data, subs, usageData) {
   // Async load advisor card
   loadAdvisorCard();
 
+  // F8: Async load estimated cost KPI
+  loadCostKPI();
+
   // Render calendar with renewal data (only if container exists)
   if (renewals.length > 0) {
     renderRenewalCalendar(renewals, subs);
@@ -2181,6 +2212,61 @@ function renderOverviewEnhanced(data, subs, usageData) {
 
   // Phase 11: Sessions timeline (Codex card removed — Provider Health covers it)
   renderSessionsTimeline(el);
+}
+
+// ════════════════════════════════════════════
+//  F8: ESTIMATED COST KPI (Overview Tab)
+// ════════════════════════════════════════════
+
+function loadCostKPI() {
+  var container = document.getElementById('cost-kpi-container');
+  if (!container) return;
+
+  fetch('/api/cost').then(function(res) { return res.json(); }).then(function(data) {
+    if (!data || !data.accounts || data.accounts.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    var total = data.totalCost || 0;
+    if (total < 0.01) {
+      // No meaningful cost — hide the card entirely
+      container.innerHTML = '';
+      return;
+    }
+    var totalLabel = data.totalLabel || '$0.00';
+
+    var html = '<div class="cost-kpi-card overview-card">' +
+      '<h3>Estimated Spend (Current Cycle)</h3>' +
+      '<div class="cost-kpi-amount">' + esc(totalLabel) + '</div>' +
+      '<div class="cost-kpi-label">Estimated cost based on quota consumption × model pricing</div>';
+
+    // Per-account breakdown chips (only accounts with meaningful cost)
+    var hasChips = false;
+    var chipsHTML = '<div class="cost-kpi-breakdown">';
+    if (data.accounts && data.accounts.length > 0) {
+      for (var i = 0; i < data.accounts.length; i++) {
+        var acct = data.accounts[i];
+        if (acct.totalCost >= 0.01) {
+          hasChips = true;
+          var emailShort = acct.email;
+          if (emailShort && emailShort.length > 20) {
+            emailShort = emailShort.split('@')[0] + '@…';
+          }
+          chipsHTML += '<span class="cost-kpi-chip" title="' + esc(acct.email) + '">' +
+            esc(emailShort) + ': ' + esc(acct.totalLabel) + '</span>';
+        }
+      }
+    }
+    chipsHTML += '</div>';
+    if (hasChips) html += chipsHTML;
+
+    html += '</div>';
+    container.innerHTML = html;
+  }).catch(function(err) {
+    console.error('Cost KPI fetch failed:', err);
+    container.innerHTML = '';
+  });
 }
 
 // ════════════════════════════════════════════

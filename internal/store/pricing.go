@@ -79,3 +79,22 @@ func (s *Store) GetModelPrice(modelID string) *ModelPrice {
 	}
 	return nil
 }
+
+// GetQuotaCeilings returns the configured quota ceilings JSON string.
+// Returns empty string if not configured (caller should use defaults).
+func (s *Store) GetQuotaCeilings() string {
+	return s.GetConfig("quota_ceilings")
+}
+
+// SetQuotaCeilings persists the quota ceilings JSON string in the config table.
+func (s *Store) SetQuotaCeilings(raw string) error {
+	_, err := s.db.Exec(`
+		INSERT INTO config (key, value, value_type, category, label, description, updated_at)
+		VALUES ('quota_ceilings', ?, 'json', 'pricing', 'Quota Ceilings', 'Assumed tokens per cycle per quota group (for cost estimation)', datetime('now'))
+		ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+	`, raw)
+	if err != nil {
+		return fmt.Errorf("store: saving quota ceilings: %w", err)
+	}
+	return nil
+}

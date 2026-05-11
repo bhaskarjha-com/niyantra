@@ -2922,6 +2922,91 @@ kbd {
   display: none;
 }
 
+/* ═══════════════════════════════════════════
+   Phase 14: Cost Estimation Badges (F8)
+   ═══════════════════════════════════════════ */
+
+/* Cost badge on group cells in Quotas grid */
+.cost-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  margin-left: 4px;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--green);
+  background: var(--green-bg);
+  cursor: default;
+}
+
+.cost-badge.cost-low {
+  color: var(--green);
+  background: var(--green-bg);
+}
+
+.cost-badge.cost-medium {
+  color: var(--amber);
+  background: var(--amber-bg);
+}
+
+.cost-badge.cost-high {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+/* "Est. Spend Today" KPI card in Overview tab */
+.cost-kpi-card {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(56, 189, 248, 0.06));
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.cost-kpi-card h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.cost-kpi-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.cost-kpi-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cost-kpi-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cost-kpi-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
 /* Budget Forecast (Overview tab) */
 .budget-forecast {
   padding: 16px;

@@ -18,6 +18,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/advisor"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
+	"github.com/bhaskarjha-com/niyantra/internal/costtrack"
 	"github.com/bhaskarjha-com/niyantra/internal/forecast"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -131,12 +132,13 @@ type QuotaStatusOutput struct {
 
 // AccountSummary is a single account in quota_status output.
 type AccountSummary struct {
-	Email     string         `json:"email"`
-	Plan      string         `json:"plan"`
-	IsReady   bool           `json:"isReady"`
-	Staleness string         `json:"staleness"`
-	AICredits float64        `json:"aiCredits,omitempty"`
-	Groups    []GroupSummary `json:"groups"`
+	Email         string         `json:"email"`
+	Plan          string         `json:"plan"`
+	IsReady       bool           `json:"isReady"`
+	Staleness     string         `json:"staleness"`
+	AICredits     float64        `json:"aiCredits,omitempty"`
+	EstimatedCost string         `json:"estimatedCost,omitempty"`
+	Groups        []GroupSummary `json:"groups"`
 }
 
 // GroupSummary is a quota group within an account.
@@ -297,6 +299,21 @@ func (m *MCPServer) handleQuotaStatus(_ context.Context, _ *mcp.CallToolRequest,
 			a.Groups = append(a.Groups, gs)
 		}
 		out.Accounts = append(out.Accounts, a)
+	}
+
+	// F8: Compute estimated costs for each account
+	costByAccount := m.computeMCPCosts(snapshots)
+	if costByAccount != nil {
+		for i := range out.Accounts {
+			for _, snap := range snapshots {
+				if snap != nil && snap.Email == out.Accounts[i].Email {
+					if est, ok := costByAccount[snap.AccountID]; ok {
+						out.Accounts[i].EstimatedCost = est.TotalLabel
+					}
+					break
+				}
+			}
+		}
 	}
 
 	return nil, out, nil
@@ -694,12 +711,14 @@ func (m *MCPServer) handleCodexStatus(_ context.Context, _ *mcp.CallToolRequest,
 
 // ForecastGroupOut is a single group's TTX forecast in MCP output.
 type ForecastGroupOut struct {
-	Group      string `json:"group"`
-	BurnRate   string `json:"burnRate"`
-	TTX        string `json:"ttx"`
-	Remaining  string `json:"remaining"`
-	Severity   string `json:"severity"`
-	Confidence string `json:"confidence"`
+	Group         string `json:"group"`
+	BurnRate      string `json:"burnRate"`
+	TTX           string `json:"ttx"`
+	Remaining     string `json:"remaining"`
+	Severity      string `json:"severity"`
+	Confidence    string `json:"confidence"`
+	EstimatedCost string `json:"estimatedCost,omitempty"`
+	CostPerHour   string `json:"costPerHour,omitempty"`
 }
 
 // ForecastAccountOut is a single account's forecast in MCP output.
@@ -781,14 +800,23 @@ func (m *MCPServer) handleQuotaForecast(_ context.Context, _ *mcp.CallToolReques
 			PlanName: snap.PlanName,
 		}
 		for _, g := range gf {
-			af.Groups = append(af.Groups, ForecastGroupOut{
+			fgo := ForecastGroupOut{
 				Group:      g.DisplayName,
 				BurnRate:   fmt.Sprintf("%.1f%%/hr", g.BurnRate*100),
 				TTX:        g.TTXLabel,
 				Remaining:  fmt.Sprintf("%.0f%%", g.Remaining*100),
 				Severity:   g.Severity,
 				Confidence: g.Confidence,
-			})
+			}
+			// F8: Add cost estimate if we have burn rate data
+			if g.BurnRate > 0 {
+				costEst := m.computeGroupCost(g.GroupKey, g.BurnRate, g.Remaining)
+				if costEst != nil {
+					fgo.EstimatedCost = costEst.CostLabel
+					fgo.CostPerHour = costEst.HourlyLabel
+				}
+			}
+			af.Groups = append(af.Groups, fgo)
 		}
 		out.Antigravity = append(out.Antigravity, af)
 	}
@@ -801,3 +829,125 @@ func (m *MCPServer) handleQuotaForecast(_ context.Context, _ *mcp.CallToolReques
 
 	return nil, out, nil
 }
+
+// ── F8: Cost Estimation Helpers ──────────────────────────────────
+
+// computeMCPCosts estimates dollar costs for all accounts using snapshot data.
+func (m *MCPServer) computeMCPCosts(snapshots []*client.Snapshot) map[int64]costtrack.AccountCostEstimate {
+	if len(snapshots) == 0 {
+		return nil
+	}
+
+	pricing, err := m.store.GetModelPricing()
+	if err != nil {
+		return nil
+	}
+
+	ceilings, err := costtrack.ParseCeilings(m.store.GetQuotaCeilings())
+	if err != nil {
+		ceilings = costtrack.DefaultQuotaCeilings()
+	}
+
+	ctPricing := make([]costtrack.ModelPricing, len(pricing))
+	for i, p := range pricing {
+		ctPricing[i] = costtrack.ModelPricing{
+			ModelID:     p.ModelID,
+			DisplayName: p.DisplayName,
+			Provider:    p.Provider,
+			InputPer1M:  p.InputPer1M,
+			OutputPer1M: p.OutputPer1M,
+			CachePer1M:  p.CachePer1M,
+		}
+	}
+
+	assigner := func(modelID string) string {
+		return client.GroupForModel(modelID, "")
+	}
+
+	result := make(map[int64]costtrack.AccountCostEstimate)
+	for _, snap := range snapshots {
+		if snap == nil || snap.AccountID == 0 {
+			continue
+		}
+
+		// Build rates from snapshot remaining fractions
+		groupRemaining := map[string]struct {
+			sum   float64
+			count int
+		}{}
+		for _, mod := range snap.Models {
+			gk := client.GroupForModel(mod.ModelID, mod.Label)
+			acc := groupRemaining[gk]
+			acc.sum += mod.RemainingFraction
+			acc.count++
+			groupRemaining[gk] = acc
+		}
+
+		var rates []costtrack.GroupRate
+		for _, key := range client.GroupOrder {
+			if acc, ok := groupRemaining[key]; ok && acc.count > 0 {
+				rates = append(rates, costtrack.GroupRate{
+					GroupKey:   key,
+					Remaining: acc.sum / float64(acc.count),
+					HasData:   true,
+				})
+			}
+		}
+
+		if len(rates) == 0 {
+			continue
+		}
+
+		est := costtrack.EstimateAccountCost(
+			snap.AccountID, snap.Email,
+			rates, ceilings, ctPricing, assigner,
+		)
+		result[snap.AccountID] = est
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// computeGroupCost estimates cost for a single group using its burn rate.
+func (m *MCPServer) computeGroupCost(groupKey string, burnRate, remaining float64) *costtrack.GroupCostEstimate {
+	pricing, err := m.store.GetModelPricing()
+	if err != nil {
+		return nil
+	}
+
+	ceilings, err := costtrack.ParseCeilings(m.store.GetQuotaCeilings())
+	if err != nil {
+		ceilings = costtrack.DefaultQuotaCeilings()
+	}
+
+	ceiling, ok := ceilings[groupKey]
+	if !ok {
+		return nil
+	}
+
+	ctPricing := make([]costtrack.ModelPricing, len(pricing))
+	for i, p := range pricing {
+		ctPricing[i] = costtrack.ModelPricing{
+			ModelID:     p.ModelID,
+			DisplayName: p.DisplayName,
+			Provider:    p.Provider,
+			InputPer1M:  p.InputPer1M,
+			OutputPer1M: p.OutputPer1M,
+			CachePer1M:  p.CachePer1M,
+		}
+	}
+
+	assigner := func(modelID string) string {
+		return client.GroupForModel(modelID, "")
+	}
+
+	est := costtrack.EstimateGroupCost(
+		costtrack.GroupRate{GroupKey: groupKey, BurnRate: burnRate, Remaining: remaining, HasData: true},
+		ceiling, ctPricing, assigner,
+	)
+	return &est
+}
+

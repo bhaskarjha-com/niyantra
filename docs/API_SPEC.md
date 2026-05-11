@@ -549,6 +549,64 @@ Returns time-to-exhaustion (TTX) forecasts computed from sliding-window rate ana
 
 ---
 
+### `GET /api/cost` (Phase 14: F8)
+
+Returns estimated dollar costs for all tracked accounts based on quota fraction consumption and configurable model pricing (from F5). Costs are computed by mapping Δ remainingFraction × quota ceiling × blended model price.
+
+**Response:** `200 OK`
+
+```json
+{
+  "accounts": [
+    {
+      "accountId": 1,
+      "email": "user@company.com",
+      "totalCost": 17.20,
+      "totalLabel": "$17.20",
+      "groups": [
+        {
+          "groupKey": "claude_gpt",
+          "displayName": "Claude + GPT",
+          "consumedFraction": 0.40,
+          "estimatedTokens": 2000000,
+          "estimatedCost": 17.20,
+          "costPerHour": 4.30,
+          "costLabel": "$17.20",
+          "hourlyLabel": "$4.30/hr",
+          "hasData": true
+        }
+      ]
+    }
+  ],
+  "totalCost": 17.20,
+  "totalLabel": "$17.20",
+  "quotaCeilings": {
+    "claude_gpt": { "groupKey": "claude_gpt", "displayName": "Claude + GPT", "tokensPerCycle": 5000000, "cycleDurationHours": 5 },
+    "gemini_pro": { "groupKey": "gemini_pro", "displayName": "Gemini Pro", "tokensPerCycle": 3000000, "cycleDurationHours": 5 },
+    "gemini_flash": { "groupKey": "gemini_flash", "displayName": "Gemini Flash", "tokensPerCycle": 10000000, "cycleDurationHours": 5 }
+  }
+}
+```
+
+**Field Reference — Group Cost:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `groupKey` | string | Quota group identifier |
+| `consumedFraction` | float | Fraction consumed this cycle (1.0 - remaining) |
+| `estimatedTokens` | float | Estimated tokens consumed (fraction × ceiling) |
+| `estimatedCost` | float | Dollar cost estimate |
+| `costPerHour` | float | Current hourly burn rate in dollars |
+| `costLabel` | string | Formatted cost: "$17.20" |
+| `hourlyLabel` | string | Formatted hourly rate: "$4.30/hr" |
+| `hasData` | bool | True if burn rate / remaining data is available |
+
+> **Algorithm:** `consumed_fraction × tokens_per_cycle × blended_price_per_token`, where blended price is 40% input + 60% output pricing (typical coding-assistant token split). Quota ceilings are configurable via Settings and default to 5M (Claude+GPT), 3M (Gemini Pro), 10M (Gemini Flash) tokens per 5-hour cycle.
+
+> **Note:** `/api/status` also includes an `estimatedCosts` field (keyed by accountId) with the same per-account cost data for inline rendering in the Quotas grid.
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:
@@ -649,7 +707,7 @@ Add to Claude Desktop `claude_desktop_config.json`:
 
 | Tool | Input | Description |
 |------|-------|-------------|
-| `quota_status` | none | All accounts with per-group readiness, remaining %, reset timers |
+| `quota_status` | none | All accounts with per-group readiness, remaining %, reset timers, **estimated cost** (F8) |
 | `model_availability` | `model` (string) | Check specific model by name/keyword (fuzzy match) |
 | `usage_intelligence` | none | Per-model rates, projections, exhaustion, cycle history |
 | `budget_forecast` | none | Monthly burn rate, projected spend, on-track status |
@@ -657,7 +715,7 @@ Add to Claude Desktop `claude_desktop_config.json`:
 | `analyze_spending` | none | Category breakdown, budget status, savings detection, insights |
 | `switch_recommendation` | none | Account switch advice (stay/switch/wait) with scores |
 | `codex_status` | none | Codex CLI detection, plan, token expiry, latest snapshot |
-| `quota_forecast` | none | TTX forecasts using sliding-window analysis (Phase 14) |
+| `quota_forecast` | none | TTX forecasts with **per-group estimated cost** and $/hr (Phase 14: F7+F8) |
 
 ### Protocol
 
