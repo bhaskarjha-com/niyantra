@@ -1,162 +1,36 @@
-// Niyantra Dashboard JS — Unified Quota + Subscription Manager
+// Niyantra Dashboard — Entry Point
+// All core functionality is imported from modules.
 
-const GROUP_ORDER = ['claude_gpt', 'gemini_pro', 'gemini_flash'];
-const GROUP_LABELS = ['Claude + GPT', 'Gemini Pro', 'Gemini Flash'];
-const GROUP_COLORS = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flash: '#3B82F6' };
-const GROUP_NAMES = { claude_gpt: 'Claude + GPT', gemini_pro: 'Gemini Pro', gemini_flash: 'Gemini Flash' };
+import {
+  GROUP_ORDER, GROUP_LABELS, GROUP_COLORS, GROUP_NAMES,
+  expandedAccounts, collapsedProviders,
+  presetsData, setPresetsData,
+  activeTagFilter, setActiveTagFilter,
+  usageDataCache, setUsageDataCache,
+  quotaSortState, latestQuotaData, setLatestQuotaData,
+  serverConfig, setServerConfig,
+  snapInProgress, setSnapInProgress,
+} from './core/state.js';
 
-// Track which accounts are expanded (survives re-renders)
-const expandedAccounts = new Set();
+import {
+  formatSeconds, formatCredits, formatNumber, currencySymbol,
+  esc, showToast, updateTimestamp, refreshTimestampDisplay,
+  formatTimeAgo, formatPollInterval, formatDurationSec,
+} from './core/utils.js';
 
-// Track which provider sections are collapsed (survives re-renders)
-const collapsedProviders = new Set();
+import {
+  fetchStatus, triggerSnap,
+  fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription,
+  fetchOverview, fetchPresets, fetchUsage,
+} from './core/api.js';
 
-// Platform presets (loaded from API)
-var presetsData = [];
-
-// F4: Active tag filter for Quotas tab (null = show all)
-var activeTagFilter = null;
-
-// ════════════════════════════════════════════
-//  THEME
-// ════════════════════════════════════════════
-
-function initTheme() {
-  var saved = localStorage.getItem('niyantra-theme');
-  if (saved) {
-    document.documentElement.setAttribute('data-theme', saved);
-  } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
-
-  document.getElementById('theme-btn').addEventListener('click', function() {
-    var current = document.documentElement.getAttribute('data-theme');
-    var next = current === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('niyantra-theme', next);
-    // M2: Update chart colors in-place to avoid flash
-    updateChartTheme(next);
-  });
-}
-
-// ════════════════════════════════════════════
-//  TABS
-// ════════════════════════════════════════════
-
-function initTabs() {
-  var btns = document.querySelectorAll('.tab-btn');
-  btns.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var tab = btn.getAttribute('data-tab');
-      btns.forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-
-      document.querySelectorAll('.tab-panel').forEach(function(p) {
-        p.classList.remove('active');
-      });
-      document.getElementById('panel-' + tab).classList.add('active');
-
-      // Load tab data on activation
-      // Note: subscriptions are pre-loaded on init, only refreshed on filter change
-      if (tab === 'overview') loadOverview();
-      if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
-    });
-  });
-}
-
-// ════════════════════════════════════════════
-//  API — Quotas (existing auto-tracked)
-// ════════════════════════════════════════════
-
-function fetchStatus() {
-  return fetch('/api/status').then(function(res) {
-    if (!res.ok) throw new Error('Failed to fetch status');
-    return res.json();
-  });
-}
-
-function triggerSnap() {
-  return fetch('/api/snap', { method: 'POST' }).then(function(res) {
-    return res.json().then(function(data) {
-      if (!res.ok) throw new Error(data.error || 'Snap failed');
-      return data;
-    });
-  });
-}
-
-// ════════════════════════════════════════════
-//  API — Subscriptions
-// ════════════════════════════════════════════
-
-function fetchSubscriptions(status, category) {
-  var params = new URLSearchParams();
-  if (status) params.set('status', status);
-  if (category) params.set('category', category);
-  var url = '/api/subscriptions' + (params.toString() ? '?' + params : '');
-  return fetch(url).then(function(res) { return res.json(); });
-}
-
-function createSubscription(sub) {
-  return fetch('/api/subscriptions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sub),
-  }).then(function(res) {
-    return res.json().then(function(data) {
-      if (!res.ok) throw new Error(data.error || 'Create failed');
-      return data;
-    });
-  });
-}
-
-function updateSubscription(id, sub) {
-  return fetch('/api/subscriptions/' + id, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sub),
-  }).then(function(res) {
-    return res.json().then(function(data) {
-      if (!res.ok) throw new Error(data.error || 'Update failed');
-      return data;
-    });
-  });
-}
-
-function deleteSubscription(id) {
-  return fetch('/api/subscriptions/' + id, { method: 'DELETE' }).then(function(res) {
-    return res.json().then(function(data) {
-      if (!res.ok) throw new Error(data.error || 'Delete failed');
-      return data;
-    });
-  });
-}
-
-function fetchOverview() {
-  return fetch('/api/overview').then(function(res) { return res.json(); });
-}
-
-function fetchPresets() {
-  return fetch('/api/presets').then(function(res) { return res.json(); });
-}
-
-// Usage intelligence cache (populated by fetchUsage)
-var usageDataCache = null;
-
-function fetchUsage(accountId) {
-  var url = '/api/usage';
-  if (accountId) url += '?account=' + accountId;
-  return fetch(url).then(function(res) { return res.json(); }).then(function(data) {
-    usageDataCache = data;
-    return data;
-  });
-}
+import { initTheme, initTabs, switchToTab } from './core/theme.js';
 
 // ════════════════════════════════════════════
 //  RENDER — Quotas Tab
 // ════════════════════════════════════════════
 
-var quotaSortState = { column: 'account', direction: 'asc' };
-var latestQuotaData = null;
+
 
 function getGroupPct(acc, groupKey) {
   if (!acc.groups) return -1;
@@ -286,7 +160,7 @@ function renderTagFilterStrip(data) {
   if (tagNames.length === 0) {
     // Bug fix: if active filter was set to a now-deleted tag, reset to show all
     if (activeTagFilter) {
-      activeTagFilter = null;
+      setActiveTagFilter(null);
     }
     strip.innerHTML = '';
     return;
@@ -294,7 +168,7 @@ function renderTagFilterStrip(data) {
 
   // Bug fix: if the active tag no longer exists in the data, reset to show all
   if (activeTagFilter && tagNames.indexOf(activeTagFilter) < 0) {
-    activeTagFilter = null;
+    setActiveTagFilter(null);
   }
 
   var html = '<span class="tag-filter-label">🏷️ Filter:</span>';
@@ -321,7 +195,7 @@ function handleTagFilterClick(e) {
   if (!chip) return;
 
   var tag = chip.getAttribute('data-tag-filter');
-  activeTagFilter = tag || null;
+  setActiveTagFilter(tag || null);
 
   // Re-render with filter applied
   if (latestQuotaData) {
@@ -331,7 +205,7 @@ function handleTagFilterClick(e) {
 }
 
 function renderAccounts(data) {
-  latestQuotaData = data;
+  setLatestQuotaData(data);
   var grid = document.getElementById('account-grid');
   var countBadge = document.getElementById('account-count');
   var snapCount = document.getElementById('snap-count');
@@ -1439,7 +1313,7 @@ function closeDelete() {
 //  SNAP HANDLER
 // ════════════════════════════════════════════
 
-var snapInProgress = false;
+
 
 // H3: Split-button snap — source-aware snapping
 var snapDefault = localStorage.getItem('niyantra_snap_default') || 'antigravity';
@@ -1500,7 +1374,7 @@ function snapSource(source) {
   var btn = document.getElementById('snap-btn');
   if (!btn || btn.disabled || snapInProgress) return;
 
-  snapInProgress = true;
+  setSnapInProgress(true);
   btn.disabled = true;
   btn.classList.add('snapping');
   var orig = btn.innerHTML;
@@ -1532,7 +1406,7 @@ function snapSource(source) {
   if (promises.length === 0) {
     btn.innerHTML = orig;
     btn.disabled = false;
-    snapInProgress = false;
+    setSnapInProgress(false);
     showToast('No snap source selected', 'warning');
     return;
   }
@@ -1558,79 +1432,11 @@ function snapSource(source) {
     btn.innerHTML = orig;
     btn.disabled = false;
     btn.classList.remove('snapping');
-    snapInProgress = false;
+    setSnapInProgress(false);
   });
 }
 
-// ════════════════════════════════════════════
-//  HELPERS
-// ════════════════════════════════════════════
 
-function formatSeconds(seconds) {
-  seconds = Math.floor(seconds);
-  if (seconds <= 0) return 'now';
-  var h = Math.floor(seconds / 3600);
-  var m = Math.floor((seconds % 3600) / 60);
-  if (h >= 24) return Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
-  if (h > 0) return h + 'h ' + m + 'm';
-  if (m === 0) return '<1m';
-  return m + 'm';
-}
-
-function formatCredits(n) {
-  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k';
-  return Math.round(n).toString();
-}
-
-function formatNumber(n) {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(n % 1000 === 0 ? 0 : 1) + 'k';
-  return n.toString();
-}
-
-function currencySymbol(code) {
-  var map = { USD: '$', EUR: '€', GBP: '£', INR: '₹', CAD: 'C$', AUD: 'A$' };
-  return map[code] || code + ' ';
-}
-
-function esc(s) {
-  if (!s) return '';
-  var d = document.createElement('div');
-  d.textContent = s;
-  // Also escape quotes for safe use in HTML attributes (M11)
-  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function showToast(msg, type) {
-  var el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'toast ' + type + ' visible';
-  el.hidden = false;
-  setTimeout(function() {
-    el.classList.remove('visible');
-    setTimeout(function() { el.hidden = true; }, 300);
-  }, 3000);
-}
-
-// H2: Track last update time for relative display
-var lastUpdateTime = null;
-function updateTimestamp() {
-  lastUpdateTime = new Date();
-  refreshTimestampDisplay();
-}
-function refreshTimestampDisplay() {
-  var el = document.getElementById('last-updated');
-  if (!el || !lastUpdateTime) return;
-  var sec = Math.floor((new Date() - lastUpdateTime) / 1000);
-  var label;
-  if (sec < 10) label = 'just now';
-  else if (sec < 60) label = sec + 's ago';
-  else if (sec < 3600) label = Math.floor(sec / 60) + 'm ago';
-  else label = Math.floor(sec / 3600) + 'h ago';
-  el.textContent = 'Updated ' + label;
-  el.title = lastUpdateTime.toLocaleTimeString(); // absolute on hover
-}
 
 // ════════════════════════════════════════════
 //  CHART — Quota History
@@ -1850,8 +1656,7 @@ function populateChartAccountSelect(data) {
 //  BUDGET THRESHOLD
 // ════════════════════════════════════════════
 
-// Server config cache (loaded from /api/config)
-var serverConfig = {};
+
 
 function getBudget() {
   return parseFloat(serverConfig['budget_monthly'] || '0');
@@ -2955,22 +2760,7 @@ function loadDataSources() {
   }).catch(function() {});
 }
 
-function formatTimeAgo(isoStr) {
-  if (!isoStr) return 'never';
-  var d = new Date(isoStr);
-  var now = new Date();
-  var sec = Math.floor((now - d) / 1000);
-  if (sec < 60) return 'just now';
-  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
-  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
-  return Math.floor(sec / 86400) + 'd ago';
-}
 
-// F2: Format poll interval seconds into a human-readable label
-function formatPollInterval(seconds) {
-  if (seconds >= 3600) return Math.floor(seconds / 3600) + 'h';
-  return Math.floor(seconds / 60) + 'm';
-}
 
 // ════════════════════════════════════════════
 //  ACTIVITY LOG
@@ -3319,22 +3109,7 @@ function initKeyboardShortcuts() {
   });
 }
 
-function switchToTab(tabName) {
-  var btns = document.querySelectorAll('.tab-btn');
-  btns.forEach(function(b) { b.classList.remove('active'); });
-  var target = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
-  if (target) target.classList.add('active');
 
-  document.querySelectorAll('.tab-panel').forEach(function(p) {
-    p.classList.remove('active');
-  });
-  var panel = document.getElementById('panel-' + tabName);
-  if (panel) panel.classList.add('active');
-
-  // Note: subscriptions are pre-loaded on init, only refreshed on filter change
-  if (tabName === 'overview') loadOverview();
-  if (tabName === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
-}
 
 // ════════════════════════════════════════════
 //  INIT
@@ -3397,6 +3172,18 @@ document.addEventListener('DOMContentLoaded', function() {
   initKeyboardShortcuts();
   initAccountMetaHandlers();
 
+  // Tab-change event: domain modules react to tab activation
+  document.addEventListener('niyantra:tab-change', function(e) {
+    var tab = e.detail.tab;
+    if (tab === 'overview') loadOverview();
+    if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
+  });
+
+  // Theme-change event: update chart colors
+  document.addEventListener('niyantra:theme-change', function(e) {
+    updateChartTheme(e.detail.theme);
+  });
+
   document.getElementById('snap-btn').addEventListener('click', handleSnap);
   initSnapDropdown();
 
@@ -3432,7 +3219,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Load presets for the datalist
   fetchPresets().then(function(data) {
-    presetsData = data.presets || [];
+    setPresetsData(data.presets || []);
     var list = document.getElementById('preset-list');
     for (var i = 0; i < presetsData.length; i++) {
       var opt = document.createElement('option');
@@ -3692,18 +3479,7 @@ function meterColor(pct) {
   return 'var(--green)';
 }
 
-function formatResetTime(isoStr) {
-  if (!isoStr) return '';
-  var d = new Date(isoStr);
-  var now = new Date();
-  var diffMs = d - now;
-  if (diffMs <= 0) return 'now';
-  var hours = Math.floor(diffMs / 3600000);
-  var mins = Math.floor((diffMs % 3600000) / 60000);
-  if (hours >= 24) return Math.floor(hours / 24) + 'd';
-  if (hours > 0) return hours + 'h';
-  return mins + 'm';
-}
+
 
 // ════════════════════════════════════════════
 //  Phase 10: SYSTEM ALERTS
@@ -4243,19 +4019,7 @@ function renderSessionsTimeline(container) {
   .catch(function() {});
 }
 
-function formatDurationSec(sec) {
-  if (!sec || sec <= 0) return '0m';
-  var h = Math.floor(sec / 3600);
-  var m = Math.floor((sec % 3600) / 60);
-  if (h > 0) return h + 'h ' + m + 'm';
-  return m + 'm';
-}
-
 // ── IIFE Safety: Expose functions used by inline onclick="..." HTML attributes ──
-// These 6 functions are referenced in 7 inline onclick handlers throughout the
-// JS-generated HTML. Under esbuild IIFE wrapping, they'd become unreachable.
-// Assigning to window.* keeps them callable from HTML onclick attributes.
-// TODO: Convert to addEventListener during module extraction (Steps 3-7).
 window.openBudgetModal = openBudgetModal;
 window.dismissAlert = dismissAlert;
 window.switchToTab = switchToTab;

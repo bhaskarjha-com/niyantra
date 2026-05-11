@@ -1,5 +1,5 @@
 (() => {
-  // internal/web/src/main.js
+  // internal/web/src/core/state.js
   var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];
   var GROUP_LABELS = ["Claude + GPT", "Gemini Pro", "Gemini Flash"];
   var GROUP_COLORS = { claude_gpt: "#D97757", gemini_pro: "#10B981", gemini_flash: "#3B82F6" };
@@ -7,44 +7,111 @@
   var expandedAccounts = /* @__PURE__ */ new Set();
   var collapsedProviders = /* @__PURE__ */ new Set();
   var presetsData = [];
+  function setPresetsData(data) {
+    presetsData = data;
+  }
   var activeTagFilter = null;
-  function initTheme() {
-    var saved = localStorage.getItem("niyantra-theme");
-    if (saved) {
-      document.documentElement.setAttribute("data-theme", saved);
-    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
-      document.documentElement.setAttribute("data-theme", "light");
-    }
-    document.getElementById("theme-btn").addEventListener("click", function() {
-      var current = document.documentElement.getAttribute("data-theme");
-      var next = current === "light" ? "dark" : "light";
-      document.documentElement.setAttribute("data-theme", next);
-      localStorage.setItem("niyantra-theme", next);
-      updateChartTheme(next);
-    });
+  function setActiveTagFilter(val) {
+    activeTagFilter = val;
   }
-  function initTabs() {
-    var btns = document.querySelectorAll(".tab-btn");
-    btns.forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var tab = btn.getAttribute("data-tab");
-        btns.forEach(function(b) {
-          b.classList.remove("active");
-        });
-        btn.classList.add("active");
-        document.querySelectorAll(".tab-panel").forEach(function(p) {
-          p.classList.remove("active");
-        });
-        document.getElementById("panel-" + tab).classList.add("active");
-        if (tab === "overview") loadOverview();
-        if (tab === "settings") {
-          loadActivityLog();
-          loadMode();
-          loadDataSources();
-        }
-      });
-    });
+  var usageDataCache = null;
+  function setUsageDataCache(data) {
+    usageDataCache = data;
   }
+  var quotaSortState = { column: "account", direction: "asc" };
+  var latestQuotaData = null;
+  function setLatestQuotaData(data) {
+    latestQuotaData = data;
+  }
+  var serverConfig = {};
+  var snapInProgress = false;
+  function setSnapInProgress(val) {
+    snapInProgress = val;
+  }
+
+  // internal/web/src/core/utils.js
+  function formatSeconds(seconds) {
+    seconds = Math.floor(seconds);
+    if (seconds <= 0) return "now";
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    if (h >= 24) return Math.floor(h / 24) + "d " + h % 24 + "h";
+    if (h > 0) return h + "h " + m + "m";
+    if (m === 0) return "<1m";
+    return m + "m";
+  }
+  function formatCredits(n) {
+    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
+    return Math.round(n).toString();
+  }
+  function formatNumber(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
+    return n.toString();
+  }
+  function currencySymbol(code) {
+    var map = { USD: "$", EUR: "\u20AC", GBP: "\xA3", INR: "\u20B9", CAD: "C$", AUD: "A$" };
+    return map[code] || code + " ";
+  }
+  function esc(s) {
+    if (!s) return "";
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function showToast(msg, type) {
+    var el = document.getElementById("toast");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "toast " + type + " visible";
+    el.hidden = false;
+    setTimeout(function() {
+      el.classList.remove("visible");
+      setTimeout(function() {
+        el.hidden = true;
+      }, 300);
+    }, 3e3);
+  }
+  var lastUpdateTime = null;
+  function updateTimestamp() {
+    lastUpdateTime = /* @__PURE__ */ new Date();
+    refreshTimestampDisplay();
+  }
+  function refreshTimestampDisplay() {
+    var el = document.getElementById("last-updated");
+    if (!el || !lastUpdateTime) return;
+    var sec = Math.floor((/* @__PURE__ */ new Date() - lastUpdateTime) / 1e3);
+    var label;
+    if (sec < 10) label = "just now";
+    else if (sec < 60) label = sec + "s ago";
+    else if (sec < 3600) label = Math.floor(sec / 60) + "m ago";
+    else label = Math.floor(sec / 3600) + "h ago";
+    el.textContent = "Updated " + label;
+    el.title = lastUpdateTime.toLocaleTimeString();
+  }
+  function formatTimeAgo(isoStr) {
+    if (!isoStr) return "never";
+    var d = new Date(isoStr);
+    var now = /* @__PURE__ */ new Date();
+    var sec = Math.floor((now - d) / 1e3);
+    if (sec < 60) return "just now";
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+    return Math.floor(sec / 86400) + "d ago";
+  }
+  function formatPollInterval(seconds) {
+    if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
+    return Math.floor(seconds / 60) + "m";
+  }
+  function formatDurationSec(sec) {
+    if (!sec || sec <= 0) return "0m";
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor(sec % 3600 / 60);
+    if (h > 0) return h + "h " + m + "m";
+    return m + "m";
+  }
+
+  // internal/web/src/core/api.js
   function fetchStatus() {
     return fetch("/api/status").then(function(res) {
       if (!res.ok) throw new Error("Failed to fetch status");
@@ -110,19 +177,58 @@
       return res.json();
     });
   }
-  var usageDataCache = null;
   function fetchUsage(accountId) {
     var url = "/api/usage";
     if (accountId) url += "?account=" + accountId;
     return fetch(url).then(function(res) {
       return res.json();
     }).then(function(data) {
-      usageDataCache = data;
+      setUsageDataCache(data);
       return data;
     });
   }
-  var quotaSortState = { column: "account", direction: "asc" };
-  var latestQuotaData = null;
+
+  // internal/web/src/core/theme.js
+  function initTheme() {
+    var saved = localStorage.getItem("niyantra-theme");
+    if (saved) {
+      document.documentElement.setAttribute("data-theme", saved);
+    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+    document.getElementById("theme-btn").addEventListener("click", function() {
+      var current = document.documentElement.getAttribute("data-theme");
+      var next = current === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("niyantra-theme", next);
+      document.dispatchEvent(new CustomEvent("niyantra:theme-change", { detail: { theme: next } }));
+    });
+  }
+  function initTabs() {
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var tab = btn.getAttribute("data-tab");
+        switchToTab(tab);
+      });
+    });
+  }
+  function switchToTab(tabName) {
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(b) {
+      b.classList.remove("active");
+    });
+    var target = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
+    if (target) target.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach(function(p) {
+      p.classList.remove("active");
+    });
+    var panel = document.getElementById("panel-" + tabName);
+    if (panel) panel.classList.add("active");
+    document.dispatchEvent(new CustomEvent("niyantra:tab-change", { detail: { tab: tabName } }));
+  }
+
+  // internal/web/src/main.js
   function getGroupPct(acc, groupKey) {
     if (!acc.groups) return -1;
     for (var i = 0; i < acc.groups.length; i++) {
@@ -231,13 +337,13 @@
     var tagNames = Object.keys(tagCounts).sort();
     if (tagNames.length === 0) {
       if (activeTagFilter) {
-        activeTagFilter = null;
+        setActiveTagFilter(null);
       }
       strip.innerHTML = "";
       return;
     }
     if (activeTagFilter && tagNames.indexOf(activeTagFilter) < 0) {
-      activeTagFilter = null;
+      setActiveTagFilter(null);
     }
     var html = '<span class="tag-filter-label">\u{1F3F7}\uFE0F Filter:</span>';
     var allActive = !activeTagFilter ? " active" : "";
@@ -254,14 +360,14 @@
     var chip = e.target.closest(".tag-filter-chip");
     if (!chip) return;
     var tag = chip.getAttribute("data-tag-filter");
-    activeTagFilter = tag || null;
+    setActiveTagFilter(tag || null);
     if (latestQuotaData) {
       renderTagFilterStrip(latestQuotaData);
       renderAccounts(latestQuotaData);
     }
   }
   function renderAccounts(data) {
-    latestQuotaData = data;
+    setLatestQuotaData(data);
     var grid = document.getElementById("account-grid");
     var countBadge = document.getElementById("account-count");
     var snapCount = document.getElementById("snap-count");
@@ -1057,7 +1163,6 @@
     document.getElementById("delete-overlay").hidden = true;
     pendingDeleteId = null;
   }
-  var snapInProgress = false;
   var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
   function initSnapDropdown() {
     var caret = document.getElementById("snap-caret");
@@ -1103,7 +1208,7 @@
   function snapSource(source) {
     var btn = document.getElementById("snap-btn");
     if (!btn || btn.disabled || snapInProgress) return;
-    snapInProgress = true;
+    setSnapInProgress(true);
     btn.disabled = true;
     btn.classList.add("snapping");
     var orig = btn.innerHTML;
@@ -1133,7 +1238,7 @@
     if (promises.length === 0) {
       btn.innerHTML = orig;
       btn.disabled = false;
-      snapInProgress = false;
+      setSnapInProgress(false);
       showToast("No snap source selected", "warning");
       return;
     }
@@ -1160,67 +1265,8 @@
       btn.innerHTML = orig;
       btn.disabled = false;
       btn.classList.remove("snapping");
-      snapInProgress = false;
+      setSnapInProgress(false);
     });
-  }
-  function formatSeconds(seconds) {
-    seconds = Math.floor(seconds);
-    if (seconds <= 0) return "now";
-    var h = Math.floor(seconds / 3600);
-    var m = Math.floor(seconds % 3600 / 60);
-    if (h >= 24) return Math.floor(h / 24) + "d " + h % 24 + "h";
-    if (h > 0) return h + "h " + m + "m";
-    if (m === 0) return "<1m";
-    return m + "m";
-  }
-  function formatCredits(n) {
-    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
-    return Math.round(n).toString();
-  }
-  function formatNumber(n) {
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
-    return n.toString();
-  }
-  function currencySymbol(code) {
-    var map = { USD: "$", EUR: "\u20AC", GBP: "\xA3", INR: "\u20B9", CAD: "C$", AUD: "A$" };
-    return map[code] || code + " ";
-  }
-  function esc(s) {
-    if (!s) return "";
-    var d = document.createElement("div");
-    d.textContent = s;
-    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-  function showToast(msg, type) {
-    var el = document.getElementById("toast");
-    if (!el) return;
-    el.textContent = msg;
-    el.className = "toast " + type + " visible";
-    el.hidden = false;
-    setTimeout(function() {
-      el.classList.remove("visible");
-      setTimeout(function() {
-        el.hidden = true;
-      }, 300);
-    }, 3e3);
-  }
-  var lastUpdateTime = null;
-  function updateTimestamp() {
-    lastUpdateTime = /* @__PURE__ */ new Date();
-    refreshTimestampDisplay();
-  }
-  function refreshTimestampDisplay() {
-    var el = document.getElementById("last-updated");
-    if (!el || !lastUpdateTime) return;
-    var sec = Math.floor((/* @__PURE__ */ new Date() - lastUpdateTime) / 1e3);
-    var label;
-    if (sec < 10) label = "just now";
-    else if (sec < 60) label = sec + "s ago";
-    else if (sec < 3600) label = Math.floor(sec / 60) + "m ago";
-    else label = Math.floor(sec / 3600) + "h ago";
-    el.textContent = "Updated " + label;
-    el.title = lastUpdateTime.toLocaleTimeString();
   }
   var historyChart = null;
   function updateChartTheme(theme) {
@@ -1408,7 +1454,6 @@
       sel.appendChild(opt);
     }
   }
-  var serverConfig = {};
   function getBudget() {
     return parseFloat(serverConfig["budget_monthly"] || "0");
   }
@@ -2169,20 +2214,6 @@
     }).catch(function() {
     });
   }
-  function formatTimeAgo(isoStr) {
-    if (!isoStr) return "never";
-    var d = new Date(isoStr);
-    var now = /* @__PURE__ */ new Date();
-    var sec = Math.floor((now - d) / 1e3);
-    if (sec < 60) return "just now";
-    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
-    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
-    return Math.floor(sec / 86400) + "d ago";
-  }
-  function formatPollInterval(seconds) {
-    if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
-    return Math.floor(seconds / 60) + "m";
-  }
   function loadActivityLog() {
     var filter = document.getElementById("activity-filter").value;
     var url = "/api/activity?limit=50";
@@ -2466,25 +2497,6 @@
       }
     });
   }
-  function switchToTab(tabName) {
-    var btns = document.querySelectorAll(".tab-btn");
-    btns.forEach(function(b) {
-      b.classList.remove("active");
-    });
-    var target = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
-    if (target) target.classList.add("active");
-    document.querySelectorAll(".tab-panel").forEach(function(p) {
-      p.classList.remove("active");
-    });
-    var panel = document.getElementById("panel-" + tabName);
-    if (panel) panel.classList.add("active");
-    if (tabName === "overview") loadOverview();
-    if (tabName === "settings") {
-      loadActivityLog();
-      loadMode();
-      loadDataSources();
-    }
-  }
   function initQuotas() {
     var qSearch = document.getElementById("quota-search");
     var qStatus = document.getElementById("quota-filter-status");
@@ -2535,6 +2547,18 @@
     initSearch();
     initKeyboardShortcuts();
     initAccountMetaHandlers();
+    document.addEventListener("niyantra:tab-change", function(e) {
+      var tab = e.detail.tab;
+      if (tab === "overview") loadOverview();
+      if (tab === "settings") {
+        loadActivityLog();
+        loadMode();
+        loadDataSources();
+      }
+    });
+    document.addEventListener("niyantra:theme-change", function(e) {
+      updateChartTheme(e.detail.theme);
+    });
     document.getElementById("snap-btn").addEventListener("click", handleSnap);
     initSnapDropdown();
     document.getElementById("chart-account").addEventListener("change", loadHistoryChart);
@@ -2560,7 +2584,7 @@
     });
     loadSubscriptions();
     fetchPresets().then(function(data) {
-      presetsData = data.presets || [];
+      setPresetsData(data.presets || []);
       var list = document.getElementById("preset-list");
       for (var i = 0; i < presetsData.length; i++) {
         var opt = document.createElement("option");
@@ -2782,18 +2806,6 @@
     if (pct >= 80) return "var(--red)";
     if (pct >= 50) return "var(--amber)";
     return "var(--green)";
-  }
-  function formatResetTime(isoStr) {
-    if (!isoStr) return "";
-    var d = new Date(isoStr);
-    var now = /* @__PURE__ */ new Date();
-    var diffMs = d - now;
-    if (diffMs <= 0) return "now";
-    var hours = Math.floor(diffMs / 36e5);
-    var mins = Math.floor(diffMs % 36e5 / 6e4);
-    if (hours >= 24) return Math.floor(hours / 24) + "d";
-    if (hours > 0) return hours + "h";
-    return mins + "m";
   }
   function loadSystemAlerts() {
     fetch("/api/alerts").then(function(r) {
@@ -3140,13 +3152,6 @@
       }
     }).catch(function() {
     });
-  }
-  function formatDurationSec(sec) {
-    if (!sec || sec <= 0) return "0m";
-    var h = Math.floor(sec / 3600);
-    var m = Math.floor(sec % 3600 / 60);
-    if (h > 0) return h + "h " + m + "m";
-    return m + "m";
   }
   window.openBudgetModal = openBudgetModal;
   window.dismissAlert = dismissAlert;
