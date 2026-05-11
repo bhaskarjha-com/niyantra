@@ -105,7 +105,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(1)
+		if err := s.setUserVersion(1); err != nil {
+			return err
+		}
 	}
 
 	if version < 2 {
@@ -148,7 +150,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(2)
+		if err := s.setUserVersion(2); err != nil {
+			return err
+		}
 	}
 
 	if version < 3 {
@@ -227,7 +231,9 @@ func (s *Store) migrate() error {
 			}
 		}
 
-		s.setUserVersion(3)
+		if err := s.setUserVersion(3); err != nil {
+			return err
+		}
 	}
 
 	// ── v4: Reset cycle tracking ──────────────────────────────────
@@ -254,7 +260,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(4)
+		if err := s.setUserVersion(4); err != nil {
+			return err
+		}
 	}
 
 	// ── v5: Claude Code snapshots + notifications config ──────────
@@ -285,7 +293,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(5)
+		if err := s.setUserVersion(5); err != nil {
+			return err
+		}
 	}
 
 	// ── v6: System alerts ────────────────────────────────────────────
@@ -309,7 +319,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(6)
+		if err := s.setUserVersion(6); err != nil {
+			return err
+		}
 	}
 
 	// ── v7: Codex snapshots + usage sessions + usage logs ──────────
@@ -372,7 +384,9 @@ func (s *Store) migrate() error {
 			return err
 		}
 
-		s.setUserVersion(7)
+		if err := s.setUserVersion(7); err != nil {
+			return err
+		}
 	}
 
 	// ── v8: AI Credits tracking ──────────────────────────────────────
@@ -382,7 +396,9 @@ func (s *Store) migrate() error {
 				return fmt.Errorf("store: alter snapshots (ai_credits_json): %w", err)
 			}
 		}
-		s.setUserVersion(8)
+		if err := s.setUserVersion(8); err != nil {
+			return err
+		}
 	}
 	// ── v9: Codex email tracking ────────────────────────────────────
 	if s.getUserVersion() < 9 {
@@ -391,7 +407,9 @@ func (s *Store) migrate() error {
 				return fmt.Errorf("store: alter codex_snapshots (email): %w", err)
 			}
 		}
-		s.setUserVersion(9)
+		if err := s.setUserVersion(9); err != nil {
+			return err
+		}
 	}
 
 	// ── v10: Account notes, tags, pinned group (Phase 13: F1, F3) ────
@@ -411,7 +429,9 @@ func (s *Store) migrate() error {
 				return fmt.Errorf("store: alter accounts (pinned_group): %w", err)
 			}
 		}
-		s.setUserVersion(10)
+		if err := s.setUserVersion(10); err != nil {
+			return err
+		}
 	}
 
 	// ── v11: AI credit renewal day (per-account monthly renewal) ──
@@ -421,7 +441,9 @@ func (s *Store) migrate() error {
 				return fmt.Errorf("store: alter accounts (credit_renewal_day): %w", err)
 			}
 		}
-		s.setUserVersion(11)
+		if err := s.setUserVersion(11); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -438,8 +460,12 @@ func (s *Store) SchemaVersion() int {
 	return s.getUserVersion()
 }
 
-func (s *Store) setUserVersion(v int) {
-	s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", v))
+func (s *Store) setUserVersion(v int) error {
+	_, err := s.db.Exec(fmt.Sprintf("PRAGMA user_version = %d", v))
+	if err != nil {
+		return fmt.Errorf("store: setting schema version %d: %w", v, err)
+	}
+	return nil
 }
 
 // VacuumInto creates a consistent backup of the database at destPath.
