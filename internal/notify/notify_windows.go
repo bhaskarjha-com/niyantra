@@ -8,38 +8,40 @@ import (
 	"strings"
 )
 
-// sendWindowsToast sends a toast notification using PowerShell and native WinRT APIs.
-// No external modules needed — uses Windows.UI.Notifications directly.
-// Requires Windows 10+ and PowerShell 5.1 (both standard on modern Windows).
+// sendWindowsToast sends a desktop notification using .NET BalloonTip.
+// Uses System.Windows.Forms.NotifyIcon which is universally supported on
+// Windows 7+ without requiring WinRT app registration or notification
+// settings changes. Requires ~3s for the balloon to render before cleanup.
 func sendWindowsToast(title, body string) error {
-	// Escape for XML and PowerShell
-	title = escapeXML(title)
-	body = escapeXML(body)
+	// Escape single quotes for PowerShell string literals
+	title = escapePSString(title)
+	body = escapePSString(body)
 
-	script := fmt.Sprintf(`
-[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime] | Out-Null
-$xml = @"
-<toast><visual><binding template="ToastGeneric">
-<text>%s</text><text>%s</text>
-</binding></visual></toast>
-"@
-$doc = New-Object Windows.Data.Xml.Dom.XmlDocument
-$doc.LoadXml($xml)
-$appId = '{1AC14E77-02E7-4E5D-B744-2EB3AE51BB4B}\WindowsPowerShell\v1.0\powershell.exe'
-$n = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId)
-$n.Show([Windows.UI.Notifications.ToastNotification]::new($doc))
-`, title, body)
+	script := fmt.Sprintf(
+		"Add-Type -AssemblyName System.Windows.Forms;"+
+			"$n = New-Object System.Windows.Forms.NotifyIcon;"+
+			"$n.Icon = [System.Drawing.SystemIcons]::Information;"+
+			"$n.BalloonTipTitle = '%s';"+
+			"$n.BalloonTipText = '%s';"+
+			"$n.BalloonTipIcon = 'Info';"+
+			"$n.Visible = $true;"+
+			"$n.ShowBalloonTip(5000);"+
+			"Start-Sleep -Seconds 3;"+
+			"$n.Dispose()",
+		title, body,
+	)
 
-	return exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script).Run()
+	out, err := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("powershell: %w: %s", err, string(out))
+	}
+	return nil
 }
 
-// escapeXML escapes special XML characters.
-func escapeXML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
+// escapePSString escapes characters for PowerShell single-quoted strings.
+func escapePSString(s string) string {
+	// In PowerShell single-quoted strings, only single quotes need escaping (doubled)
+	s = strings.ReplaceAll(s, "'", "''")
 	return s
 }
+
