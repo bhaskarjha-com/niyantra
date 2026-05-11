@@ -34,6 +34,7 @@ type AccountScore struct {
 	BurnRate       float64 `json:"burnRate"`
 	MinutesToReset int     `json:"minutesToReset"`
 	IsExhausted    bool    `json:"isExhausted"`
+	TTXLabel       string  `json:"ttxLabel,omitempty"` // F7: human-readable "~2.5h", "~45m", "idle"
 }
 
 // Scoring weights (60% remaining, 20% burn rate, 20% reset time)
@@ -138,12 +139,20 @@ func Recommend(snapshots []*client.Snapshot, summariesByAccount map[int64][]*tra
 		}
 		if best.Score-worstAlt.Score >= switchThreshold {
 			rec.Action = "switch"
-			rec.Reason = fmt.Sprintf("Switch to %s (%.0f%% remaining, score %.0f). %s scores %.0f.",
-				best.Email, best.RemainingPct, best.Score, worstAlt.Email, worstAlt.Score)
+			ttxContext := ""
+			if best.TTXLabel != "" {
+				ttxContext = fmt.Sprintf(" TTX: %s.", best.TTXLabel)
+			}
+			rec.Reason = fmt.Sprintf("Switch to %s (%.0f%% remaining, score %.0f).%s %s scores %.0f.",
+				best.Email, best.RemainingPct, best.Score, ttxContext, worstAlt.Email, worstAlt.Score)
 		} else {
 			rec.Action = "stay"
-			rec.Reason = fmt.Sprintf("Best account is %s with %.0f%% remaining (score %.0f). No significant advantage in switching.",
-				best.Email, best.RemainingPct, best.Score)
+			ttxContext := ""
+			if best.TTXLabel != "" {
+				ttxContext = fmt.Sprintf(" TTX: %s.", best.TTXLabel)
+			}
+			rec.Reason = fmt.Sprintf("Best account is %s with %.0f%% remaining (score %.0f).%s No significant advantage in switching.",
+				best.Email, best.RemainingPct, best.Score, ttxContext)
 		}
 	} else {
 		rec.Action = "stay"
@@ -187,6 +196,7 @@ func scoreAccount(acct readiness.AccountReadiness, summariesByAccount map[int64]
 
 	// 2. Burn rate — from tracker intelligence (if available)
 	burnRateBonus := 50.0 // default: no data = neutral
+	minTTXHours := -1.0   // F7: track minimum TTX across all models
 	if summariesByAccount != nil {
 		if summaries, ok := summariesByAccount[acct.AccountID]; ok {
 			avgRate := 0.0
@@ -195,6 +205,13 @@ func scoreAccount(acct readiness.AccountReadiness, summariesByAccount map[int64]
 				if s.HasIntelligence {
 					avgRate += s.CurrentRate
 					rateCount++
+					// F7: Track projected exhaustion to find minimum TTX
+					if s.CurrentRate > 0 && s.RemainingFraction > 0 {
+						ttx := s.RemainingFraction / s.CurrentRate
+						if minTTXHours < 0 || ttx < minTTXHours {
+							minTTXHours = ttx
+						}
+					}
 				}
 			}
 			if rateCount > 0 {
@@ -204,6 +221,29 @@ func scoreAccount(acct readiness.AccountReadiness, summariesByAccount map[int64]
 				burnRateBonus = math.Max(0, 100-avgRate*100)
 			}
 		}
+	}
+
+	// F7: Set TTX label from minimum TTX across this account's models
+	if minTTXHours >= 0 {
+		if minTTXHours <= 0 {
+			as.TTXLabel = "exhausted"
+		} else if minTTXHours < 1.0/60.0 {
+			as.TTXLabel = "<1m"
+		} else if minTTXHours < 1.0 {
+			mins := int(minTTXHours * 60)
+			as.TTXLabel = fmt.Sprintf("~%dm", mins)
+		} else if minTTXHours >= 24 {
+			days := minTTXHours / 24
+			if days >= 2 {
+				as.TTXLabel = fmt.Sprintf("~%.0fd", days)
+			} else {
+				as.TTXLabel = fmt.Sprintf("~%.0fh", minTTXHours)
+			}
+		} else {
+			as.TTXLabel = fmt.Sprintf("~%.1fh", minTTXHours)
+		}
+	} else if as.BurnRate == 0 && as.RemainingPct > 0 {
+		as.TTXLabel = "idle"
 	}
 
 	// 3. Reset time bonus — only relevant when remaining is low
