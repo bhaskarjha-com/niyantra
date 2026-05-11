@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,8 +26,6 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
-//go:embed static/*
-var staticFiles embed.FS
 
 // Server is the Niyantra HTTP server.
 type Server struct {
@@ -199,10 +196,10 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID)
 	mux.HandleFunc("/api/snap/adjust", s.handleSnapAdjust)
 
-	// Static files (embedded)
+	// Static files (embedded in prod, disk in dev)
 	staticFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
-		return fmt.Errorf("web: embedded fs: %w", err)
+		return fmt.Errorf("web: static fs: %w", err)
 	}
 	mux.Handle("/", http.FileServer(http.FS(staticFS)))
 
