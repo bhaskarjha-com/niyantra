@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -31,15 +32,16 @@ var staticFiles embed.FS
 
 // Server is the Niyantra HTTP server.
 type Server struct {
-	logger   *slog.Logger
-	store    *store.Store
-	client   *client.Client
-	tracker  *tracker.Tracker
-	notifier *notify.Engine
-	port     int
-	auth     string // "user:pass" or ""
-	agentMgr *agent.Manager
-	Version  string // injected at startup (e.g. "0.12.0")
+	logger     *slog.Logger
+	store      *store.Store
+	client     *client.Client
+	tracker    *tracker.Tracker
+	notifier   *notify.Engine
+	port       int
+	auth       string // "user:pass" or ""
+	agentMgr   *agent.Manager
+	httpServer *http.Server
+	Version    string // injected at startup (e.g. "0.12.0")
 }
 
 // NewServer creates a new Niyantra web server.
@@ -131,9 +133,16 @@ func (s *Server) stopPollingAgent() {
 	s.logger.Info("Auto-capture stopped")
 }
 
-// Shutdown stops the agent and cleans up resources.
+// Shutdown gracefully drains in-flight HTTP requests and stops the agent.
 func (s *Server) Shutdown() {
 	s.agentMgr.Stop()
+	if s.httpServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			s.logger.Error("HTTP server shutdown error", "error", err)
+		}
+	}
 }
 
 // ListenAndServe starts the HTTP server.
@@ -203,8 +212,15 @@ func (s *Server) ListenAndServe() error {
 		handler = s.basicAuth(handler)
 	}
 
-	addr := fmt.Sprintf("127.0.0.1:%d", s.port)
-	return http.ListenAndServe(addr, handler)
+	s.httpServer = &http.Server{
+		Addr:              fmt.Sprintf("127.0.0.1:%d", s.port),
+		Handler:           handler,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	return s.httpServer.ListenAndServe()
 }
 
 // handleStatus returns readiness for all accounts.

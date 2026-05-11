@@ -3,11 +3,13 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -288,7 +290,7 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 		fmt.Println("\n  Shutting down gracefully...")
 		srv.Shutdown()
 	case err := <-serverErr:
-		if err != nil {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
 			os.Exit(1)
 		}
