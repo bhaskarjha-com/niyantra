@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -216,4 +217,104 @@ func (s *Store) UpdateSnapshotModels(snapshotID int64, models []client.ModelQuot
 	}
 
 	return nil
+}
+
+// RecentModelData is a lightweight snapshot for rate computation.
+// Contains only the fields needed for burn rate calculation.
+type RecentModelData struct {
+	CapturedAt time.Time
+	ModelsJSON string
+}
+
+// RecentModelSnapshots returns lightweight model data for an account
+// captured within the given window. Results are ordered chronologically (ASC).
+// Used by the forecast package for sliding-window rate computation.
+func (s *Store) RecentModelSnapshots(accountID int64, window time.Duration) ([]RecentModelData, error) {
+	since := time.Now().UTC().Add(-window).Format(time.RFC3339)
+
+	rows, err := s.db.Query(`
+		SELECT captured_at, models_json
+		FROM snapshots
+		WHERE account_id = ? AND captured_at >= ?
+		ORDER BY captured_at ASC`,
+		accountID, since,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("store: recent model snapshots: %w", err)
+	}
+	defer rows.Close()
+
+	var results []RecentModelData
+	for rows.Next() {
+		var capturedAtStr, modelsJSON string
+		if err := rows.Scan(&capturedAtStr, &modelsJSON); err != nil {
+			return nil, err
+		}
+		capturedAt, _ := time.Parse(time.RFC3339, capturedAtStr)
+		results = append(results, RecentModelData{
+			CapturedAt: capturedAt,
+			ModelsJSON: modelsJSON,
+		})
+	}
+	return results, rows.Err()
+}
+
+// RecentClaudeSnapshots returns recent Claude Code snapshots within the given
+// window. Results are ordered chronologically (ASC).
+// Used by the forecast package for Claude TTX computation.
+func (s *Store) RecentClaudeSnapshots(window time.Duration) ([]ClaudeSnapshot, error) {
+	since := time.Now().UTC().Add(-window).Format(time.RFC3339)
+
+	return s.ClaudeSnapshotsSince(since)
+}
+
+// ClaudeSnapshotsSince returns Claude snapshots captured on or after the given
+// RFC3339 timestamp, ordered chronologically (ASC).
+func (s *Store) ClaudeSnapshotsSince(since string) ([]ClaudeSnapshot, error) {
+	rows, err := s.db.Query(`
+		SELECT id, five_hour_pct, seven_day_pct, five_hour_reset, seven_day_reset, captured_at, source
+		FROM claude_snapshots
+		WHERE captured_at >= ?
+		ORDER BY captured_at ASC`, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanClaudeRows(rows)
+}
+
+// scanClaudeRows scans rows into ClaudeSnapshot structs.
+func scanClaudeRows(rows *sql.Rows) ([]ClaudeSnapshot, error) {
+	var snaps []ClaudeSnapshot
+	for rows.Next() {
+		snap := ClaudeSnapshot{}
+		var sevenPct sql.NullFloat64
+		var fiveReset, sevenReset sql.NullTime
+
+		if err := rows.Scan(&snap.ID, &snap.FiveHourPct, &sevenPct, &fiveReset, &sevenReset,
+			&snap.CapturedAt, &snap.Source); err != nil {
+			return nil, err
+		}
+
+		if sevenPct.Valid {
+			snap.SevenDayPct = &sevenPct.Float64
+		}
+		if fiveReset.Valid {
+			snap.FiveHourReset = &fiveReset.Time
+		}
+		if sevenReset.Valid {
+			snap.SevenDayReset = &sevenReset.Time
+		}
+
+		snaps = append(snaps, snap)
+	}
+	return snaps, nil
+}
+
+// RecentCodexSnapshots returns recent Codex snapshots within the given window,
+// ordered chronologically (ASC). Used by the forecast package for Codex TTX.
+func (s *Store) RecentCodexSnapshots(window time.Duration) ([]*CodexSnapshot, error) {
+	since := time.Now().UTC().Add(-window)
+	return s.CodexHistory(since)
 }

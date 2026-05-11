@@ -2,9 +2,9 @@
 // that exposes Niyantra's quota intelligence to AI coding agents.
 //
 // The server communicates over stdio (JSON-RPC 2.0) and provides
-// 8 tools for querying quota status, model availability, usage
+// 9 tools for querying quota status, model availability, usage
 // intelligence, budget forecasts, model recommendations, spending
-// analysis, switch advice, and Codex status.
+// analysis, switch advice, Codex status, and quota time-to-exhaustion.
 package mcpserver
 
 import (
@@ -18,6 +18,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/advisor"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
+	"github.com/bhaskarjha-com/niyantra/internal/forecast"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
@@ -89,6 +90,11 @@ func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string
 		Name:        "codex_status",
 		Description: "Get Codex/ChatGPT quota detection state. Shows if Codex CLI is installed, current plan, token expiry, and latest usage snapshot with 5-hour and 7-day window utilization.",
 	}, m.handleCodexStatus)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "quota_forecast",
+		Description: "Get time-to-exhaustion (TTX) forecasts for all tracked quota groups across all providers. Uses sliding-window rate calculations from recent snapshot history (last 60 min) for accurate burn rate predictions. Returns per-group TTX estimates with severity levels (safe/caution/warning/critical) and confidence indicators. Covers Antigravity model groups, Claude Code, and Codex providers.",
+	}, m.handleQuotaForecast)
 
 	return m
 }
@@ -681,6 +687,116 @@ func (m *MCPServer) handleCodexStatus(_ context.Context, _ *mcp.CallToolRequest,
 	} else {
 		out.Message = fmt.Sprintf("Codex active (account %s). 5h: %.1f%% used, plan: %s.",
 			out.AccountID, snap.FiveHourPct, snap.PlanType)
+	}
+
+	return nil, out, nil
+}
+
+// ForecastGroupOut is a single group's TTX forecast in MCP output.
+type ForecastGroupOut struct {
+	Group      string `json:"group"`
+	BurnRate   string `json:"burnRate"`
+	TTX        string `json:"ttx"`
+	Remaining  string `json:"remaining"`
+	Severity   string `json:"severity"`
+	Confidence string `json:"confidence"`
+}
+
+// ForecastAccountOut is a single account's forecast in MCP output.
+type ForecastAccountOut struct {
+	Email    string             `json:"email"`
+	PlanName string             `json:"planName"`
+	Groups   []ForecastGroupOut `json:"groups"`
+}
+
+// ForecastOutput is the output of quota_forecast.
+type ForecastOutput struct {
+	Antigravity []ForecastAccountOut `json:"antigravity,omitempty"`
+	Message     string               `json:"message"`
+}
+
+// handleQuotaForecast returns time-to-exhaustion forecasts for all providers.
+func (m *MCPServer) handleQuotaForecast(_ context.Context, _ *mcp.CallToolRequest, _ EmptyInput) (*mcp.CallToolResult, ForecastOutput, error) {
+	out := ForecastOutput{}
+
+	// Antigravity accounts
+	snapshots, err := m.store.LatestPerAccount()
+	if err != nil {
+		return nil, ForecastOutput{}, fmt.Errorf("database error: %w", err)
+	}
+
+	groups := make([]forecast.GroupDefinition, len(client.GroupOrder))
+	for i, key := range client.GroupOrder {
+		groups[i] = forecast.GroupDefinition{
+			GroupKey:     key,
+			DisplayName: client.GroupDisplayNames[key],
+		}
+	}
+
+	assigner := func(modelID string) string {
+		return client.GroupForModel(modelID, "")
+	}
+
+	for _, snap := range snapshots {
+		if snap == nil || snap.AccountID == 0 {
+			continue
+		}
+
+		recent, err := m.store.RecentModelSnapshots(snap.AccountID, forecast.DefaultWindow)
+		if err != nil || len(recent) < 2 {
+			continue
+		}
+
+		points := make([]forecast.SnapshotPoint, 0, len(recent))
+		for _, r := range recent {
+			models := forecast.ParseModelsJSON(r.ModelsJSON)
+			if models != nil {
+				points = append(points, forecast.SnapshotPoint{
+					CapturedAt: r.CapturedAt,
+					Models:     models,
+				})
+			}
+		}
+
+		if len(points) < 2 {
+			continue
+		}
+
+		rates := forecast.ComputeRates(points)
+
+		remaining := make(map[string]float64)
+		resetTimes := make(map[string]*time.Time)
+		for _, mod := range snap.Models {
+			remaining[mod.ModelID] = mod.RemainingFraction
+			resetTimes[mod.ModelID] = mod.ResetTime
+		}
+
+		gf := forecast.ComputeGroupForecasts(rates, remaining, resetTimes, assigner, groups)
+		if len(gf) == 0 {
+			continue
+		}
+
+		af := ForecastAccountOut{
+			Email:    snap.Email,
+			PlanName: snap.PlanName,
+		}
+		for _, g := range gf {
+			af.Groups = append(af.Groups, ForecastGroupOut{
+				Group:      g.DisplayName,
+				BurnRate:   fmt.Sprintf("%.1f%%/hr", g.BurnRate*100),
+				TTX:        g.TTXLabel,
+				Remaining:  fmt.Sprintf("%.0f%%", g.Remaining*100),
+				Severity:   g.Severity,
+				Confidence: g.Confidence,
+			})
+		}
+		out.Antigravity = append(out.Antigravity, af)
+	}
+
+	if len(out.Antigravity) > 0 {
+		out.Message = fmt.Sprintf("Forecast computed for %d Antigravity account(s) using sliding-window analysis (last 60 min).", len(out.Antigravity))
+	} else {
+		out.Message = "No forecast data available. Need ≥2 snapshots within the last 60 minutes (≥10 min apart) to compute burn rates."
 	}
 
 	return nil, out, nil

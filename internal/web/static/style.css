@@ -2874,6 +2874,54 @@ kbd {
   50% { opacity: 0.6; }
 }
 
+/* ═══════════════════════════════════════════
+   Phase 14: TTX (Time-to-Exhaustion) Badges
+   ═══════════════════════════════════════════ */
+
+/* TTX badge on group cells in Quotas grid */
+.ttx-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-top: 2px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ttx-badge.ttx-safe {
+  color: var(--green);
+  background: var(--green-bg);
+}
+
+.ttx-badge.ttx-caution {
+  color: var(--amber);
+  background: var(--amber-bg);
+}
+
+.ttx-badge.ttx-warning {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.ttx-badge.ttx-critical {
+  color: var(--red);
+  background: var(--red-bg);
+  animation: pulse-warn 1.5s ease-in-out infinite;
+}
+
+.ttx-badge.ttx-idle {
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  font-weight: 500;
+}
+
+.ttx-badge.ttx-none {
+  display: none;
+}
+
 /* Budget Forecast (Overview tab) */
 .budget-forecast {
   padding: 16px;

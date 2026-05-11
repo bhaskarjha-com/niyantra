@@ -19,11 +19,12 @@ type UsageSummary struct {
 	ResetTime         *time.Time `json:"resetTime"`
 	TimeUntilReset    string     `json:"timeUntilReset"`
 
-	// Intelligence (requires ≥30 min of data)
+	// Intelligence (requires ≥10 min of data for sliding-window, ≥30 min for cycle-based)
 	CurrentRate         float64    `json:"currentRate"`         // usage fraction per hour
 	ProjectedUsage      float64    `json:"projectedUsage"`      // projected usage at reset (0.0-1.0)
 	ProjectedExhaustion *time.Time `json:"projectedExhaustion"` // when quota hits 0 at current rate
 	HasIntelligence     bool       `json:"hasIntelligence"`     // true if rate data is available
+	RateSource          string     `json:"rateSource"`          // "sliding_window" or "cycle_average"
 
 	// History
 	CompletedCycles int     `json:"completedCycles"`
@@ -106,35 +107,67 @@ func (t *Tracker) UsageSummaryForModel(modelID string, accountID int64, model cl
 		cycleAge := time.Since(activeCycle.CycleStart)
 		summary.CycleAge = formatDuration(cycleAge)
 
-		// Rate calculation (30-minute guard rail to avoid noisy extrapolation)
+		// F7: Rate calculation — use cycle-average as fallback.
+		// The sliding-window rate (from forecast package) is injected via
+		// ApplySlidingRate() and is strongly preferred over this lifetime average.
+		// The cycle average is only used when no recent snapshot data is available.
 		if cycleAge.Minutes() >= 30 && activeCycle.TotalDelta > 0 {
 			summary.CurrentRate = activeCycle.TotalDelta / cycleAge.Hours()
 			summary.HasIntelligence = true
+			summary.RateSource = "cycle_average"
 
-			if summary.ResetTime != nil {
-				hoursLeft := time.Until(*summary.ResetTime).Hours()
-				if hoursLeft > 0 {
-					currentUsage := 1.0 - summary.RemainingFraction
-					projected := currentUsage + summary.CurrentRate*hoursLeft
-					if projected > 1.0 {
-						projected = 1.0
-					}
-					summary.ProjectedUsage = projected
-
-					// Calculate when quota will exhaust at current rate
-					if summary.CurrentRate > 0 && summary.RemainingFraction > 0 {
-						hoursToExhaust := summary.RemainingFraction / summary.CurrentRate
-						exhaustTime := time.Now().Add(time.Duration(hoursToExhaust * float64(time.Hour)))
-						if exhaustTime.Before(*summary.ResetTime) {
-							summary.ProjectedExhaustion = &exhaustTime
-						}
-					}
-				}
-			}
+			computeProjections(summary)
 		}
 	}
 
 	return summary, nil
+}
+
+// computeProjections computes projected usage and exhaustion time from CurrentRate.
+// This is called both by the cycle-average fallback and after ApplySlidingRate.
+func computeProjections(s *UsageSummary) {
+	if s.ResetTime == nil || s.CurrentRate <= 0 {
+		return
+	}
+
+	hoursLeft := time.Until(*s.ResetTime).Hours()
+	if hoursLeft <= 0 {
+		return
+	}
+
+	currentUsage := 1.0 - s.RemainingFraction
+	projected := currentUsage + s.CurrentRate*hoursLeft
+	if projected > 1.0 {
+		projected = 1.0
+	}
+	s.ProjectedUsage = projected
+
+	// Calculate when quota will exhaust at current rate
+	if s.RemainingFraction > 0 {
+		hoursToExhaust := s.RemainingFraction / s.CurrentRate
+		exhaustTime := time.Now().Add(time.Duration(hoursToExhaust * float64(time.Hour)))
+		if exhaustTime.Before(*s.ResetTime) {
+			s.ProjectedExhaustion = &exhaustTime
+		}
+	}
+}
+
+// ApplySlidingRate replaces the cycle-average rate with an accurate
+// sliding-window rate computed from recent snapshot history.
+// This should be called after UsageSummaryForModel to upgrade the rate data.
+func ApplySlidingRate(s *UsageSummary, rate float64, dataPoints int) {
+	if s == nil || dataPoints < 2 {
+		return
+	}
+
+	s.CurrentRate = rate
+	s.HasIntelligence = true
+	s.RateSource = "sliding_window"
+
+	// Clear old projections and recompute with accurate rate
+	s.ProjectedUsage = 0
+	s.ProjectedExhaustion = nil
+	computeProjections(s)
 }
 
 // AllUsageSummaries computes intelligence for all models of an account.

@@ -494,6 +494,61 @@ Returns per-model usage intelligence and budget burn rate forecast. Requires at 
 
 ---
 
+### `GET /api/forecast` (Phase 14)
+
+Returns time-to-exhaustion (TTX) forecasts computed from sliding-window rate analysis of recent snapshot history (last 60 minutes). Provides per-group predictions for Antigravity accounts, Claude Code, and Codex.
+
+**Response:** `200 OK`
+
+```json
+{
+  "antigravity": [
+    {
+      "accountId": 1,
+      "email": "user@company.com",
+      "planName": "Pro",
+      "groups": [
+        {
+          "groupKey": "claude_gpt",
+          "displayName": "Claude + GPT",
+          "burnRate": 0.15,
+          "ttxHours": 2.5,
+          "ttxLabel": "~2.5h",
+          "remaining": 0.375,
+          "confidence": "high",
+          "willExhaust": false,
+          "severity": "caution"
+        }
+      ]
+    }
+  ],
+  "claude": {
+    "windows": [
+      { "window": "5-hour", "burnRate": 8.5, "ttxHours": 6.3, "ttxLabel": "~6.3h", "severity": "safe" },
+      { "window": "7-day", "burnRate": 1.2, "ttxHours": 72, "ttxLabel": "~3d", "severity": "safe" }
+    ]
+  },
+  "advisor": { ... }
+}
+```
+
+**Field Reference — Group Forecast:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `groupKey` | string | Quota group identifier |
+| `burnRate` | float | Fraction consumed per hour (0.0–1.0 scale) |
+| `ttxHours` | float | Hours until exhaustion (-1 = no data, 0 = exhausted) |
+| `ttxLabel` | string | Human-readable: "~2.5h", "~45m", "idle", "exhausted" |
+| `remaining` | float | Current remaining fraction (0.0–1.0) |
+| `confidence` | string | Data quality: "high" (≥6 points), "medium" (3–5), "low" (2), "none" |
+| `willExhaust` | bool | Projected to exhaust before reset |
+| `severity` | string | "safe" (>3h), "caution" (1–3h), "warning" (<1h), "critical" (<30m) |
+
+> **Algorithm:** Uses recency-weighted sliding window over the last 60 minutes of snapshots. More recent data points are weighted ~2× heavier than older ones. Accounts for idle periods properly — unlike the older cycle-lifetime average which diluted during inactivity.
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:
@@ -590,7 +645,7 @@ Add to Claude Desktop `claude_desktop_config.json`:
 }
 ```
 
-### Tools (7 total)
+### Tools (9 total)
 
 | Tool | Input | Description |
 |------|-------|-------------|
@@ -601,6 +656,8 @@ Add to Claude Desktop `claude_desktop_config.json`:
 | `best_model` | `group` (string) | Recommend least-exhausted model in a quota group |
 | `analyze_spending` | none | Category breakdown, budget status, savings detection, insights |
 | `switch_recommendation` | none | Account switch advice (stay/switch/wait) with scores |
+| `codex_status` | none | Codex CLI detection, plan, token expiry, latest snapshot |
+| `quota_forecast` | none | TTX forecasts using sliding-window analysis (Phase 14) |
 
 ### Protocol
 

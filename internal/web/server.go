@@ -18,6 +18,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
+	"github.com/bhaskarjha-com/niyantra/internal/forecast"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -178,6 +179,9 @@ func (s *Server) ListenAndServe() error {
 	// Phase 13 routes
 	mux.HandleFunc("/api/config/pricing", s.handleModelPricing)
 
+	// Phase 14 routes
+	mux.HandleFunc("/api/forecast", s.handleForecast)
+
 	// Data management routes
 	mux.HandleFunc("/api/accounts", s.handleAccounts)
 	mux.HandleFunc("/api/accounts/", s.handleAccountByID)
@@ -243,6 +247,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	claudeSnap, _ := s.store.LatestClaudeSnapshot()
 	if claudeSnap != nil {
 		result["claudeSnapshot"] = claudeSnap
+	}
+
+	// F7: Compute per-account forecasts using sliding-window rates
+	forecastsByAccount := s.computeAccountForecasts(snapshots)
+	if forecastsByAccount != nil {
+		result["forecasts"] = forecastsByAccount
 	}
 
 	writeJSON(w, result)
@@ -1530,5 +1540,359 @@ func (s *Server) handleModelPricing(w http.ResponseWriter, r *http.Request) {
 
 	default:
 		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// ── Phase 14: Forecast Handlers ──────────────────────────────────
+
+// computeAccountForecasts builds sliding-window TTX forecasts for all accounts.
+// Returns a map of accountID → []GroupForecast for inline enrichment in /api/status.
+func (s *Server) computeAccountForecasts(snapshots []*client.Snapshot) map[int64][]forecast.GroupForecast {
+	if len(snapshots) == 0 {
+		return nil
+	}
+
+	groups := make([]forecast.GroupDefinition, len(client.GroupOrder))
+	for i, key := range client.GroupOrder {
+		groups[i] = forecast.GroupDefinition{
+			GroupKey:     key,
+			DisplayName: client.GroupDisplayNames[key],
+		}
+	}
+
+	assigner := func(modelID string) string {
+		return client.GroupForModel(modelID, "")
+	}
+
+	result := make(map[int64][]forecast.GroupForecast)
+
+	for _, snap := range snapshots {
+		if snap == nil || snap.AccountID == 0 {
+			continue
+		}
+
+		// Get recent snapshots for this account (last 60 min)
+		recent, err := s.store.RecentModelSnapshots(snap.AccountID, forecast.DefaultWindow)
+		if err != nil || len(recent) < 2 {
+			continue
+		}
+
+		// Convert to forecast.SnapshotPoint
+		points := make([]forecast.SnapshotPoint, 0, len(recent))
+		for _, r := range recent {
+			models := forecast.ParseModelsJSON(r.ModelsJSON)
+			if models != nil {
+				points = append(points, forecast.SnapshotPoint{
+					CapturedAt: r.CapturedAt,
+					Models:     models,
+				})
+			}
+		}
+
+		if len(points) < 2 {
+			continue
+		}
+
+		// Compute rates from recent history
+		rates := forecast.ComputeRates(points)
+
+		// Build current remaining + reset times from latest snapshot
+		remaining := make(map[string]float64)
+		resetTimes := make(map[string]*time.Time)
+		for _, m := range snap.Models {
+			remaining[m.ModelID] = m.RemainingFraction
+			resetTimes[m.ModelID] = m.ResetTime
+		}
+
+		// Compute group-level forecasts
+		gf := forecast.ComputeGroupForecasts(rates, remaining, resetTimes, assigner, groups)
+		if len(gf) > 0 {
+			result[snap.AccountID] = gf
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// handleForecast returns detailed TTX forecasts for all tracked providers.
+func (s *Server) handleForecast(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	result := map[string]interface{}{}
+
+	// Antigravity account forecasts
+	snapshots, err := s.store.LatestPerAccount()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	forecasts := s.computeAccountForecasts(snapshots)
+
+	// Build enriched forecast with account context
+	type accountForecast struct {
+		AccountID int64                    `json:"accountId"`
+		Email     string                   `json:"email"`
+		PlanName  string                   `json:"planName"`
+		Groups    []forecast.GroupForecast `json:"groups"`
+	}
+
+	var antigravityForecasts []accountForecast
+	for _, snap := range snapshots {
+		if snap == nil {
+			continue
+		}
+		gf := forecasts[snap.AccountID]
+		if gf == nil {
+			continue
+		}
+		antigravityForecasts = append(antigravityForecasts, accountForecast{
+			AccountID: snap.AccountID,
+			Email:     snap.Email,
+			PlanName:  snap.PlanName,
+			Groups:    gf,
+		})
+	}
+	if len(antigravityForecasts) > 0 {
+		result["antigravity"] = antigravityForecasts
+	}
+
+	// Claude Code forecast
+	claudeForecasts := s.computeClaudeForecasts()
+	if claudeForecasts != nil {
+		result["claude"] = claudeForecasts
+	}
+
+	// Codex forecast
+	codexForecasts := s.computeCodexForecasts()
+	if codexForecasts != nil {
+		result["codex"] = codexForecasts
+	}
+
+	// Advisor: best account recommendation with TTX context
+	if len(antigravityForecasts) > 1 {
+		summariesByAccount := make(map[int64][]*tracker.UsageSummary)
+		if s.tracker != nil {
+			for _, snap := range snapshots {
+				summaries, _ := s.tracker.AllUsageSummaries(snap, snap.AccountID)
+				if len(summaries) > 0 {
+					summariesByAccount[snap.AccountID] = summaries
+				}
+			}
+		}
+		rec := advisor.Recommend(snapshots, summariesByAccount)
+		if rec != nil {
+			result["advisor"] = rec
+		}
+	}
+
+	writeJSON(w, result)
+}
+
+// computeClaudeForecasts computes TTX for Claude Code from recent snapshots.
+func (s *Server) computeClaudeForecasts() map[string]interface{} {
+	recent, err := s.store.RecentClaudeSnapshots(forecast.DefaultWindow)
+	if err != nil || len(recent) < 2 {
+		return nil
+	}
+
+	// Build snapshot points for 5-hour and 7-day windows
+	type claudeForecast struct {
+		Window   string  `json:"window"`
+		BurnRate float64 `json:"burnRate"` // pct/hr
+		TTXHours float64 `json:"ttxHours"`
+		TTXLabel string  `json:"ttxLabel"`
+		Severity string  `json:"severity"`
+		Used     float64 `json:"used"`
+	}
+
+	var forecasts []claudeForecast
+
+	// 5-hour window
+	if rate, remaining := computeSimpleRate(recent, func(s store.ClaudeSnapshot) float64 {
+		return 100 - s.FiveHourPct // FiveHourPct is % used, we need % remaining
+	}); rate > 0 && remaining >= 0 {
+		ttx := remaining / rate
+		forecasts = append(forecasts, claudeForecast{
+			Window:   "5-hour",
+			BurnRate: rate,
+			TTXHours: ttx,
+			TTXLabel: forecast.FormatTTXPublic(ttx),
+			Severity: ttxSeverity(ttx),
+			Used:     100 - remaining,
+		})
+	}
+
+	// 7-day window
+	if rate, remaining := computeSimpleRate(recent, func(s store.ClaudeSnapshot) float64 {
+		if s.SevenDayPct != nil {
+			return 100 - *s.SevenDayPct
+		}
+		return -1 // no data
+	}); rate > 0 && remaining >= 0 {
+		ttx := remaining / rate
+		forecasts = append(forecasts, claudeForecast{
+			Window:   "7-day",
+			BurnRate: rate,
+			TTXHours: ttx,
+			TTXLabel: forecast.FormatTTXPublic(ttx),
+			Severity: ttxSeverity(ttx),
+			Used:     100 - remaining,
+		})
+	}
+
+	if len(forecasts) == 0 {
+		return nil
+	}
+	return map[string]interface{}{
+		"windows": forecasts,
+	}
+}
+
+// computeCodexForecasts computes TTX for Codex from recent snapshots.
+func (s *Server) computeCodexForecasts() map[string]interface{} {
+	recent, err := s.store.RecentCodexSnapshots(forecast.DefaultWindow)
+	if err != nil || len(recent) < 2 {
+		return nil
+	}
+
+	type codexForecast struct {
+		Window   string  `json:"window"`
+		BurnRate float64 `json:"burnRate"`
+		TTXHours float64 `json:"ttxHours"`
+		TTXLabel string  `json:"ttxLabel"`
+		Severity string  `json:"severity"`
+		Used     float64 `json:"used"`
+	}
+
+	var forecasts []codexForecast
+
+	// 5-hour window
+	if rate, remaining := computeCodexRate(recent, func(s *store.CodexSnapshot) float64 {
+		return 100 - s.FiveHourPct
+	}); rate > 0 && remaining >= 0 {
+		ttx := remaining / rate
+		forecasts = append(forecasts, codexForecast{
+			Window:   "5-hour",
+			BurnRate: rate,
+			TTXHours: ttx,
+			TTXLabel: forecast.FormatTTXPublic(ttx),
+			Severity: ttxSeverity(ttx),
+			Used:     100 - remaining,
+		})
+	}
+
+	if len(forecasts) == 0 {
+		return nil
+	}
+	return map[string]interface{}{
+		"windows": forecasts,
+	}
+}
+
+// computeSimpleRate computes a weighted-average rate from Claude snapshots.
+// Returns (rate in pct/hr, current remaining pct). Rate is 0 if no decrease detected.
+func computeSimpleRate(snaps []store.ClaudeSnapshot, extractor func(store.ClaudeSnapshot) float64) (float64, float64) {
+	if len(snaps) < 2 {
+		return 0, -1
+	}
+
+	totalWeight := 0.0
+	weightedRate := 0.0
+	pairCount := 0
+
+	for i := 1; i < len(snaps); i++ {
+		prev := extractor(snaps[i-1])
+		curr := extractor(snaps[i])
+		if prev < 0 || curr < 0 {
+			continue
+		}
+
+		dt := snaps[i].CapturedAt.Sub(snaps[i-1].CapturedAt)
+		if dt <= 0 {
+			continue
+		}
+
+		pairCount++
+		consumed := prev - curr // positive = usage
+		if consumed < 0 {
+			consumed = 0 // reset or correction
+		}
+
+		rate := consumed / dt.Hours()
+		weight := 1.0 + float64(i-1)/float64(len(snaps)-1)
+		weightedRate += rate * weight
+		totalWeight += weight
+	}
+
+	if totalWeight <= 0 {
+		return 0, -1
+	}
+
+	lastRemaining := extractor(snaps[len(snaps)-1])
+	return weightedRate / totalWeight, lastRemaining
+}
+
+// computeCodexRate computes a weighted-average rate from Codex snapshots.
+func computeCodexRate(snaps []*store.CodexSnapshot, extractor func(*store.CodexSnapshot) float64) (float64, float64) {
+	if len(snaps) < 2 {
+		return 0, -1
+	}
+
+	totalWeight := 0.0
+	weightedRate := 0.0
+	pairCount := 0
+
+	for i := 1; i < len(snaps); i++ {
+		prev := extractor(snaps[i-1])
+		curr := extractor(snaps[i])
+		if prev < 0 || curr < 0 {
+			continue
+		}
+
+		dt := snaps[i].CapturedAt.Sub(snaps[i-1].CapturedAt)
+		if dt <= 0 {
+			continue
+		}
+
+		pairCount++
+		consumed := prev - curr
+		if consumed < 0 {
+			consumed = 0
+		}
+
+		rate := consumed / dt.Hours()
+		weight := 1.0 + float64(i-1)/float64(len(snaps)-1)
+		weightedRate += rate * weight
+		totalWeight += weight
+	}
+
+	if totalWeight <= 0 {
+		return 0, -1
+	}
+
+	lastRemaining := extractor(snaps[len(snaps)-1])
+	return weightedRate / totalWeight, lastRemaining
+}
+
+// ttxSeverity returns the severity level for a given TTX in hours.
+func ttxSeverity(hours float64) string {
+	switch {
+	case hours <= 0:
+		return "critical"
+	case hours < 0.5:
+		return "critical"
+	case hours < 1.0:
+		return "warning"
+	case hours < 3.0:
+		return "caution"
+	default:
+		return "safe"
 	}
 }

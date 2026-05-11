@@ -437,11 +437,27 @@ function renderAccounts(data) {
         '<button class="gadj-btn" data-delta="5" title="+5% all models in group">+5</button>' +
         '</span>';
 
+      // F7: TTX badge — shows "~Xh" time-to-exhaustion from forecast data
+      var ttxBadge = '';
+      if (data.forecasts && data.forecasts[acc.accountId]) {
+        var acctForecasts = data.forecasts[acc.accountId];
+        for (var fi = 0; fi < acctForecasts.length; fi++) {
+          if (acctForecasts[fi].groupKey === key && acctForecasts[fi].ttxLabel) {
+            var ttxSev = acctForecasts[fi].severity || 'safe';
+            var ttxLabel = acctForecasts[fi].ttxLabel;
+            if (ttxLabel && ttxLabel !== '' && ttxSev !== 'none') {
+              ttxBadge = '<span class="ttx-badge ttx-' + ttxSev + '" title="Time to exhaustion at current burn rate">' + esc(ttxLabel) + '</span>';
+            }
+            break;
+          }
+        }
+      }
+
       groupCells += '<div class="quota-cell">' +
         '<span class="quota-pct ' + cls + '">' + pct + '%</span>' +
         '<div class="quota-minibar"><div class="quota-minibar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' +
         groupAdjust +
-        reset + '</div>';
+        reset + ttxBadge + '</div>';
     }
 
 
