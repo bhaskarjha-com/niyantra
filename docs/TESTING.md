@@ -295,7 +295,7 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 ### 5.4 Activity Log
 - [ ] Activity log section shows recent events
 - [ ] At minimum: `server_start` entry visible (logged on serve startup)
-- [ ] Filter dropdown: All Events, Snaps, Failed Snaps, Config Changes, Server Start
+- [ ] Filter dropdown: All Events, Snaps, Failed Snaps, Config Changes, Quota Alerts, Server Start
 - [ ] Select "Server Start" → only server_start events shown
 - [ ] Select "Config Changes" → shows config change events (after changing a setting)
 - [ ] ↻ Refresh button reloads the log
@@ -718,6 +718,21 @@ Test each shortcut from the Quotas tab with no modal open:
 - [ ] Snap when model below 50% → OS notification fires
 - [ ] Snap again → no duplicate (once-per-cycle guard)
 - [ ] After model resets → notification can fire again next time
+
+### 19.4 System Alert + Activity Log (F9 Wiring)
+- [ ] When notification fires → alert banner appears at top of dashboard ("⚠️ {model} quota low")
+- [ ] Alert banner has dismiss button → click dismiss → banner removed
+- [ ] Activity log shows `quota_alert` event with 🔔 icon and model + remaining%
+- [ ] Filter activity log by "Quota Alerts" → only notification events shown
+
+### 19.5 Alert Banner Auto-Refresh
+- [ ] Enable auto-capture → alert banner refreshes every 30s (new alerts appear without page reload)
+- [ ] Activity log also auto-refreshes when Settings tab is active and polling is running
+
+### 19.6 Codex Notification Coverage
+- [ ] Enable Codex capture + notifications with threshold set
+- [ ] If Codex 5h quota exceeds threshold → OS notification fires for "codex_five_hour"
+- [ ] If Codex 7d quota exceeds threshold → OS notification fires for "codex_seven_day"
 
 ---
 

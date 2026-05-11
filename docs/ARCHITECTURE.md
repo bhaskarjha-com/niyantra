@@ -36,7 +36,7 @@ cmd/niyantra/main.go
   |    +-- advisor    (switch engine)
   |    +-- codex      (ChatGPT integration)
   |    +-- claudebridge (Claude Code bridge)
-  |    +-- notify     (OS toast notifications)
+  |    +-- notify     (OS-native notifications + alert wiring)
   +-- mcpserver  (MCP tools over stdio)
   |    +-- store, tracker, advisor, codex, readiness
   +-- readiness  (pure computation, zero I/O)

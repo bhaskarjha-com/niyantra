@@ -433,7 +433,7 @@ Niyantra sends native OS notifications when quotas drop below your configured th
 
 | OS | Method |
 |----|--------|
-| Windows | PowerShell toast notification |
+| Windows | .NET BalloonTip notification |
 | macOS | `osascript` notification |
 | Linux | `notify-send` |
 
