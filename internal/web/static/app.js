@@ -228,7 +228,300 @@
     document.dispatchEvent(new CustomEvent("niyantra:tab-change", { detail: { tab: tabName } }));
   }
 
-  // internal/web/src/main.js
+  // internal/web/src/quotas/features.js
+  var _renderAccounts = null;
+  function setRenderAccounts(fn) {
+    _renderAccounts = fn;
+  }
+  function refreshGrid() {
+    if (_renderAccounts) fetchStatus().then(_renderAccounts);
+  }
+  function renderPinnedBadge(groupData, pinnedKey) {
+    if (!groupData) return "";
+    var pct = Math.round(groupData.remainingPercent);
+    var cls = "good";
+    if (groupData.isExhausted || pct === 0) cls = "exhausted";
+    else if (pct < 20) cls = "warning";
+    else if (pct < 50) cls = "ok";
+    return ' <span class="pinned-badge ' + cls + '" title="Pinned: ' + esc(groupData.displayName || pinnedKey) + '">\u2605 ' + esc(groupData.displayName || GROUP_NAMES[pinnedKey] || pinnedKey) + ": " + pct + "%</span>";
+  }
+  function pinGroup(accountId, groupKey) {
+    updateAccountMeta(accountId, { pinnedGroup: groupKey }).then(function() {
+      showToast("\u2B50 Pinned " + (GROUP_NAMES[groupKey] || groupKey), "success");
+      refreshGrid();
+    });
+  }
+  function unpinGroup(accountId) {
+    updateAccountMeta(accountId, { pinnedGroup: "" }).then(function() {
+      showToast("\u2606 Unpinned \u2014 will show first group", "info");
+      refreshGrid();
+    });
+  }
+  function daysUntilRenewal(day) {
+    if (!day || day < 1 || day > 31) return -1;
+    var now = /* @__PURE__ */ new Date();
+    var y = now.getFullYear();
+    var m = now.getMonth();
+    var today = now.getDate();
+    var targetMonth = today < day ? m : m + 1;
+    var target = new Date(y, targetMonth, day);
+    var diff = Math.ceil((target - now) / (1e3 * 60 * 60 * 24));
+    return diff < 0 ? 0 : diff;
+  }
+  function renderCreditRenewal(accountId, renewalDay) {
+    if (!renewalDay || renewalDay < 1) {
+      return '<span class="credit-renewal-set" data-renewal-edit="' + accountId + '" title="Set credit renewal day">\u21BB set</span>';
+    }
+    var days = daysUntilRenewal(renewalDay);
+    var label = days === 0 ? "today" : days === 1 ? "1d" : days + "d";
+    return '<span class="credit-renewal" data-renewal-edit="' + accountId + '" data-renewal-day="' + renewalDay + '" title="Credits renew on day ' + renewalDay + " (\u21BB " + label + ')">\u21BB ' + label + "</span>";
+  }
+  function openRenewalPicker(el) {
+    var existing = document.querySelector(".renewal-picker");
+    if (existing) existing.remove();
+    var accountId = el.getAttribute("data-renewal-edit");
+    var currentDay = parseInt(el.getAttribute("data-renewal-day")) || 0;
+    var picker = document.createElement("div");
+    picker.className = "renewal-picker";
+    picker.innerHTML = '<div class="renewal-picker-label">Credit Renewal Day</div><input type="number" class="renewal-picker-input" min="1" max="31" value="' + (currentDay || "") + '" placeholder="1\u201331"><div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>';
+    el.closest(".credits-cell").appendChild(picker);
+    var input = picker.querySelector("input");
+    input.focus();
+    input.select();
+    function save() {
+      var day = parseInt(input.value) || 0;
+      if (day > 31) day = 31;
+      if (day < 0) day = 0;
+      picker.remove();
+      updateAccountMeta(accountId, { creditRenewalDay: day }).then(function() {
+        if (day > 0) {
+          showToast("\u21BB Renewal day set to " + day, "success");
+        } else {
+          showToast("\u21BB Renewal day cleared", "info");
+        }
+        refreshGrid();
+      });
+    }
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        save();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        picker.remove();
+      }
+    });
+    input.addEventListener("blur", function() {
+      setTimeout(function() {
+        if (picker.parentNode) save();
+      }, 150);
+    });
+  }
+  var TAG_PRESETS = ["work", "personal", "primary", "backup", "shared", "test", "dev"];
+  function renderAccountTags(acc) {
+    var tags = (acc.tags || "").split(",").filter(function(t) {
+      return t.trim();
+    });
+    var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
+    for (var i = 0; i < tags.length; i++) {
+      html += '<span class="tag-chip" data-tag="' + esc(tags[i].trim()) + '">' + esc(tags[i].trim()) + '<span class="tag-remove" data-remove-tag="' + esc(tags[i].trim()) + '" data-account-id="' + acc.accountId + '" title="Remove tag">\u2715</span></span>';
+    }
+    html += "</span>";
+    html += '<button class="tag-add-btn" data-tag-add="' + acc.accountId + '" title="Add tag">+</button>';
+    return html;
+  }
+  function renderAccountNote(acc) {
+    if (acc.notes) {
+      return '<span class="account-note" data-note-edit="' + acc.accountId + '" data-current-note="' + esc(acc.notes) + '" title="' + esc(acc.notes) + ' \u2014 click to edit">\u{1F4DD} ' + esc(acc.notes) + "</span>";
+    }
+    return '<span class="account-note-empty" data-note-edit="' + acc.accountId + '" data-current-note="">+ note</span>';
+  }
+  function updateAccountMeta(accountId, patch) {
+    return fetch("/api/accounts/" + accountId + "/meta", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch)
+    }).then(function(r) {
+      return r.json();
+    });
+  }
+  function addTagToAccount(accountId, newTag) {
+    newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    if (!newTag) return;
+    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+    var existing = [];
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        existing.push(chip.getAttribute("data-tag"));
+      });
+    }
+    if (existing.indexOf(newTag) >= 0) return;
+    existing.push(newTag);
+    updateAccountMeta(accountId, { tags: existing.join(",") }).then(function() {
+      showToast('\u{1F3F7}\uFE0F Tag "' + newTag + '" added', "success");
+      refreshGrid();
+    });
+  }
+  function removeTagFromAccount(accountId, tag) {
+    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+    var tags = [];
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        var t = chip.getAttribute("data-tag");
+        if (t !== tag) tags.push(t);
+      });
+    }
+    updateAccountMeta(accountId, { tags: tags.join(",") }).then(function() {
+      showToast("\u{1F3F7}\uFE0F Tag removed", "success");
+      refreshGrid();
+    });
+  }
+  function openTagPicker(btn) {
+    closeTagPicker();
+    var accountId = btn.getAttribute("data-tag-add");
+    var meta = btn.closest(".account-meta");
+    if (!meta) return;
+    var existing = [];
+    var container = meta.querySelector(".account-tags");
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        existing.push(chip.getAttribute("data-tag"));
+      });
+    }
+    var picker = document.createElement("div");
+    picker.className = "tag-picker";
+    picker.id = "active-tag-picker";
+    picker.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20"><div class="tag-picker-hint">Enter to add</div><div class="tag-picker-presets">' + TAG_PRESETS.map(function(p) {
+      var active = existing.indexOf(p) >= 0 ? " active" : "";
+      return '<button class="tag-preset' + active + '" data-preset-tag="' + p + '">' + p + "</button>";
+    }).join("") + "</div>";
+    meta.appendChild(picker);
+    var input = picker.querySelector(".tag-picker-input");
+    input.focus();
+    picker.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        var val = input.value.trim();
+        if (val) {
+          addTagToAccount(accountId, val);
+          closeTagPicker();
+        }
+      }
+      if (e.key === "Escape") {
+        closeTagPicker();
+      }
+    });
+    picker.querySelectorAll(".tag-preset").forEach(function(btn2) {
+      btn2.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var tag = btn2.getAttribute("data-preset-tag");
+        if (btn2.classList.contains("active")) {
+          removeTagFromAccount(accountId, tag);
+        } else {
+          addTagToAccount(accountId, tag);
+        }
+        closeTagPicker();
+      });
+    });
+    setTimeout(function() {
+      document.addEventListener("click", closeTagPickerOnOutside);
+    }, 10);
+  }
+  function closeTagPicker() {
+    var picker = document.getElementById("active-tag-picker");
+    if (picker) picker.remove();
+    document.removeEventListener("click", closeTagPickerOnOutside);
+  }
+  function closeTagPickerOnOutside(e) {
+    var picker = document.getElementById("active-tag-picker");
+    if (picker && !picker.contains(e.target)) {
+      closeTagPicker();
+    }
+  }
+  function openNoteEditor(el) {
+    var accountId = el.getAttribute("data-note-edit");
+    var currentNote = el.getAttribute("data-current-note") || "";
+    var editor = document.createElement("span");
+    editor.className = "note-inline-editor";
+    editor.innerHTML = '<input type="text" class="note-inline-input" value="' + esc(currentNote) + '" placeholder="Add a note..." maxlength="100">';
+    el.replaceWith(editor);
+    var input = editor.querySelector(".note-inline-input");
+    input.focus();
+    input.select();
+    editor.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+    function save() {
+      var val = input.value.trim();
+      updateAccountMeta(accountId, { notes: val }).then(function() {
+        if (val) showToast("\u{1F4DD} Note saved", "success");
+        refreshGrid();
+      });
+    }
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        save();
+      }
+      if (e.key === "Escape") {
+        refreshGrid();
+      }
+    });
+    input.addEventListener("blur", save);
+  }
+  function initAccountMetaHandlers() {
+    var grid = document.getElementById("account-grid");
+    if (!grid) return;
+    grid.addEventListener("click", function(e) {
+      var removeBtn = e.target.closest("[data-remove-tag]");
+      if (removeBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        removeTagFromAccount(removeBtn.getAttribute("data-account-id"), removeBtn.getAttribute("data-remove-tag"));
+        return;
+      }
+      var addBtn = e.target.closest("[data-tag-add]");
+      if (addBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        openTagPicker(addBtn);
+        return;
+      }
+      var noteEl = e.target.closest("[data-note-edit]");
+      if (noteEl) {
+        e.stopPropagation();
+        e.preventDefault();
+        openNoteEditor(noteEl);
+        return;
+      }
+      var pinBtn = e.target.closest("[data-pin-group]");
+      if (pinBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        var pinAccountId = pinBtn.getAttribute("data-pin-account");
+        var pinGroupKey = pinBtn.getAttribute("data-pin-group");
+        if (pinBtn.classList.contains("pinned")) {
+          unpinGroup(pinAccountId);
+        } else {
+          pinGroup(pinAccountId, pinGroupKey);
+        }
+        return;
+      }
+      var renewalEl = e.target.closest("[data-renewal-edit]");
+      if (renewalEl) {
+        e.stopPropagation();
+        e.preventDefault();
+        openRenewalPicker(renewalEl);
+        return;
+      }
+    });
+  }
+
+  // internal/web/src/quotas/render.js
   function getGroupPct(acc, groupKey) {
     if (!acc.groups) return -1;
     for (var i = 0; i < acc.groups.length; i++) {
@@ -651,6 +944,203 @@
     if (diffSec <= 0) return "now";
     return formatSeconds(diffSec);
   }
+
+  // internal/web/src/quotas/expand.js
+  function setupToggle() {
+    var grid = document.getElementById("account-grid");
+    if (!grid) return;
+    grid.addEventListener("click", function(e) {
+      var clearBtn = e.target.closest("[data-clear-account]");
+      if (clearBtn) {
+        e.stopPropagation();
+        var accountId = clearBtn.getAttribute("data-clear-account");
+        var email = clearBtn.getAttribute("data-clear-email");
+        if (confirm("Clear all snapshots for " + email + "?\n\nThe account will remain but all quota history will be deleted. This cannot be undone.")) {
+          fetch("/api/accounts/" + accountId + "/snapshots", { method: "DELETE" }).then(function(res) {
+            return res.json();
+          }).then(function(data) {
+            showToast("\u2705 Cleared " + (data.snapshotsDeleted || 0) + " snapshots for " + email, "success");
+            fetchStatus().then(renderAccounts);
+            document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"));
+          }).catch(function(err) {
+            showToast("\u274C " + err.message, "error");
+          });
+        }
+        return;
+      }
+      var deleteBtn = e.target.closest("[data-delete-account]");
+      if (deleteBtn) {
+        e.stopPropagation();
+        var accountId2 = deleteBtn.getAttribute("data-delete-account");
+        var email2 = deleteBtn.getAttribute("data-delete-email");
+        if (confirm("Remove account " + email2 + "?\n\nThis will permanently delete the account and ALL associated data (snapshots, cycles, codex data). This cannot be undone.")) {
+          fetch("/api/accounts/" + accountId2, { method: "DELETE" }).then(function(res) {
+            return res.json();
+          }).then(function(data) {
+            showToast("\u2705 Removed " + email2 + " (" + (data.totalDeleted || 0) + " records deleted)", "success");
+            expandedAccounts.delete("acc-" + accountId2);
+            fetchStatus().then(renderAccounts);
+            document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"));
+          }).catch(function(err) {
+            showToast("\u274C " + err.message, "error");
+          });
+        }
+        return;
+      }
+      var gadjBtn = e.target.closest(".gadj-btn");
+      if (gadjBtn) {
+        e.stopPropagation();
+        var gControls = gadjBtn.closest(".group-adjust");
+        if (!gControls) return;
+        var gSnapId = parseInt(gControls.getAttribute("data-snap-id"), 10);
+        var gGroupKey = gControls.getAttribute("data-group-key");
+        var gLabelsStr = gControls.getAttribute("data-group-labels");
+        var gCurrentPct = parseFloat(gControls.getAttribute("data-current-pct"));
+        var gDelta = parseFloat(gadjBtn.getAttribute("data-delta"));
+        var gNewPct = Math.max(0, Math.min(100, gCurrentPct + gDelta));
+        var cell = gControls.closest(".quota-cell");
+        if (cell) {
+          var gPctSpan = cell.querySelector(".quota-pct");
+          var gBarFill = cell.querySelector(".quota-minibar-fill");
+          if (gPctSpan) {
+            gPctSpan.textContent = Math.round(gNewPct) + "%";
+            gPctSpan.className = "quota-pct " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
+          }
+          if (gBarFill) {
+            gBarFill.style.width = gNewPct + "%";
+            gBarFill.className = "quota-minibar-fill " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
+          }
+        }
+        gControls.setAttribute("data-current-pct", gNewPct);
+        var gLabels = gLabelsStr.split("|||").filter(function(l) {
+          return l.length > 0;
+        });
+        var adjustments = [];
+        for (var li = 0; li < gLabels.length; li++) {
+          adjustments.push({ label: gLabels[li], remainingPercent: gNewPct });
+        }
+        if (adjustments.length === 0) return;
+        fetch("/api/snap/adjust", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ snapshotId: gSnapId, adjustments })
+        }).then(function(res) {
+          return res.json();
+        }).then(function(data) {
+          if (data.error) {
+            showToast("\u274C " + data.error, "error");
+            return;
+          }
+          var groupName = GROUP_NAMES[gGroupKey] || gGroupKey;
+          showToast("\u270E " + groupName + " \u2192 " + Math.round(gNewPct) + "% (" + adjustments.length + " models)", "info");
+          fetchStatus().then(renderAccounts);
+        }).catch(function(err) {
+          showToast("\u274C " + err.message, "error");
+        });
+        return;
+      }
+      var adjBtn = e.target.closest(".adj-btn");
+      if (adjBtn) {
+        e.stopPropagation();
+        var controls = adjBtn.closest(".adjust-controls");
+        if (!controls) return;
+        var snapId = parseInt(controls.getAttribute("data-snap-id"), 10);
+        var label = controls.getAttribute("data-model-label");
+        var currentPct = parseFloat(controls.getAttribute("data-current-pct"));
+        var delta = parseFloat(adjBtn.getAttribute("data-delta"));
+        var newPct = Math.max(0, Math.min(100, currentPct + delta));
+        var row = controls.closest(".model-row");
+        if (row) {
+          var pctSpan = row.querySelector(".model-pct");
+          var barFill = row.querySelector(".model-bar-fill");
+          if (pctSpan) {
+            pctSpan.textContent = Math.round(newPct) + "%";
+            pctSpan.className = "model-pct " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
+          }
+          if (barFill) {
+            barFill.style.width = newPct + "%";
+            barFill.className = "model-bar-fill " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
+          }
+        }
+        controls.setAttribute("data-current-pct", newPct);
+        fetch("/api/snap/adjust", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            snapshotId: snapId,
+            adjustments: [{ label, remainingPercent: newPct }]
+          })
+        }).then(function(res) {
+          return res.json();
+        }).then(function(data) {
+          if (data.error) {
+            showToast("\u274C " + data.error, "error");
+            return;
+          }
+          showToast("\u270E Adjusted " + label + " \u2192 " + Math.round(newPct) + "%", "info");
+          fetchStatus().then(renderAccounts);
+        }).catch(function(err) {
+          showToast("\u274C " + err.message, "error");
+        });
+        return;
+      }
+      if (e.target.closest("[data-tag-add]") || e.target.closest("[data-remove-tag]") || e.target.closest("[data-note-edit]") || e.target.closest("[data-pin-group]") || e.target.closest("[data-renewal-edit]") || e.target.closest(".tag-picker") || e.target.closest(".tag-chip")) {
+        return;
+      }
+      var row = e.target.closest(".account-row[data-toggle]");
+      if (!row) return;
+      var id = row.getAttribute("data-toggle");
+      var el = document.getElementById(id);
+      var chev = document.getElementById("chev-" + id);
+      if (!el) return;
+      var willExpand = !el.classList.contains("is-expanded");
+      el.classList.toggle("is-expanded", willExpand);
+      if (willExpand) expandedAccounts.add(id);
+      else expandedAccounts.delete(id);
+      if (chev) chev.classList.toggle("expanded", willExpand);
+    });
+  }
+  function initQuotas() {
+    var qSearch = document.getElementById("quota-search");
+    var qStatus = document.getElementById("quota-filter-status");
+    if (qSearch) {
+      qSearch.addEventListener("input", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    if (qStatus) {
+      qStatus.addEventListener("change", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var qProvider = document.getElementById("quota-filter-provider");
+    if (qProvider) {
+      qProvider.addEventListener("change", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var gridEl = document.getElementById("account-grid");
+    if (gridEl) {
+      gridEl.addEventListener("click", function(e) {
+        var el = e.target.closest(".sortable");
+        if (!el) return;
+        var col = el.dataset.sort;
+        if (quotaSortState.column === col) {
+          quotaSortState.direction = quotaSortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          quotaSortState.column = col;
+          quotaSortState.direction = "asc";
+        }
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var tagStrip = document.getElementById("tag-filter-strip");
+    if (tagStrip) {
+      tagStrip.addEventListener("click", handleTagFilterClick);
+    }
+  }
+
+  // internal/web/src/main.js
   function loadSubscriptions() {
     var status = document.getElementById("filter-status").value;
     var category = document.getElementById("filter-category").value;
@@ -829,160 +1319,6 @@
     }
     var accentStyle = "border-left: 3px solid hsl(" + hue + ", 60%, 55%)";
     return '<div class="sub-card" data-sub-id="' + sub.id + '" style="' + accentStyle + '"><div class="sub-card-header"><div class="sub-card-title">' + cardTitle + '</div><div class="sub-card-badges">' + trialHTML + badgesHTML + "</div></div>" + (cardSubtitle ? '<div class="sub-card-subtitle">' + cardSubtitle + "</div>" : "") + metaHTML + costHTML + limitsHTML + notesHTML + linksHTML + renewalHTML + '<div class="sub-card-actions"><button class="btn-edit-card" data-edit-id="' + sub.id + '">Edit</button><button class="btn-delete-card" data-delete-id="' + sub.id + '" data-delete-name="' + esc(sub.platform) + '">Delete</button></div></div>';
-  }
-  function setupToggle() {
-    var grid = document.getElementById("account-grid");
-    if (!grid) return;
-    grid.addEventListener("click", function(e) {
-      var clearBtn = e.target.closest("[data-clear-account]");
-      if (clearBtn) {
-        e.stopPropagation();
-        var accountId = clearBtn.getAttribute("data-clear-account");
-        var email = clearBtn.getAttribute("data-clear-email");
-        if (confirm("Clear all snapshots for " + email + "?\n\nThe account will remain but all quota history will be deleted. This cannot be undone.")) {
-          fetch("/api/accounts/" + accountId + "/snapshots", { method: "DELETE" }).then(function(res) {
-            return res.json();
-          }).then(function(data) {
-            showToast("\u2705 Cleared " + (data.snapshotsDeleted || 0) + " snapshots for " + email, "success");
-            fetchStatus().then(renderAccounts);
-            loadHistoryChart();
-          }).catch(function(err) {
-            showToast("\u274C " + err.message, "error");
-          });
-        }
-        return;
-      }
-      var deleteBtn = e.target.closest("[data-delete-account]");
-      if (deleteBtn) {
-        e.stopPropagation();
-        var accountId2 = deleteBtn.getAttribute("data-delete-account");
-        var email2 = deleteBtn.getAttribute("data-delete-email");
-        if (confirm("Remove account " + email2 + "?\n\nThis will permanently delete the account and ALL associated data (snapshots, cycles, codex data). This cannot be undone.")) {
-          fetch("/api/accounts/" + accountId2, { method: "DELETE" }).then(function(res) {
-            return res.json();
-          }).then(function(data) {
-            showToast("\u2705 Removed " + email2 + " (" + (data.totalDeleted || 0) + " records deleted)", "success");
-            expandedAccounts.delete("acc-" + accountId2);
-            fetchStatus().then(renderAccounts);
-            loadHistoryChart();
-          }).catch(function(err) {
-            showToast("\u274C " + err.message, "error");
-          });
-        }
-        return;
-      }
-      var gadjBtn = e.target.closest(".gadj-btn");
-      if (gadjBtn) {
-        e.stopPropagation();
-        var gControls = gadjBtn.closest(".group-adjust");
-        if (!gControls) return;
-        var gSnapId = parseInt(gControls.getAttribute("data-snap-id"), 10);
-        var gGroupKey = gControls.getAttribute("data-group-key");
-        var gLabelsStr = gControls.getAttribute("data-group-labels");
-        var gCurrentPct = parseFloat(gControls.getAttribute("data-current-pct"));
-        var gDelta = parseFloat(gadjBtn.getAttribute("data-delta"));
-        var gNewPct = Math.max(0, Math.min(100, gCurrentPct + gDelta));
-        var cell = gControls.closest(".quota-cell");
-        if (cell) {
-          var gPctSpan = cell.querySelector(".quota-pct");
-          var gBarFill = cell.querySelector(".quota-minibar-fill");
-          if (gPctSpan) {
-            gPctSpan.textContent = Math.round(gNewPct) + "%";
-            gPctSpan.className = "quota-pct " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
-          }
-          if (gBarFill) {
-            gBarFill.style.width = gNewPct + "%";
-            gBarFill.className = "quota-minibar-fill " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
-          }
-        }
-        gControls.setAttribute("data-current-pct", gNewPct);
-        var gLabels = gLabelsStr.split("|||").filter(function(l) {
-          return l.length > 0;
-        });
-        var adjustments = [];
-        for (var li = 0; li < gLabels.length; li++) {
-          adjustments.push({ label: gLabels[li], remainingPercent: gNewPct });
-        }
-        if (adjustments.length === 0) return;
-        fetch("/api/snap/adjust", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ snapshotId: gSnapId, adjustments })
-        }).then(function(res) {
-          return res.json();
-        }).then(function(data) {
-          if (data.error) {
-            showToast("\u274C " + data.error, "error");
-            return;
-          }
-          var groupName = GROUP_NAMES[gGroupKey] || gGroupKey;
-          showToast("\u270E " + groupName + " \u2192 " + Math.round(gNewPct) + "% (" + adjustments.length + " models)", "info");
-          fetchStatus().then(renderAccounts);
-        }).catch(function(err) {
-          showToast("\u274C " + err.message, "error");
-        });
-        return;
-      }
-      var adjBtn = e.target.closest(".adj-btn");
-      if (adjBtn) {
-        e.stopPropagation();
-        var controls = adjBtn.closest(".adjust-controls");
-        if (!controls) return;
-        var snapId = parseInt(controls.getAttribute("data-snap-id"), 10);
-        var label = controls.getAttribute("data-model-label");
-        var currentPct = parseFloat(controls.getAttribute("data-current-pct"));
-        var delta = parseFloat(adjBtn.getAttribute("data-delta"));
-        var newPct = Math.max(0, Math.min(100, currentPct + delta));
-        var row = controls.closest(".model-row");
-        if (row) {
-          var pctSpan = row.querySelector(".model-pct");
-          var barFill = row.querySelector(".model-bar-fill");
-          if (pctSpan) {
-            pctSpan.textContent = Math.round(newPct) + "%";
-            pctSpan.className = "model-pct " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
-          }
-          if (barFill) {
-            barFill.style.width = newPct + "%";
-            barFill.className = "model-bar-fill " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
-          }
-        }
-        controls.setAttribute("data-current-pct", newPct);
-        fetch("/api/snap/adjust", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            snapshotId: snapId,
-            adjustments: [{ label, remainingPercent: newPct }]
-          })
-        }).then(function(res) {
-          return res.json();
-        }).then(function(data) {
-          if (data.error) {
-            showToast("\u274C " + data.error, "error");
-            return;
-          }
-          showToast("\u270E Adjusted " + label + " \u2192 " + Math.round(newPct) + "%", "info");
-          fetchStatus().then(renderAccounts);
-        }).catch(function(err) {
-          showToast("\u274C " + err.message, "error");
-        });
-        return;
-      }
-      if (e.target.closest("[data-tag-add]") || e.target.closest("[data-remove-tag]") || e.target.closest("[data-note-edit]") || e.target.closest("[data-pin-group]") || e.target.closest("[data-renewal-edit]") || e.target.closest(".tag-picker") || e.target.closest(".tag-chip")) {
-        return;
-      }
-      var row = e.target.closest(".account-row[data-toggle]");
-      if (!row) return;
-      var id = row.getAttribute("data-toggle");
-      var el = document.getElementById(id);
-      var chev = document.getElementById("chev-" + id);
-      if (!el) return;
-      var willExpand = !el.classList.contains("is-expanded");
-      el.classList.toggle("is-expanded", willExpand);
-      if (willExpand) expandedAccounts.add(id);
-      else expandedAccounts.delete(id);
-      if (chev) chev.classList.toggle("expanded", willExpand);
-    });
   }
   function initModal() {
     var overlay = document.getElementById("modal-overlay");
@@ -1663,292 +1999,6 @@
       container.innerHTML = "";
     });
   }
-  function renderPinnedBadge(groupData, pinnedKey) {
-    if (!groupData) return "";
-    var pct = Math.round(groupData.remainingPercent);
-    var cls = "good";
-    if (groupData.isExhausted || pct === 0) cls = "exhausted";
-    else if (pct < 20) cls = "warning";
-    else if (pct < 50) cls = "ok";
-    return ' <span class="pinned-badge ' + cls + '" title="Pinned: ' + esc(groupData.displayName || pinnedKey) + '">\u2605 ' + esc(groupData.displayName || GROUP_NAMES[pinnedKey] || pinnedKey) + ": " + pct + "%</span>";
-  }
-  function pinGroup(accountId, groupKey) {
-    updateAccountMeta(accountId, { pinnedGroup: groupKey }).then(function() {
-      showToast("\u2B50 Pinned " + (GROUP_NAMES[groupKey] || groupKey), "success");
-      fetchStatus().then(renderAccounts);
-    });
-  }
-  function unpinGroup(accountId) {
-    updateAccountMeta(accountId, { pinnedGroup: "" }).then(function() {
-      showToast("\u2606 Unpinned \u2014 will show first group", "info");
-      fetchStatus().then(renderAccounts);
-    });
-  }
-  function daysUntilRenewal(day) {
-    if (!day || day < 1 || day > 31) return -1;
-    var now = /* @__PURE__ */ new Date();
-    var y = now.getFullYear();
-    var m = now.getMonth();
-    var today = now.getDate();
-    var targetMonth = today < day ? m : m + 1;
-    var target = new Date(y, targetMonth, day);
-    var diff = Math.ceil((target - now) / (1e3 * 60 * 60 * 24));
-    return diff < 0 ? 0 : diff;
-  }
-  function renderCreditRenewal(accountId, renewalDay) {
-    if (!renewalDay || renewalDay < 1) {
-      return '<span class="credit-renewal-set" data-renewal-edit="' + accountId + '" title="Set credit renewal day">\u21BB set</span>';
-    }
-    var days = daysUntilRenewal(renewalDay);
-    var label = days === 0 ? "today" : days === 1 ? "1d" : days + "d";
-    return '<span class="credit-renewal" data-renewal-edit="' + accountId + '" data-renewal-day="' + renewalDay + '" title="Credits renew on day ' + renewalDay + " (\u21BB " + label + ')">\u21BB ' + label + "</span>";
-  }
-  function openRenewalPicker(el) {
-    var existing = document.querySelector(".renewal-picker");
-    if (existing) existing.remove();
-    var accountId = el.getAttribute("data-renewal-edit");
-    var currentDay = parseInt(el.getAttribute("data-renewal-day")) || 0;
-    var picker = document.createElement("div");
-    picker.className = "renewal-picker";
-    picker.innerHTML = '<div class="renewal-picker-label">Credit Renewal Day</div><input type="number" class="renewal-picker-input" min="1" max="31" value="' + (currentDay || "") + '" placeholder="1\u201331"><div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>';
-    el.closest(".credits-cell").appendChild(picker);
-    var input = picker.querySelector("input");
-    input.focus();
-    input.select();
-    function save() {
-      var day = parseInt(input.value) || 0;
-      if (day > 31) day = 31;
-      if (day < 0) day = 0;
-      picker.remove();
-      updateAccountMeta(accountId, { creditRenewalDay: day }).then(function() {
-        if (day > 0) {
-          showToast("\u21BB Renewal day set to " + day, "success");
-        } else {
-          showToast("\u21BB Renewal day cleared", "info");
-        }
-        fetchStatus().then(renderAccounts);
-      });
-    }
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        save();
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        picker.remove();
-      }
-    });
-    input.addEventListener("blur", function() {
-      setTimeout(function() {
-        if (picker.parentNode) save();
-      }, 150);
-    });
-  }
-  var TAG_PRESETS = ["work", "personal", "primary", "backup", "shared", "test", "dev"];
-  function renderAccountTags(acc) {
-    var tags = (acc.tags || "").split(",").filter(function(t) {
-      return t.trim();
-    });
-    var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
-    for (var i = 0; i < tags.length; i++) {
-      html += '<span class="tag-chip" data-tag="' + esc(tags[i].trim()) + '">' + esc(tags[i].trim()) + '<span class="tag-remove" data-remove-tag="' + esc(tags[i].trim()) + '" data-account-id="' + acc.accountId + '" title="Remove tag">\u2715</span></span>';
-    }
-    html += "</span>";
-    html += '<button class="tag-add-btn" data-tag-add="' + acc.accountId + '" title="Add tag">+</button>';
-    return html;
-  }
-  function renderAccountNote(acc) {
-    if (acc.notes) {
-      return '<span class="account-note" data-note-edit="' + acc.accountId + '" data-current-note="' + esc(acc.notes) + '" title="' + esc(acc.notes) + ' \u2014 click to edit">\u{1F4DD} ' + esc(acc.notes) + "</span>";
-    }
-    return '<span class="account-note-empty" data-note-edit="' + acc.accountId + '" data-current-note="">+ note</span>';
-  }
-  function updateAccountMeta(accountId, patch) {
-    return fetch("/api/accounts/" + accountId + "/meta", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(patch)
-    }).then(function(r) {
-      return r.json();
-    });
-  }
-  function addTagToAccount(accountId, newTag) {
-    newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-    if (!newTag) return;
-    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
-    var existing = [];
-    if (container) {
-      container.querySelectorAll(".tag-chip").forEach(function(chip) {
-        existing.push(chip.getAttribute("data-tag"));
-      });
-    }
-    if (existing.indexOf(newTag) >= 0) return;
-    existing.push(newTag);
-    updateAccountMeta(accountId, { tags: existing.join(",") }).then(function() {
-      showToast('\u{1F3F7}\uFE0F Tag "' + newTag + '" added', "success");
-      fetchStatus().then(renderAccounts);
-    });
-  }
-  function removeTagFromAccount(accountId, tag) {
-    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
-    var tags = [];
-    if (container) {
-      container.querySelectorAll(".tag-chip").forEach(function(chip) {
-        var t = chip.getAttribute("data-tag");
-        if (t !== tag) tags.push(t);
-      });
-    }
-    updateAccountMeta(accountId, { tags: tags.join(",") }).then(function() {
-      showToast("\u{1F3F7}\uFE0F Tag removed", "success");
-      fetchStatus().then(renderAccounts);
-    });
-  }
-  function openTagPicker(btn) {
-    closeTagPicker();
-    var accountId = btn.getAttribute("data-tag-add");
-    var meta = btn.closest(".account-meta");
-    if (!meta) return;
-    var existing = [];
-    var container = meta.querySelector(".account-tags");
-    if (container) {
-      container.querySelectorAll(".tag-chip").forEach(function(chip) {
-        existing.push(chip.getAttribute("data-tag"));
-      });
-    }
-    var picker = document.createElement("div");
-    picker.className = "tag-picker";
-    picker.id = "active-tag-picker";
-    picker.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20"><div class="tag-picker-hint">Enter to add</div><div class="tag-picker-presets">' + TAG_PRESETS.map(function(p) {
-      var active = existing.indexOf(p) >= 0 ? " active" : "";
-      return '<button class="tag-preset' + active + '" data-preset-tag="' + p + '">' + p + "</button>";
-    }).join("") + "</div>";
-    meta.appendChild(picker);
-    var input = picker.querySelector(".tag-picker-input");
-    input.focus();
-    picker.addEventListener("click", function(e) {
-      e.stopPropagation();
-    });
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        var val = input.value.trim();
-        if (val) {
-          addTagToAccount(accountId, val);
-          closeTagPicker();
-        }
-      }
-      if (e.key === "Escape") {
-        closeTagPicker();
-      }
-    });
-    picker.querySelectorAll(".tag-preset").forEach(function(btn2) {
-      btn2.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var tag = btn2.getAttribute("data-preset-tag");
-        if (btn2.classList.contains("active")) {
-          removeTagFromAccount(accountId, tag);
-        } else {
-          addTagToAccount(accountId, tag);
-        }
-        closeTagPicker();
-      });
-    });
-    setTimeout(function() {
-      document.addEventListener("click", closeTagPickerOnOutside);
-    }, 10);
-  }
-  function closeTagPicker() {
-    var picker = document.getElementById("active-tag-picker");
-    if (picker) picker.remove();
-    document.removeEventListener("click", closeTagPickerOnOutside);
-  }
-  function closeTagPickerOnOutside(e) {
-    var picker = document.getElementById("active-tag-picker");
-    if (picker && !picker.contains(e.target)) {
-      closeTagPicker();
-    }
-  }
-  function openNoteEditor(el) {
-    var accountId = el.getAttribute("data-note-edit");
-    var currentNote = el.getAttribute("data-current-note") || "";
-    var editor = document.createElement("span");
-    editor.className = "note-inline-editor";
-    editor.innerHTML = '<input type="text" class="note-inline-input" value="' + esc(currentNote) + '" placeholder="Add a note..." maxlength="100">';
-    el.replaceWith(editor);
-    var input = editor.querySelector(".note-inline-input");
-    input.focus();
-    input.select();
-    editor.addEventListener("click", function(e) {
-      e.stopPropagation();
-    });
-    function save() {
-      var val = input.value.trim();
-      updateAccountMeta(accountId, { notes: val }).then(function() {
-        if (val) showToast("\u{1F4DD} Note saved", "success");
-        fetchStatus().then(renderAccounts);
-      });
-    }
-    input.addEventListener("keydown", function(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        save();
-      }
-      if (e.key === "Escape") {
-        fetchStatus().then(renderAccounts);
-      }
-    });
-    input.addEventListener("blur", save);
-  }
-  function initAccountMetaHandlers() {
-    var grid = document.getElementById("account-grid");
-    if (!grid) return;
-    grid.addEventListener("click", function(e) {
-      var removeBtn = e.target.closest("[data-remove-tag]");
-      if (removeBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        var tag = removeBtn.getAttribute("data-remove-tag");
-        var accId = removeBtn.getAttribute("data-account-id");
-        removeTagFromAccount(accId, tag);
-        return;
-      }
-      var addBtn = e.target.closest("[data-tag-add]");
-      if (addBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        openTagPicker(addBtn);
-        return;
-      }
-      var noteEl = e.target.closest("[data-note-edit]");
-      if (noteEl) {
-        e.stopPropagation();
-        e.preventDefault();
-        openNoteEditor(noteEl);
-        return;
-      }
-      var pinBtn = e.target.closest("[data-pin-group]");
-      if (pinBtn) {
-        e.stopPropagation();
-        e.preventDefault();
-        var pinAccountId = pinBtn.getAttribute("data-pin-account");
-        var pinGroupKey = pinBtn.getAttribute("data-pin-group");
-        if (pinBtn.classList.contains("pinned")) {
-          unpinGroup(pinAccountId);
-        } else {
-          pinGroup(pinAccountId, pinGroupKey);
-        }
-        return;
-      }
-      var renewalEl = e.target.closest("[data-renewal-edit]");
-      if (renewalEl) {
-        e.stopPropagation();
-        e.preventDefault();
-        openRenewalPicker(renewalEl);
-        return;
-      }
-    });
-  }
   function initSettings() {
     var themeEl = document.getElementById("s-theme");
     var savedTheme = localStorage.getItem("niyantra-theme") || "dark";
@@ -2497,48 +2547,10 @@
       }
     });
   }
-  function initQuotas() {
-    var qSearch = document.getElementById("quota-search");
-    var qStatus = document.getElementById("quota-filter-status");
-    if (qSearch) {
-      qSearch.addEventListener("input", function() {
-        if (latestQuotaData) renderAccounts(latestQuotaData);
-      });
-    }
-    if (qStatus) {
-      qStatus.addEventListener("change", function() {
-        if (latestQuotaData) renderAccounts(latestQuotaData);
-      });
-    }
-    var qProvider = document.getElementById("quota-filter-provider");
-    if (qProvider) {
-      qProvider.addEventListener("change", function() {
-        if (latestQuotaData) renderAccounts(latestQuotaData);
-      });
-    }
-    var gridEl = document.getElementById("account-grid");
-    if (gridEl) {
-      gridEl.addEventListener("click", function(e) {
-        var el = e.target.closest(".sortable");
-        if (!el) return;
-        var col = el.dataset.sort;
-        if (quotaSortState.column === col) {
-          quotaSortState.direction = quotaSortState.direction === "asc" ? "desc" : "asc";
-        } else {
-          quotaSortState.column = col;
-          quotaSortState.direction = "asc";
-        }
-        if (latestQuotaData) renderAccounts(latestQuotaData);
-      });
-    }
-    var tagStrip = document.getElementById("tag-filter-strip");
-    if (tagStrip) {
-      tagStrip.addEventListener("click", handleTagFilterClick);
-    }
-  }
   document.addEventListener("DOMContentLoaded", function() {
     initTheme();
     initTabs();
+    setRenderAccounts(renderAccounts);
     initQuotas();
     setupToggle();
     initModal();
@@ -2558,6 +2570,9 @@
     });
     document.addEventListener("niyantra:theme-change", function(e) {
       updateChartTheme(e.detail.theme);
+    });
+    document.addEventListener("niyantra:chart-refresh", function() {
+      loadHistoryChart();
     });
     document.getElementById("snap-btn").addEventListener("click", handleSnap);
     initSnapDropdown();
