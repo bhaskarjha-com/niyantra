@@ -76,7 +76,7 @@ internal/
     types.go                          API response structs
     helpers.go                        Model grouping logic (claude_gpt / gemini_pro / gemini_flash)
 
-  store/                           ← SQLite persistence (schema v9, 11 tables)
+  store/                           ← SQLite persistence (schema v11, 13 tables)
     store.go                          Open, migrate schema, close
     snapshots.go                      InsertSnapshot, LatestPerAccount, History
     accounts.go                       GetOrCreateAccount (upsert by email)
@@ -111,10 +111,20 @@ internal/
     notify.go                         Windows (PowerShell), macOS (osascript), Linux (notify-send)
 
   mcpserver/                       ← MCP stdio server
-    server.go                         8 tools: quota, models, usage, budget, best_model, spending, switch, codex
+    server.go                         9 tools: quota, models, usage, budget, best_model, spending, switch, codex, forecast
 
-  web/                             ← HTTP server + embedded dashboard
-    server.go                         Setup, handlers (30 REST endpoints)
+  web/                             ← Modular HTTP server (11 files)
+    server.go                         Server struct, lifecycle, route table (226 lines)
+    middleware.go                     Auth + CORS middleware
+    helpers.go                        JSON response utilities
+    compute.go                        Forecast/cost engines (pure logic, no HTTP)
+    handlers_quota.go                 status, snap, history, usage endpoints
+    handlers_config.go                config, activity, mode endpoints
+    handlers_ops.go                   healthz, Claude, backup, export, alerts, advisor
+    handlers_codex.go                 Codex, sessions, usage logs endpoints
+    handlers_data.go                  accounts, snapshots, pricing endpoints
+    handlers_forecast.go              cost + TTX forecast endpoints
+    handlers_subscriptions.go         Subscription CRUD, overview, presets, CSV
     static/                           Embedded via Go embed.FS
       index.html                       Single-page dashboard shell
       style.css                        Design system (CSS variables, dark/light themes)
@@ -207,7 +217,7 @@ make build
 make vet
 ```
 
-Current coverage: 16 unit tests across `readiness` (9 tests) and `advisor` (7 tests).
+Current coverage: 60 tests across 8 packages (`readiness`, `advisor`, `store`, `tracker`, `web`, `notify`, `costtrack`, `forecast`).
 
 ## Common Issues
 
