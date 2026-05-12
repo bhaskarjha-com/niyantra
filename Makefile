@@ -30,17 +30,20 @@ vulncheck:
 ## Bundle frontend JS
 js:
 	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
-		--outfile=internal/web/static/app.js --target=es2020
+		--outfile=internal/web/static/app.js --target=es2020 \
+		--banner:js="// GENERATED FILE — do not edit. Source: internal/web/src/"
 
 ## Bundle + minify for production
 js-prod:
 	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
-		--outfile=internal/web/static/app.js --target=es2020 --minify
+		--outfile=internal/web/static/app.js --target=es2020 --minify \
+		--banner:js="// GENERATED FILE — do not edit. Source: internal/web/src/"
 
 ## Development: watch + rebuild
 js-watch:
 	npx.cmd -y esbuild internal/web/src/main.js --bundle --format=iife \
-		--outfile=internal/web/static/app.js --target=es2020 --watch
+		--outfile=internal/web/static/app.js --target=es2020 --watch \
+		--banner:js="// GENERATED FILE — do not edit. Source: internal/web/src/"
 
 ## Remove built binaries
 clean:
