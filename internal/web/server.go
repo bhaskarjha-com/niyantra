@@ -25,6 +25,7 @@ type Server struct {
 	tracker    *tracker.Tracker
 	notifier   *notify.Engine
 	port       int
+	bind       string // bind address (default: "127.0.0.1")
 	auth       string // "user:pass" or ""
 	agentMgr   *agent.Manager
 	httpServer *http.Server
@@ -32,7 +33,7 @@ type Server struct {
 }
 
 // NewServer creates a new Niyantra web server.
-func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, auth string, version string) *Server {
+func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, auth string, version string, bind string) *Server {
 	srv := &Server{
 		logger:   logger,
 		store:    s,
@@ -40,6 +41,7 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		tracker:  newTrackerWithBaseline(s, logger),
 		notifier: notify.NewEngine(logger),
 		port:     port,
+		bind:     bind,
 		auth:     auth,
 		agentMgr: agent.NewManager(logger),
 		Version:  version,
@@ -213,7 +215,7 @@ func (s *Server) ListenAndServe() error {
 	}
 
 	s.httpServer = &http.Server{
-		Addr:              fmt.Sprintf("127.0.0.1:%d", s.port),
+		Addr:              fmt.Sprintf("%s:%d", s.bind, s.port),
 		Handler:           handler,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

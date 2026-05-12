@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,10 +37,11 @@ func main() {
 
 	// Global flags
 	fs := flag.NewFlagSet("niyantra", flag.ExitOnError)
-	dbPath := fs.String("db", defaultDBPath(), "Database path")
+	dbPath := fs.String("db", envString("NIYANTRA_DB", defaultDBPath()), "Database path")
 	debug := fs.Bool("debug", false, "Enable verbose logging")
-	port := fs.Int("port", 9222, "Dashboard port")
-	auth := fs.String("auth", "", "HTTP basic auth (user:pass)")
+	port := fs.Int("port", envInt("NIYANTRA_PORT", 9222), "Dashboard port")
+	auth := fs.String("auth", envString("NIYANTRA_AUTH", ""), "HTTP basic auth (user:pass)")
+	bind := fs.String("bind", envString("NIYANTRA_BIND", "127.0.0.1"), "Bind address")
 	fs.Parse(os.Args[2:])
 
 	// Logger
@@ -55,7 +57,7 @@ func main() {
 	case "status":
 		cmdStatus(logger, *dbPath)
 	case "serve":
-		cmdServe(logger, *dbPath, *port, *auth)
+		cmdServe(logger, *dbPath, *port, *auth, *bind)
 	case "mcp":
 		cmdMCP(logger, *dbPath)
 	case "backup":
@@ -234,7 +236,7 @@ func cmdStatus(logger *slog.Logger, dbPath string) {
 }
 
 // cmdServe starts the web dashboard.
-func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
+func cmdServe(logger *slog.Logger, dbPath string, port int, auth string, bind string) {
 	db, err := store.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error opening database: %v\n", err)
@@ -244,7 +246,7 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string) {
 
 	c := client.New(logger)
 
-	srv := web.NewServer(logger, db, c, port, auth, version)
+	srv := web.NewServer(logger, db, c, port, auth, version, bind)
 	defer srv.Shutdown()
 
 	autoCapture := db.GetConfigBool("auto_capture")
@@ -592,9 +594,16 @@ Commands:
 
 Flags:
   --port     Dashboard port (default: 9222)
+  --bind     Bind address (default: 127.0.0.1)
   --db       Database path (default: ~/.niyantra/niyantra.db)
   --auth     HTTP basic auth for dashboard (user:pass)
-  --debug    Enable verbose logging`)
+  --debug    Enable verbose logging
+
+Environment Variables:
+  NIYANTRA_PORT   Dashboard port (overridden by --port)
+  NIYANTRA_BIND   Bind address (overridden by --bind)
+  NIYANTRA_DB     Database path (overridden by --db)
+  NIYANTRA_AUTH   HTTP basic auth (overridden by --auth)`)
 }
 
 func defaultDBPath() string {
@@ -632,4 +641,22 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// envString returns the value of an environment variable, or fallback if unset.
+func envString(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+// envInt returns the integer value of an environment variable, or fallback if unset/invalid.
+func envInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
 }
