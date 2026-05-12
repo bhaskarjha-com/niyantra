@@ -141,13 +141,15 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 | `niyantra restore <file>` | Restore from backup |
 | `niyantra version` | Print version |
 
-**Flags:** `--port 9222` `--db ~/.niyantra/niyantra.db` `--auth user:pass` `--debug`
+**Flags:** `--port 9222` `--bind 127.0.0.1` `--db ~/.niyantra/niyantra.db` `--auth user:pass` `--debug`
+
+**Environment Variables:** `NIYANTRA_PORT` `NIYANTRA_BIND` `NIYANTRA_DB` `NIYANTRA_AUTH` (CLI flags take precedence)
 
 ## MCP Integration
 
 Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-**8 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status`
+**9 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status` `quota_forecast`
 
 Add to your MCP client config (Claude Desktop, Antigravity, etc.):
 ```json
@@ -227,7 +229,7 @@ Frontend: 27 TypeScript modules (strict mode) bundled by esbuild into a single I
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (31 endpoints) |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v11 (11 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
 | [TESTING.md](docs/TESTING.md) | Test cases |

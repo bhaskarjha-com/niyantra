@@ -16,6 +16,11 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 	user, pass := parts[0], parts[1]
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for health check endpoint (container probes)
+		if r.URL.Path == "/healthz" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		u, p, ok := r.BasicAuth()
 		if !ok || u != user || p != pass {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Niyantra"`)

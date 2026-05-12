@@ -23,6 +23,7 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
 		"status":        "ok",
 		"version":       s.Version,
+		"uptime":        time.Since(s.startTime).Truncate(time.Second).String(),
 		"schemaVersion": s.store.SchemaVersion(),
 		"accounts":      s.store.AccountCount(),
 		"snapshots":     s.store.SnapshotCount(),

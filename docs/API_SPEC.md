@@ -14,6 +14,25 @@ Optional. If `--auth user:pass` is provided at startup, all endpoints require HT
 
 ## Endpoints
 
+### `GET /healthz`
+
+Liveness/health check endpoint for monitoring and container orchestration. **No authentication required.**
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "ok",
+  "version": "0.12.0",
+  "uptime": "2h15m30s",
+  "schemaVersion": 11,
+  "accounts": 2,
+  "snapshots": 47
+}
+```
+
+---
+
 ### `GET /`
 
 Serves the single-page dashboard (embedded HTML/CSS/JS).

@@ -300,7 +300,6 @@ func computeSimpleRate(snaps []store.ClaudeSnapshot, extractor func(store.Claude
 
 	totalWeight := 0.0
 	weightedRate := 0.0
-	pairCount := 0
 
 	for i := 1; i < len(snaps); i++ {
 		prev := extractor(snaps[i-1])
@@ -314,7 +313,6 @@ func computeSimpleRate(snaps []store.ClaudeSnapshot, extractor func(store.Claude
 			continue
 		}
 
-		pairCount++
 		consumed := prev - curr // positive = usage
 		if consumed < 0 {
 			consumed = 0 // reset or correction
@@ -342,7 +340,6 @@ func computeCodexRate(snaps []*store.CodexSnapshot, extractor func(*store.CodexS
 
 	totalWeight := 0.0
 	weightedRate := 0.0
-	pairCount := 0
 
 	for i := 1; i < len(snaps); i++ {
 		prev := extractor(snaps[i-1])
@@ -356,7 +353,6 @@ func computeCodexRate(snaps []*store.CodexSnapshot, extractor func(*store.CodexS
 			continue
 		}
 
-		pairCount++
 		consumed := prev - curr
 		if consumed < 0 {
 			consumed = 0

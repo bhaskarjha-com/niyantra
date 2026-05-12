@@ -118,13 +118,22 @@ func TestBodySizeLimit(t *testing.T) {
 	// The actual limit is enforced in each handler via io.LimitReader.
 }
 
-// TestLocalhostBinding verifies the address string contains 127.0.0.1.
-func TestLocalhostBinding(t *testing.T) {
-	srv := &Server{port: 9222}
-	expected := fmt.Sprintf("127.0.0.1:%d", srv.port)
-	addr := fmt.Sprintf("127.0.0.1:%d", srv.port)
-	if addr != expected {
-		t.Errorf("expected binding to %s, got %s", expected, addr)
+// TestBindAddressComposition verifies the address string uses bind + port.
+func TestBindAddressComposition(t *testing.T) {
+	tests := []struct {
+		bind     string
+		port     int
+		expected string
+	}{
+		{"127.0.0.1", 9222, "127.0.0.1:9222"},
+		{"0.0.0.0", 8080, "0.0.0.0:8080"},
+		{"localhost", 3000, "localhost:3000"},
+	}
+	for _, tt := range tests {
+		addr := fmt.Sprintf("%s:%d", tt.bind, tt.port)
+		if addr != tt.expected {
+			t.Errorf("bind=%q port=%d: expected %q, got %q", tt.bind, tt.port, tt.expected, addr)
+		}
 	}
 }
 

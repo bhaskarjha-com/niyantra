@@ -16,7 +16,6 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
-
 // Server is the Niyantra HTTP server.
 type Server struct {
 	logger     *slog.Logger
@@ -29,7 +28,8 @@ type Server struct {
 	auth       string // "user:pass" or ""
 	agentMgr   *agent.Manager
 	httpServer *http.Server
-	Version    string // injected at startup (e.g. "0.12.0")
+	startTime  time.Time // set in NewServer for /healthz uptime
+	Version    string    // injected at startup (e.g. "0.12.0")
 }
 
 // NewServer creates a new Niyantra web server.
@@ -43,8 +43,9 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		port:     port,
 		bind:     bind,
 		auth:     auth,
-		agentMgr: agent.NewManager(logger),
-		Version:  version,
+		agentMgr:  agent.NewManager(logger),
+		startTime: time.Now(),
+		Version:   version,
 	}
 
 	// Configure notification engine from stored settings

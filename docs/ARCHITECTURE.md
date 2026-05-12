@@ -133,10 +133,27 @@ For each group:
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### Endpoints (30 REST)
+### File Structure
+
+| File | Responsibility |
+|------|----------------|
+| `server.go` | Server struct, constructor, agent lifecycle, route registration |
+| `middleware.go` | basicAuth, securityMiddleware (CORS + Content-Type) |
+| `helpers.go` | writeJSON, jsonError response helpers |
+| `compute.go` | Forecast/cost compute engines (no HTTP) |
+| `handlers_quota.go` | status, snap, history, usage |
+| `handlers_config.go` | config CRUD, activity, mode, onConfigChanged |
+| `handlers_ops.go` | healthz, Claude status, backup, notify, export/import, alerts, advisor |
+| `handlers_codex.go` | Codex status/snap, sessions, usage logs |
+| `handlers_data.go` | accounts, snapshots, snap adjust, model pricing |
+| `handlers_forecast.go` | cost and TTX forecast endpoints |
+| `handlers_subscriptions.go` | subscription CRUD, overview, presets, CSV export |
+
+### Endpoints (31 REST)
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | /healthz | Liveness/health check |
 | GET | / | Dashboard HTML |
 | GET | /api/status | All accounts + readiness |
 | POST | /api/snap | Trigger snapshot (tags source=ui) |
@@ -229,6 +246,7 @@ Print readiness table / return JSON
 - CSRF token: Extracted from process arguments, used for same-request auth to local LS
 - TLS: Self-signed cert from language server, InsecureSkipVerify: true (localhost only)
 - Dashboard auth: Optional HTTP basic auth via --auth user:pass flag
+- Environment variables: NIYANTRA_PORT, NIYANTRA_BIND, NIYANTRA_DB, NIYANTRA_AUTH (CLI flags take precedence)
 - Activity log: Full audit trail of every data mutation and config change
 
 ## Dependency Policy

@@ -3,6 +3,24 @@
 All notable changes to Niyantra are documented here.
 
 
+## [0.17.0] - 2026-05-12
+
+### Changed
+- **Backend hardening** — monolithic 2,076-line `server.go` refactored into 11 focused files:
+  - `server.go` (221 lines) — core lifecycle, constructor, route registration
+  - `middleware.go` — basicAuth, securityMiddleware (CORS + Content-Type)
+  - `helpers.go` — writeJSON, jsonError response helpers
+  - `compute.go` — forecast/cost compute engines (no HTTP)
+  - 6 domain handler files: `handlers_quota.go`, `handlers_config.go`, `handlers_ops.go`, `handlers_codex.go`, `handlers_data.go`, `handlers_forecast.go`
+  - Existing `handlers_subscriptions.go` cleaned up
+- **Go 1.22+ method routing** — all 49 route registrations use native `"METHOD /path"` syntax; 29 manual `r.Method` checks eliminated; automatic 405 Method Not Allowed
+- **Go 1.22+ path parameters** — `r.PathValue("id")` replaces manual `strings.TrimPrefix` parsing on all dynamic routes
+
+### Added
+- **`GET /healthz`** — liveness endpoint returning version, schema version, account/snapshot counts
+- **Environment variable configuration** — `NIYANTRA_PORT`, `NIYANTRA_BIND`, `NIYANTRA_DB`, `NIYANTRA_AUTH` (CLI flags take precedence)
+- **`--bind` flag** — configurable bind address for Docker deployments (default: `127.0.0.1`)
+
 ## [0.16.0] - 2026-05-12
 
 ### Added
