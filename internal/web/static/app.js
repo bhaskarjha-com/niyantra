@@ -98,13 +98,6 @@
     if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
     return Math.floor(seconds / 60) + "m";
   }
-  function formatDurationSec(sec) {
-    if (!sec || sec <= 0) return "0m";
-    var h = Math.floor(sec / 3600);
-    var m = Math.floor(sec % 3600 / 60);
-    if (h > 0) return h + "h " + m + "m";
-    return m + "m";
-  }
 
   // internal/web/src/core/api.js
   function fetchStatus() {
@@ -1519,6 +1512,454 @@
     });
   }
 
+  // internal/web/src/overview/budget.js
+  function getBudget() {
+    return parseFloat(serverConfig["budget_monthly"] || "0");
+  }
+  function setBudget(amount) {
+    serverConfig["budget_monthly"] = amount.toString();
+    updateConfig("budget_monthly", amount.toString());
+  }
+  function updateConfig(key, value) {
+    return fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value })
+    }).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.config) {
+        data.config.forEach(function(c) {
+          serverConfig[c.key] = c.value;
+        });
+      }
+    }).catch(function(err) {
+      console.error("Config update failed:", err);
+    });
+  }
+  function loadConfig() {
+    return fetch("/api/config").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.config) {
+        data.config.forEach(function(c) {
+          serverConfig[c.key] = c.value;
+        });
+      }
+      return serverConfig;
+    });
+  }
+  function initBudget() {
+    document.getElementById("budget-close").addEventListener("click", closeBudget);
+    document.getElementById("budget-cancel").addEventListener("click", closeBudget);
+    document.getElementById("budget-overlay").addEventListener("click", function(e) {
+      if (e.target.id === "budget-overlay") closeBudget();
+    });
+    document.getElementById("budget-save").addEventListener("click", function() {
+      var val = parseFloat(document.getElementById("f-budget").value) || 0;
+      setBudget(val);
+      closeBudget();
+      showToast("\u2705 Budget set to $" + val.toFixed(0) + "/mo", "success");
+      var overviewPanel = document.getElementById("panel-overview");
+      if (overviewPanel && overviewPanel.classList.contains("active")) loadOverview();
+    });
+  }
+  function openBudgetModal() {
+    document.getElementById("f-budget").value = getBudget() || "";
+    document.getElementById("budget-overlay").hidden = false;
+  }
+  function closeBudget() {
+    document.getElementById("budget-overlay").hidden = true;
+  }
+
+  // internal/web/src/overview/insights.js
+  function renderServerInsights(insights) {
+    if (!insights || insights.length === 0) return "";
+    var html = '<div class="insight-panel"><h3>\u{1F9E0} Intelligence Insights</h3><div class="insight-list">';
+    var iconMap = {
+      renewal_imminent: "\u{1F534}",
+      trial_expiring: "\u23F3",
+      unused_subscription: "\u{1F4A4}",
+      spending_anomaly: "\u{1F4C8}",
+      category_overlap: "\u{1F501}",
+      annual_savings: "\u{1F4A1}",
+      budget_exceeded: "\u{1F6A8}"
+    };
+    for (var i = 0; i < insights.length; i++) {
+      var ins = insights[i];
+      var icon = iconMap[ins.type] || "\u{1F4A1}";
+      var cls = ins.severity === "critical" ? "critical" : ins.severity === "warning" ? "warning" : "info";
+      html += '<div class="insight-item ' + cls + '"><span class="insight-item-icon">' + icon + '</span><div class="insight-item-content"><div class="insight-item-title">' + esc(ins.type.replace(/_/g, " ")) + '</div><div class="insight-item-msg">' + esc(ins.message) + "</div></div></div>";
+    }
+    html += "</div></div>";
+    return html;
+  }
+  var advisorGroupPref = localStorage.getItem("niyantra_advisor_group") || "claude_gpt";
+  function loadAdvisorCard() {
+    var container = document.getElementById("advisor-card-container");
+    if (!container) return;
+    if (!latestQuotaData || !latestQuotaData.accounts || latestQuotaData.accounts.length < 2) {
+      container.innerHTML = "";
+      return;
+    }
+    renderAdvisorWithGroup(container, advisorGroupPref);
+  }
+  function renderAdvisorWithGroup(container, groupKey) {
+    var accounts = latestQuotaData.accounts;
+    var ranked = [];
+    for (var i = 0; i < accounts.length; i++) {
+      var acc = accounts[i];
+      var groups = acc.groups || [];
+      var pct = null;
+      for (var g = 0; g < groups.length; g++) {
+        if (groups[g].groupKey === groupKey) {
+          pct = Math.round(groups[g].remainingPercent);
+          break;
+        }
+      }
+      if (pct === null) {
+        if (groupKey === "all") {
+          var total = 0;
+          for (var gx = 0; gx < groups.length; gx++) total += groups[gx].remainingPercent;
+          pct = groups.length > 0 ? Math.round(total / groups.length) : 0;
+        } else {
+          pct = 0;
+        }
+      }
+      var isStale = false;
+      if (acc.lastSeen) {
+        var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
+        isStale = ageMs > 6 * 3600 * 1e3;
+      }
+      ranked.push({
+        email: acc.email,
+        pct,
+        stale: isStale,
+        label: acc.stalenessLabel || ""
+      });
+    }
+    ranked.sort(function(a, b) {
+      return b.pct - a.pct;
+    });
+    var groupNames = {
+      "claude_gpt": "Claude + GPT",
+      "gemini_pro": "Gemini Pro",
+      "gemini_flash": "Gemini Flash",
+      "all": "All Models (avg)"
+    };
+    var best = ranked[0];
+    var worst = ranked[ranked.length - 1];
+    var allHealthy = ranked.every(function(a) {
+      return a.pct > 80;
+    });
+    var actionIcon = allHealthy ? "\u2705" : best.pct > 20 ? "\u26A1" : "\u23F3";
+    var actionLabel = allHealthy ? "ALL READY" : best.pct > 20 ? "SWITCH" : "WAIT";
+    var bestLabel = best.email.split("@")[0] + "@...";
+    var html = '<div class="advisor-card"><h3>\u26A1 Antigravity Account Advisor</h3><div class="advisor-group-select"><label>Optimize for:</label><select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px"><option value="claude_gpt"' + (groupKey === "claude_gpt" ? " selected" : "") + '>Claude + GPT</option><option value="gemini_pro"' + (groupKey === "gemini_pro" ? " selected" : "") + '>Gemini Pro</option><option value="gemini_flash"' + (groupKey === "gemini_flash" ? " selected" : "") + '>Gemini Flash</option><option value="all"' + (groupKey === "all" ? " selected" : "") + ">All Models (avg)</option></select></div>";
+    var actionCls = allHealthy ? "stay" : best.pct > 20 ? "switch" : "wait";
+    html += '<div class="advisor-action ' + actionCls + '">' + actionIcon + " " + actionLabel + '</div><div class="advisor-reason">' + (allHealthy ? "All accounts have healthy quotas \u2014 no switch needed" : "Best: " + esc(best.email) + " (" + best.pct + "% " + esc(groupNames[groupKey] || groupKey) + " remaining)") + (best.stale ? " \u26A0\uFE0F stale data" : "") + "</div>";
+    html += '<div class="advisor-scores">';
+    var initialShow = Math.min(ranked.length, 5);
+    for (var s = 0; s < ranked.length; s++) {
+      var acct = ranked[s];
+      var isBest = s === 0;
+      var barCls = acct.pct > 50 ? "good" : acct.pct > 20 ? "ok" : "low";
+      var staleIcon = acct.stale ? ' <span class="stale-icon" title="Data ' + esc(acct.label) + '">\u26A0</span>' : "";
+      var hidden = s >= initialShow ? ' style="display:none" data-advisor-extra' : "";
+      html += '<div class="advisor-score-row' + (isBest ? " best" : "") + '"' + hidden + '><span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span><div class="advisor-score-bar"><div class="advisor-score-fill ' + barCls + '" style="width:' + acct.pct + '%"></div></div><span class="advisor-score-val">' + acct.pct + "%" + staleIcon + "</span></div>";
+    }
+    if (ranked.length > initialShow) {
+      html += '<button class="advisor-show-all" id="advisor-toggle-all">Show all ' + ranked.length + " accounts</button>";
+    }
+    html += "</div></div>";
+    container.innerHTML = html;
+    var sel = document.getElementById("advisor-group-filter");
+    if (sel) {
+      sel.addEventListener("change", function() {
+        advisorGroupPref = sel.value;
+        localStorage.setItem("niyantra_advisor_group", advisorGroupPref);
+        renderAdvisorWithGroup(container, advisorGroupPref);
+      });
+    }
+    var toggleBtn = document.getElementById("advisor-toggle-all");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", function() {
+        var extras = container.querySelectorAll("[data-advisor-extra]");
+        var showing = toggleBtn.textContent.indexOf("Hide") >= 0;
+        extras.forEach(function(el) {
+          el.style.display = showing ? "none" : "";
+        });
+        toggleBtn.textContent = showing ? "Show all " + ranked.length + " accounts" : "Hide extras";
+      });
+    }
+  }
+
+  // internal/web/src/overview/cost.js
+  function loadCostKPI() {
+    var container = document.getElementById("cost-kpi-container");
+    if (!container) return;
+    fetch("/api/cost").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (!data || !data.accounts || data.accounts.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var total = data.totalCost || 0;
+      if (total < 0.01) {
+        container.innerHTML = "";
+        return;
+      }
+      var totalLabel = data.totalLabel || "$0.00";
+      var html = '<div class="cost-kpi-card overview-card"><h3>Estimated Spend (Current Cycle)</h3><div class="cost-kpi-amount">' + esc(totalLabel) + '</div><div class="cost-kpi-label">Estimated cost based on quota consumption \xD7 model pricing</div>';
+      var hasChips = false;
+      var chipsHTML = '<div class="cost-kpi-breakdown">';
+      if (data.accounts && data.accounts.length > 0) {
+        for (var i = 0; i < data.accounts.length; i++) {
+          var acct = data.accounts[i];
+          if (acct.totalCost >= 0.01) {
+            hasChips = true;
+            var emailShort = acct.email;
+            if (emailShort && emailShort.length > 20) {
+              emailShort = emailShort.split("@")[0] + "@\u2026";
+            }
+            chipsHTML += '<span class="cost-kpi-chip" title="' + esc(acct.email) + '">' + esc(emailShort) + ": " + esc(acct.totalLabel) + "</span>";
+          }
+        }
+      }
+      chipsHTML += "</div>";
+      if (hasChips) html += chipsHTML;
+      html += "</div>";
+      container.innerHTML = html;
+    }).catch(function(err) {
+      console.error("Cost KPI fetch failed:", err);
+      container.innerHTML = "";
+    });
+  }
+
+  // internal/web/src/overview/calendar.js
+  var calendarViewDate = /* @__PURE__ */ new Date();
+  function renderRenewalCalendar(renewals, subs) {
+    var container = document.getElementById("renewal-calendar-container");
+    if (!container) return;
+    var renewalMap = {};
+    if (renewals) {
+      for (var i = 0; i < renewals.length; i++) {
+        var r = renewals[i];
+        var dateKey = r.nextRenewal;
+        if (!renewalMap[dateKey]) renewalMap[dateKey] = [];
+        var cat = "other";
+        if (subs) {
+          for (var s = 0; s < subs.length; s++) {
+            if (subs[s].platform === r.platform && subs[s].category) {
+              cat = subs[s].category;
+              break;
+            }
+          }
+        }
+        renewalMap[dateKey].push({ platform: r.platform, category: cat, daysUntil: r.daysUntil });
+      }
+    }
+    var year = calendarViewDate.getFullYear();
+    var month = calendarViewDate.getMonth();
+    var today = /* @__PURE__ */ new Date();
+    var todayKey = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    var monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ];
+    var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var prevDays = new Date(year, month, 0).getDate();
+    var html = '<div class="calendar-container"><div class="calendar-header"><h3>\u{1F4C5} Renewal Calendar</h3><div class="calendar-nav"><button class="calendar-nav-btn" onclick="calendarNav(-1)">\u2039</button><span class="calendar-month-label">' + monthNames[month] + " " + year + '</span><button class="calendar-nav-btn" onclick="calendarNav(1)">\u203A</button></div></div>';
+    html += '<div class="calendar-weekdays">';
+    for (var d = 0; d < 7; d++) {
+      html += '<div class="calendar-weekday">' + dayNames[d] + "</div>";
+    }
+    html += "</div>";
+    html += '<div class="calendar-grid">';
+    for (var p = firstDay - 1; p >= 0; p--) {
+      html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + (prevDays - p) + "</span></div>";
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      var dateKey = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      var isToday = dateKey === todayKey;
+      var dayClass = isToday ? "calendar-day today" : "calendar-day";
+      var events = renewalMap[dateKey];
+      html += '<div class="' + dayClass + '"';
+      if (events && events.length > 0) {
+        var tooltipText = events.map(function(e2) {
+          return e2.platform;
+        }).join(", ");
+        html += ' title="' + esc(tooltipText) + '"';
+      }
+      html += ">";
+      html += '<span class="calendar-day-num">' + day + "</span>";
+      if (events && events.length > 0) {
+        html += '<div class="calendar-pins">';
+        for (var e = 0; e < Math.min(events.length, 4); e++) {
+          html += '<span class="calendar-pin ' + esc(events[e].category) + '"></span>';
+        }
+        html += "</div>";
+      }
+      html += "</div>";
+    }
+    var totalCells = firstDay + daysInMonth;
+    var remaining = 7 - totalCells % 7;
+    if (remaining < 7) {
+      for (var n = 1; n <= remaining; n++) {
+        html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + n + "</span></div>";
+      }
+    }
+    html += "</div>";
+    var categories = {};
+    for (var key in renewalMap) {
+      for (var ci = 0; ci < renewalMap[key].length; ci++) {
+        categories[renewalMap[key][ci].category] = true;
+      }
+    }
+    var catKeys = Object.keys(categories);
+    if (catKeys.length > 0) {
+      html += '<div class="calendar-legend">';
+      for (var cl = 0; cl < catKeys.length; cl++) {
+        html += '<div class="calendar-legend-item"><span class="calendar-legend-dot ' + esc(catKeys[cl]) + '"></span>' + esc(catKeys[cl]) + "</div>";
+      }
+      html += "</div>";
+    }
+    html += "</div>";
+    container.innerHTML = html;
+  }
+  function calendarNav(delta) {
+    calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
+    var el = document.getElementById("renewal-calendar-container");
+    if (el) {
+      document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
+    }
+  }
+
+  // internal/web/src/overview/overview.js
+  function loadOverview2() {
+    Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
+      var data = results[0];
+      var subsData = results[1];
+      var usageData = results[2];
+      renderOverviewEnhanced(data, subsData.subscriptions || [], usageData);
+    }).catch(function(err) {
+      console.error("Failed to load overview:", err);
+    });
+  }
+  function renderOverviewEnhanced(data, subs, usageData) {
+    var el = document.getElementById("overview-content");
+    if (!el) return;
+    var stats = data.stats || { totalMonthlySpend: 0, totalAnnualSpend: 0, byCategory: {}, byStatus: {} };
+    var renewals = data.renewals || [];
+    var links = data.quickLinks || [];
+    var quotas = data.quotaSummary;
+    var serverInsights = data.insights || [];
+    var advisorHTML = '<div id="advisor-card-container"></div>';
+    var insightsHTML = renderServerInsights(serverInsights);
+    var forecastHTML = "";
+    if (usageData && usageData.budgetForecast) {
+      var bf = usageData.budgetForecast;
+      var forecastCls = bf.onTrack ? "forecast-ok" : "forecast-over";
+      var forecastIcon = bf.onTrack ? "\u2705" : "\u26A0\uFE0F";
+      var pct = Math.round(bf.currentSpend / bf.monthlyBudget * 100);
+      var statusMsg = bf.onTrack ? "On track \u2014 $" + bf.currentSpend.toFixed(2) + " of $" + bf.monthlyBudget.toFixed(2) + " budget (" + pct + "%)" : "Over budget \u2014 $" + bf.currentSpend.toFixed(2) + " exceeds $" + bf.monthlyBudget.toFixed(2) + " by $" + (bf.currentSpend - bf.monthlyBudget).toFixed(2) + " (" + pct + "%)";
+      forecastHTML = '<div class="overview-card full-width"><h3>Budget Status</h3><div class="budget-forecast ' + forecastCls + '"><div class="forecast-header">' + forecastIcon + " " + statusMsg + '</div><div class="forecast-details"><span class="forecast-chip">Monthly subs: $' + bf.currentSpend.toFixed(2) + '</span><span class="forecast-chip">Budget: $' + bf.monthlyBudget.toFixed(2) + "</span></div></div></div>";
+    } else if (!getBudget()) {
+      forecastHTML = '<div class="overview-card full-width"><div class="budget-forecast forecast-ok"><div class="forecast-header">\u{1F4B0} No monthly budget set</div><div class="forecast-details"><button class="btn-add-sm" onclick="openBudgetModal()">Set Budget</button></div></div></div>';
+    }
+    var cats = Object.keys(stats.byCategory);
+    var spendHTML = '<div class="overview-card"><h3>Monthly AI Spend</h3><div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + "</div>";
+    if (cats.length > 1) {
+      cats.sort(function(a, b) {
+        return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
+      });
+      for (var i = 0; i < cats.length; i++) {
+        var c = stats.byCategory[cats[i]];
+        spendHTML += '<div class="overview-category-row"><span class="overview-category-name">' + esc(cats[i]) + '<span class="overview-category-count">' + c.count + ' subs</span></span><span class="overview-category-spend">$' + c.monthlySpend.toFixed(2) + "/mo</span></div>";
+      }
+    } else if (cats.length === 1) {
+      var onlyCat = stats.byCategory[cats[0]];
+      spendHTML += '<div class="overview-big-label">' + onlyCat.count + " " + cats[0] + " subscription" + (onlyCat.count !== 1 ? "s" : "") + "</div>";
+    }
+    spendHTML += "</div>";
+    var claudeHTML = "";
+    if (serverConfig["claude_bridge"] === "true") {
+      claudeHTML = renderClaudeCodeCard();
+    }
+    var calendarHTML = "";
+    if (renewals.length > 0) {
+      calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
+    }
+    var linksHTML = "";
+    if (links.length > 0) {
+      var platformLinks = {};
+      for (var l = 0; l < links.length; l++) {
+        var lnk = links[l];
+        if (!platformLinks[lnk.platform]) {
+          platformLinks[lnk.platform] = lnk;
+        }
+      }
+      var platformKeys = Object.keys(platformLinks);
+      if (platformKeys.length > 1 || platformKeys.length === 1 && platformKeys[0] !== "Antigravity") {
+        linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3><div class="quick-links-grid">';
+        for (var pk = 0; pk < platformKeys.length; pk++) {
+          var pl = platformLinks[platformKeys[pk]];
+          linksHTML += '<a class="quick-link" href="' + esc(pl.url) + '" target="_blank" rel="noopener">\u{1F517} ' + esc(pl.platform) + "</a>";
+        }
+        linksHTML += "</div></div>";
+      }
+    }
+    var exportHTML = '<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a></div></div>';
+    var providerHTML = '<div class="overview-card full-width"><h3>Provider Health</h3>';
+    providerHTML += '<div class="provider-health-grid">';
+    if (latestQuotaData && latestQuotaData.accounts && latestQuotaData.accounts.length > 0) {
+      var accts = latestQuotaData.accounts;
+      var readyCount = 0;
+      for (var ai = 0; ai < accts.length; ai++) {
+        if (accts[ai].isReady) readyCount++;
+      }
+      var healthPct = Math.round(readyCount / accts.length * 100);
+      var healthCls = healthPct >= 80 ? "health-good" : healthPct >= 50 ? "health-warn" : "health-bad";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u26A1 Antigravity</span><span class="ph-count">' + accts.length + ' accounts</span><span class="ph-bar"><span class="ph-fill ' + healthCls + '" style="width:' + healthPct + '%"></span></span><span class="ph-stat ' + healthCls + '">' + readyCount + "/" + accts.length + " ready</span></div>";
+    }
+    if (latestQuotaData && latestQuotaData.codexSnapshot) {
+      var cs = latestQuotaData.codexSnapshot;
+      var cxStatus = cs.status === "healthy" ? "health-good" : "health-bad";
+      var cxLabel = cs.email || "Codex account";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F916} Codex</span><span class="ph-count">' + esc(cxLabel) + '</span><span class="ph-bar"><span class="ph-fill ' + cxStatus + '" style="width:' + (100 - (cs.sevenDayPct || 0)) + '%"></span></span><span class="ph-stat ' + cxStatus + '">' + esc(cs.planType || "free") + "</span></div>";
+    }
+    if (latestQuotaData && latestQuotaData.claudeSnapshot) {
+      var cls2 = latestQuotaData.claudeSnapshot;
+      var clStatus = cls2.status === "healthy" ? "health-good" : "health-bad";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F52E} Claude Code</span><span class="ph-count">Bridge</span><span class="ph-bar"><span class="ph-fill ' + clStatus + '" style="width:' + (100 - (cls2.fiveHourPct || 0)) + '%"></span></span><span class="ph-stat ' + clStatus + '">' + (cls2.status || "\u2014") + "</span></div>";
+    }
+    providerHTML += "</div></div>";
+    var costKPIHTML = '<div id="cost-kpi-container"></div>';
+    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+    if (serverConfig["claude_bridge"] === "true") {
+      loadClaudeCardData();
+    }
+    loadAdvisorCard();
+    loadCostKPI();
+    if (renewals.length > 0) {
+      renderRenewalCalendar(renewals, subs);
+    }
+    renderSessionsTimeline(el);
+  }
+
   // internal/web/src/main.js
   var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
   function initSnapDropdown() {
@@ -1810,215 +2251,6 @@
       opt.textContent = data.accounts[i].email;
       sel.appendChild(opt);
     }
-  }
-  function getBudget() {
-    return parseFloat(serverConfig["budget_monthly"] || "0");
-  }
-  function setBudget(amount) {
-    serverConfig["budget_monthly"] = amount.toString();
-    updateConfig("budget_monthly", amount.toString());
-  }
-  function updateConfig(key, value) {
-    return fetch("/api/config", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value })
-    }).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      if (data.config) {
-        data.config.forEach(function(c) {
-          serverConfig[c.key] = c.value;
-        });
-      }
-    }).catch(function(err) {
-      console.error("Config update failed:", err);
-    });
-  }
-  function loadConfig() {
-    return fetch("/api/config").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      if (data.config) {
-        data.config.forEach(function(c) {
-          serverConfig[c.key] = c.value;
-        });
-      }
-      return serverConfig;
-    });
-  }
-  function initBudget() {
-    document.getElementById("budget-close").addEventListener("click", closeBudget);
-    document.getElementById("budget-cancel").addEventListener("click", closeBudget);
-    document.getElementById("budget-overlay").addEventListener("click", function(e) {
-      if (e.target.id === "budget-overlay") closeBudget();
-    });
-    document.getElementById("budget-save").addEventListener("click", function() {
-      var val = parseFloat(document.getElementById("f-budget").value) || 0;
-      setBudget(val);
-      closeBudget();
-      showToast("\u2705 Budget set to $" + val.toFixed(0) + "/mo", "success");
-      var overviewPanel = document.getElementById("panel-overview");
-      if (overviewPanel && overviewPanel.classList.contains("active")) loadOverview();
-    });
-  }
-  function openBudgetModal() {
-    document.getElementById("f-budget").value = getBudget() || "";
-    document.getElementById("budget-overlay").hidden = false;
-  }
-  function closeBudget() {
-    document.getElementById("budget-overlay").hidden = true;
-  }
-  function loadOverview() {
-    Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
-      var data = results[0];
-      var subsData = results[1];
-      var usageData = results[2];
-      renderOverviewEnhanced(data, subsData.subscriptions || [], usageData);
-    }).catch(function(err) {
-      console.error("Failed to load overview:", err);
-    });
-  }
-  function renderOverviewEnhanced(data, subs, usageData) {
-    var el = document.getElementById("overview-content");
-    if (!el) return;
-    var stats = data.stats || { totalMonthlySpend: 0, totalAnnualSpend: 0, byCategory: {}, byStatus: {} };
-    var renewals = data.renewals || [];
-    var links = data.quickLinks || [];
-    var quotas = data.quotaSummary;
-    var serverInsights = data.insights || [];
-    var advisorHTML = '<div id="advisor-card-container"></div>';
-    var insightsHTML = renderServerInsights(serverInsights);
-    var forecastHTML = "";
-    if (usageData && usageData.budgetForecast) {
-      var bf = usageData.budgetForecast;
-      var forecastCls = bf.onTrack ? "forecast-ok" : "forecast-over";
-      var forecastIcon = bf.onTrack ? "\u2705" : "\u26A0\uFE0F";
-      var pct = Math.round(bf.currentSpend / bf.monthlyBudget * 100);
-      var statusMsg = bf.onTrack ? "On track \u2014 $" + bf.currentSpend.toFixed(2) + " of $" + bf.monthlyBudget.toFixed(2) + " budget (" + pct + "%)" : "Over budget \u2014 $" + bf.currentSpend.toFixed(2) + " exceeds $" + bf.monthlyBudget.toFixed(2) + " by $" + (bf.currentSpend - bf.monthlyBudget).toFixed(2) + " (" + pct + "%)";
-      forecastHTML = '<div class="overview-card full-width"><h3>Budget Status</h3><div class="budget-forecast ' + forecastCls + '"><div class="forecast-header">' + forecastIcon + " " + statusMsg + '</div><div class="forecast-details"><span class="forecast-chip">Monthly subs: $' + bf.currentSpend.toFixed(2) + '</span><span class="forecast-chip">Budget: $' + bf.monthlyBudget.toFixed(2) + "</span></div></div></div>";
-    } else if (!getBudget()) {
-      forecastHTML = '<div class="overview-card full-width"><div class="budget-forecast forecast-ok"><div class="forecast-header">\u{1F4B0} No monthly budget set</div><div class="forecast-details"><button class="btn-add-sm" onclick="openBudgetModal()">Set Budget</button></div></div></div>';
-    }
-    var cats = Object.keys(stats.byCategory);
-    var spendHTML = '<div class="overview-card"><h3>Monthly AI Spend</h3><div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + "</div>";
-    if (cats.length > 1) {
-      cats.sort(function(a, b) {
-        return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
-      });
-      for (var i = 0; i < cats.length; i++) {
-        var c = stats.byCategory[cats[i]];
-        spendHTML += '<div class="overview-category-row"><span class="overview-category-name">' + esc(cats[i]) + '<span class="overview-category-count">' + c.count + ' subs</span></span><span class="overview-category-spend">$' + c.monthlySpend.toFixed(2) + "/mo</span></div>";
-      }
-    } else if (cats.length === 1) {
-      var onlyCat = stats.byCategory[cats[0]];
-      spendHTML += '<div class="overview-big-label">' + onlyCat.count + " " + cats[0] + " subscription" + (onlyCat.count !== 1 ? "s" : "") + "</div>";
-    }
-    spendHTML += "</div>";
-    var claudeHTML = "";
-    if (serverConfig["claude_bridge"] === "true") {
-      claudeHTML = renderClaudeCodeCard();
-    }
-    var calendarHTML = "";
-    if (renewals.length > 0) {
-      calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
-    }
-    var linksHTML = "";
-    if (links.length > 0) {
-      var platformLinks = {};
-      for (var l = 0; l < links.length; l++) {
-        var lnk = links[l];
-        if (!platformLinks[lnk.platform]) {
-          platformLinks[lnk.platform] = lnk;
-        }
-      }
-      var platformKeys = Object.keys(platformLinks);
-      if (platformKeys.length > 1 || platformKeys.length === 1 && platformKeys[0] !== "Antigravity") {
-        linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3><div class="quick-links-grid">';
-        for (var pk = 0; pk < platformKeys.length; pk++) {
-          var pl = platformLinks[platformKeys[pk]];
-          linksHTML += '<a class="quick-link" href="' + esc(pl.url) + '" target="_blank" rel="noopener">\u{1F517} ' + esc(pl.platform) + "</a>";
-        }
-        linksHTML += "</div></div>";
-      }
-    }
-    var exportHTML = '<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a></div></div>';
-    var providerHTML = '<div class="overview-card full-width"><h3>Provider Health</h3>';
-    providerHTML += '<div class="provider-health-grid">';
-    if (latestQuotaData && latestQuotaData.accounts && latestQuotaData.accounts.length > 0) {
-      var accts = latestQuotaData.accounts;
-      var readyCount = 0;
-      for (var ai = 0; ai < accts.length; ai++) {
-        if (accts[ai].isReady) readyCount++;
-      }
-      var healthPct = Math.round(readyCount / accts.length * 100);
-      var healthCls = healthPct >= 80 ? "health-good" : healthPct >= 50 ? "health-warn" : "health-bad";
-      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u26A1 Antigravity</span><span class="ph-count">' + accts.length + ' accounts</span><span class="ph-bar"><span class="ph-fill ' + healthCls + '" style="width:' + healthPct + '%"></span></span><span class="ph-stat ' + healthCls + '">' + readyCount + "/" + accts.length + " ready</span></div>";
-    }
-    if (latestQuotaData && latestQuotaData.codexSnapshot) {
-      var cs = latestQuotaData.codexSnapshot;
-      var cxStatus = cs.status === "healthy" ? "health-good" : "health-bad";
-      var cxLabel = cs.email || "Codex account";
-      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F916} Codex</span><span class="ph-count">' + esc(cxLabel) + '</span><span class="ph-bar"><span class="ph-fill ' + cxStatus + '" style="width:' + (100 - (cs.sevenDayPct || 0)) + '%"></span></span><span class="ph-stat ' + cxStatus + '">' + esc(cs.planType || "free") + "</span></div>";
-    }
-    if (latestQuotaData && latestQuotaData.claudeSnapshot) {
-      var cls2 = latestQuotaData.claudeSnapshot;
-      var clStatus = cls2.status === "healthy" ? "health-good" : "health-bad";
-      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F52E} Claude Code</span><span class="ph-count">Bridge</span><span class="ph-bar"><span class="ph-fill ' + clStatus + '" style="width:' + (100 - (cls2.fiveHourPct || 0)) + '%"></span></span><span class="ph-stat ' + clStatus + '">' + (cls2.status || "\u2014") + "</span></div>";
-    }
-    providerHTML += "</div></div>";
-    var costKPIHTML = '<div id="cost-kpi-container"></div>';
-    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
-    if (serverConfig["claude_bridge"] === "true") {
-      loadClaudeCardData();
-    }
-    loadAdvisorCard();
-    loadCostKPI();
-    if (renewals.length > 0) {
-      renderRenewalCalendar(renewals, subs);
-    }
-    renderSessionsTimeline(el);
-  }
-  function loadCostKPI() {
-    var container = document.getElementById("cost-kpi-container");
-    if (!container) return;
-    fetch("/api/cost").then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (!data || !data.accounts || data.accounts.length === 0) {
-        container.innerHTML = "";
-        return;
-      }
-      var total = data.totalCost || 0;
-      if (total < 0.01) {
-        container.innerHTML = "";
-        return;
-      }
-      var totalLabel = data.totalLabel || "$0.00";
-      var html = '<div class="cost-kpi-card overview-card"><h3>Estimated Spend (Current Cycle)</h3><div class="cost-kpi-amount">' + esc(totalLabel) + '</div><div class="cost-kpi-label">Estimated cost based on quota consumption \xD7 model pricing</div>';
-      var hasChips = false;
-      var chipsHTML = '<div class="cost-kpi-breakdown">';
-      if (data.accounts && data.accounts.length > 0) {
-        for (var i = 0; i < data.accounts.length; i++) {
-          var acct = data.accounts[i];
-          if (acct.totalCost >= 0.01) {
-            hasChips = true;
-            var emailShort = acct.email;
-            if (emailShort && emailShort.length > 20) {
-              emailShort = emailShort.split("@")[0] + "@\u2026";
-            }
-            chipsHTML += '<span class="cost-kpi-chip" title="' + esc(acct.email) + '">' + esc(emailShort) + ": " + esc(acct.totalLabel) + "</span>";
-          }
-        }
-      }
-      chipsHTML += "</div>";
-      if (hasChips) html += chipsHTML;
-      html += "</div>";
-      container.innerHTML = html;
-    }).catch(function(err) {
-      console.error("Cost KPI fetch failed:", err);
-      container.innerHTML = "";
-    });
   }
   function initSettings() {
     var themeEl = document.getElementById("s-theme");
@@ -2558,7 +2790,7 @@
     initAccountMetaHandlers();
     document.addEventListener("niyantra:tab-change", function(e) {
       var tab = e.detail.tab;
-      if (tab === "overview") loadOverview();
+      if (tab === "overview") loadOverview2();
       if (tab === "settings") {
         loadActivityLog();
         loadMode();
@@ -2570,6 +2802,9 @@
     });
     document.addEventListener("niyantra:chart-refresh", function() {
       loadHistoryChart();
+    });
+    document.addEventListener("niyantra:overview-refresh", function() {
+      loadOverview2();
     });
     document.getElementById("snap-btn").addEventListener("click", handleSnap);
     initSnapDropdown();
@@ -2784,41 +3019,6 @@
     }).catch(function() {
     });
   }
-  function renderClaudeCodeCard() {
-    return '<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div></div>';
-  }
-  function loadClaudeCardData() {
-    fetch("/api/claude/status").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var body = document.getElementById("claude-card-body");
-      if (!body) return;
-      if (!data.snapshot) {
-        body.innerHTML = '<div class="empty-hint">No Claude Code data yet. Start a Claude Code session to see rate limits.</div>';
-        return;
-      }
-      var snap = data.snapshot;
-      var html = "";
-      var fiveColor = meterColor(snap.fiveHourPct);
-      var fiveReset = snap.fiveHourReset ? "\u21BB " + formatResetTime(snap.fiveHourReset) : "";
-      html += '<div class="claude-meter"><span class="claude-meter-label">5-Hour</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.fiveHourPct + "%;background:" + fiveColor + '"></div></div><span class="claude-meter-pct" style="color:' + fiveColor + '">' + snap.fiveHourPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + fiveReset + "</span></div>";
-      if (snap.sevenDayPct !== void 0) {
-        var sevenColor = meterColor(snap.sevenDayPct);
-        var sevenReset = snap.sevenDayReset ? "\u21BB " + formatResetTime(snap.sevenDayReset) : "";
-        html += '<div class="claude-meter"><span class="claude-meter-label">7-Day</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.sevenDayPct + "%;background:" + sevenColor + '"></div></div><span class="claude-meter-pct" style="color:' + sevenColor + '">' + snap.sevenDayPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + sevenReset + "</span></div>";
-      }
-      var dotCls = data.bridgeFresh ? "" : "stale";
-      var agoStr = formatTimeAgo(snap.capturedAt);
-      html += '<div class="claude-bridge-badge"><span class="claude-bridge-dot ' + dotCls + '"></span>Bridge ' + (data.bridgeFresh ? "active" : "stale") + " \xB7 Last: " + agoStr + "</div>";
-      body.innerHTML = html;
-    }).catch(function() {
-    });
-  }
-  function meterColor(pct) {
-    if (pct >= 80) return "var(--red)";
-    if (pct >= 50) return "var(--amber)";
-    return "var(--green)";
-  }
   function loadSystemAlerts() {
     fetch("/api/alerts").then(function(r) {
       return r.json();
@@ -2856,235 +3056,6 @@
       showToast("Failed to dismiss alert", "error");
     });
   }
-  function renderServerInsights(insights) {
-    if (!insights || insights.length === 0) return "";
-    var html = '<div class="insight-panel"><h3>\u{1F9E0} Intelligence Insights</h3><div class="insight-list">';
-    var iconMap = {
-      renewal_imminent: "\u{1F534}",
-      trial_expiring: "\u23F3",
-      unused_subscription: "\u{1F4A4}",
-      spending_anomaly: "\u{1F4C8}",
-      category_overlap: "\u{1F501}",
-      annual_savings: "\u{1F4A1}",
-      budget_exceeded: "\u{1F6A8}"
-    };
-    for (var i = 0; i < insights.length; i++) {
-      var ins = insights[i];
-      var icon = iconMap[ins.type] || "\u{1F4A1}";
-      var cls = ins.severity === "critical" ? "critical" : ins.severity === "warning" ? "warning" : "info";
-      html += '<div class="insight-item ' + cls + '"><span class="insight-item-icon">' + icon + '</span><div class="insight-item-content"><div class="insight-item-title">' + esc(ins.type.replace(/_/g, " ")) + '</div><div class="insight-item-msg">' + esc(ins.message) + "</div></div></div>";
-    }
-    html += "</div></div>";
-    return html;
-  }
-  var advisorGroupPref = localStorage.getItem("niyantra_advisor_group") || "claude_gpt";
-  function loadAdvisorCard() {
-    var container = document.getElementById("advisor-card-container");
-    if (!container) return;
-    if (!latestQuotaData || !latestQuotaData.accounts || latestQuotaData.accounts.length < 2) {
-      container.innerHTML = "";
-      return;
-    }
-    renderAdvisorWithGroup(container, advisorGroupPref);
-  }
-  function renderAdvisorWithGroup(container, groupKey) {
-    var accounts = latestQuotaData.accounts;
-    var ranked = [];
-    for (var i = 0; i < accounts.length; i++) {
-      var acc = accounts[i];
-      var groups = acc.groups || [];
-      var pct = null;
-      for (var g = 0; g < groups.length; g++) {
-        if (groups[g].groupKey === groupKey) {
-          pct = Math.round(groups[g].remainingPercent);
-          break;
-        }
-      }
-      if (pct === null) {
-        if (groupKey === "all") {
-          var total = 0;
-          for (var gx = 0; gx < groups.length; gx++) total += groups[gx].remainingPercent;
-          pct = groups.length > 0 ? Math.round(total / groups.length) : 0;
-        } else {
-          pct = 0;
-        }
-      }
-      var isStale = false;
-      if (acc.lastSeen) {
-        var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
-        isStale = ageMs > 6 * 3600 * 1e3;
-      }
-      ranked.push({
-        email: acc.email,
-        pct,
-        stale: isStale,
-        label: acc.stalenessLabel || ""
-      });
-    }
-    ranked.sort(function(a, b) {
-      return b.pct - a.pct;
-    });
-    var groupNames = {
-      "claude_gpt": "Claude + GPT",
-      "gemini_pro": "Gemini Pro",
-      "gemini_flash": "Gemini Flash",
-      "all": "All Models (avg)"
-    };
-    var best = ranked[0];
-    var worst = ranked[ranked.length - 1];
-    var allHealthy = ranked.every(function(a) {
-      return a.pct > 80;
-    });
-    var actionIcon = allHealthy ? "\u2705" : best.pct > 20 ? "\u26A1" : "\u23F3";
-    var actionLabel = allHealthy ? "ALL READY" : best.pct > 20 ? "SWITCH" : "WAIT";
-    var bestLabel = best.email.split("@")[0] + "@...";
-    var html = '<div class="advisor-card"><h3>\u26A1 Antigravity Account Advisor</h3><div class="advisor-group-select"><label>Optimize for:</label><select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px"><option value="claude_gpt"' + (groupKey === "claude_gpt" ? " selected" : "") + '>Claude + GPT</option><option value="gemini_pro"' + (groupKey === "gemini_pro" ? " selected" : "") + '>Gemini Pro</option><option value="gemini_flash"' + (groupKey === "gemini_flash" ? " selected" : "") + '>Gemini Flash</option><option value="all"' + (groupKey === "all" ? " selected" : "") + ">All Models (avg)</option></select></div>";
-    var actionCls = allHealthy ? "stay" : best.pct > 20 ? "switch" : "wait";
-    html += '<div class="advisor-action ' + actionCls + '">' + actionIcon + " " + actionLabel + '</div><div class="advisor-reason">' + (allHealthy ? "All accounts have healthy quotas \u2014 no switch needed" : "Best: " + esc(best.email) + " (" + best.pct + "% " + esc(groupNames[groupKey] || groupKey) + " remaining)") + (best.stale ? " \u26A0\uFE0F stale data" : "") + "</div>";
-    html += '<div class="advisor-scores">';
-    var initialShow = Math.min(ranked.length, 5);
-    for (var s = 0; s < ranked.length; s++) {
-      var acct = ranked[s];
-      var isBest = s === 0;
-      var barCls = acct.pct > 50 ? "good" : acct.pct > 20 ? "ok" : "low";
-      var staleIcon = acct.stale ? ' <span class="stale-icon" title="Data ' + esc(acct.label) + '">\u26A0</span>' : "";
-      var hidden = s >= initialShow ? ' style="display:none" data-advisor-extra' : "";
-      html += '<div class="advisor-score-row' + (isBest ? " best" : "") + '"' + hidden + '><span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span><div class="advisor-score-bar"><div class="advisor-score-fill ' + barCls + '" style="width:' + acct.pct + '%"></div></div><span class="advisor-score-val">' + acct.pct + "%" + staleIcon + "</span></div>";
-    }
-    if (ranked.length > initialShow) {
-      html += '<button class="advisor-show-all" id="advisor-toggle-all">Show all ' + ranked.length + " accounts</button>";
-    }
-    html += "</div></div>";
-    container.innerHTML = html;
-    var sel = document.getElementById("advisor-group-filter");
-    if (sel) {
-      sel.addEventListener("change", function() {
-        advisorGroupPref = sel.value;
-        localStorage.setItem("niyantra_advisor_group", advisorGroupPref);
-        renderAdvisorWithGroup(container, advisorGroupPref);
-      });
-    }
-    var toggleBtn = document.getElementById("advisor-toggle-all");
-    if (toggleBtn) {
-      toggleBtn.addEventListener("click", function() {
-        var extras = container.querySelectorAll("[data-advisor-extra]");
-        var showing = toggleBtn.textContent.indexOf("Hide") >= 0;
-        extras.forEach(function(el) {
-          el.style.display = showing ? "none" : "";
-        });
-        toggleBtn.textContent = showing ? "Show all " + ranked.length + " accounts" : "Hide extras";
-      });
-    }
-  }
-  var calendarViewDate = /* @__PURE__ */ new Date();
-  function renderRenewalCalendar(renewals, subs) {
-    var container = document.getElementById("renewal-calendar-container");
-    if (!container) return;
-    var renewalMap = {};
-    if (renewals) {
-      for (var i = 0; i < renewals.length; i++) {
-        var r = renewals[i];
-        var dateKey = r.nextRenewal;
-        if (!renewalMap[dateKey]) renewalMap[dateKey] = [];
-        var cat = "other";
-        if (subs) {
-          for (var s = 0; s < subs.length; s++) {
-            if (subs[s].platform === r.platform && subs[s].category) {
-              cat = subs[s].category;
-              break;
-            }
-          }
-        }
-        renewalMap[dateKey].push({ platform: r.platform, category: cat, daysUntil: r.daysUntil });
-      }
-    }
-    var year = calendarViewDate.getFullYear();
-    var month = calendarViewDate.getMonth();
-    var today = /* @__PURE__ */ new Date();
-    var todayKey = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-    var monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December"
-    ];
-    var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    var firstDay = new Date(year, month, 1).getDay();
-    var daysInMonth = new Date(year, month + 1, 0).getDate();
-    var prevDays = new Date(year, month, 0).getDate();
-    var html = '<div class="calendar-container"><div class="calendar-header"><h3>\u{1F4C5} Renewal Calendar</h3><div class="calendar-nav"><button class="calendar-nav-btn" onclick="calendarNav(-1)">\u2039</button><span class="calendar-month-label">' + monthNames[month] + " " + year + '</span><button class="calendar-nav-btn" onclick="calendarNav(1)">\u203A</button></div></div>';
-    html += '<div class="calendar-weekdays">';
-    for (var d = 0; d < 7; d++) {
-      html += '<div class="calendar-weekday">' + dayNames[d] + "</div>";
-    }
-    html += "</div>";
-    html += '<div class="calendar-grid">';
-    for (var p = firstDay - 1; p >= 0; p--) {
-      html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + (prevDays - p) + "</span></div>";
-    }
-    for (var day = 1; day <= daysInMonth; day++) {
-      var dateKey = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-      var isToday = dateKey === todayKey;
-      var dayClass = isToday ? "calendar-day today" : "calendar-day";
-      var events = renewalMap[dateKey];
-      html += '<div class="' + dayClass + '"';
-      if (events && events.length > 0) {
-        var tooltipText = events.map(function(e2) {
-          return e2.platform;
-        }).join(", ");
-        html += ' title="' + esc(tooltipText) + '"';
-      }
-      html += ">";
-      html += '<span class="calendar-day-num">' + day + "</span>";
-      if (events && events.length > 0) {
-        html += '<div class="calendar-pins">';
-        for (var e = 0; e < Math.min(events.length, 4); e++) {
-          html += '<span class="calendar-pin ' + esc(events[e].category) + '"></span>';
-        }
-        html += "</div>";
-      }
-      html += "</div>";
-    }
-    var totalCells = firstDay + daysInMonth;
-    var remaining = 7 - totalCells % 7;
-    if (remaining < 7) {
-      for (var n = 1; n <= remaining; n++) {
-        html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + n + "</span></div>";
-      }
-    }
-    html += "</div>";
-    var categories = {};
-    for (var key in renewalMap) {
-      for (var ci = 0; ci < renewalMap[key].length; ci++) {
-        categories[renewalMap[key][ci].category] = true;
-      }
-    }
-    var catKeys = Object.keys(categories);
-    if (catKeys.length > 0) {
-      html += '<div class="calendar-legend">';
-      for (var cl = 0; cl < catKeys.length; cl++) {
-        html += '<div class="calendar-legend-item"><span class="calendar-legend-dot ' + esc(catKeys[cl]) + '"></span>' + esc(catKeys[cl]) + "</div>";
-      }
-      html += "</div>";
-    }
-    html += "</div>";
-    container.innerHTML = html;
-  }
-  function calendarNav(delta) {
-    calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
-    var el = document.getElementById("renewal-calendar-container");
-    if (el) {
-      loadOverview();
-    }
-  }
   function loadCodexSettingsStatus() {
     var statusEl = document.getElementById("codex-status-settings");
     if (!statusEl) return;
@@ -3117,52 +3088,9 @@
       }
       showToast("\u{1F916} Codex snapshot captured! Plan: " + (data.plan || "unknown"), "success");
       loadCodexSettingsStatus();
-      loadOverview();
+      loadOverview2();
     }).catch(function() {
       showToast("\u274C Codex snap failed", "error");
-    });
-  }
-  function renderSessionsTimeline(container) {
-    fetch("/api/sessions?limit=10").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      if (!data.sessions || data.sessions.length === 0) return;
-      var html = '<div class="overview-card sessions-card">';
-      html += '<div class="card-header"><h3>\u23F1\uFE0F Usage Sessions</h3>';
-      html += '<span class="card-count">' + data.count + " sessions</span>";
-      html += "</div>";
-      html += '<div class="card-body">';
-      html += '<div class="session-timeline">';
-      for (var i = 0; i < data.sessions.length; i++) {
-        var sess = data.sessions[i];
-        var isActive = !sess.endedAt;
-        var duration = isActive ? formatDurationSec(Math.floor((Date.now() - new Date(sess.startedAt).getTime()) / 1e3)) : formatDurationSec(sess.durationSec);
-        var providerIcon = sess.provider === "codex" ? "\u{1F916}" : sess.provider === "claude" ? "\u{1F52E}" : "\u26A1";
-        html += '<div class="session-item' + (isActive ? " active" : "") + '">';
-        html += '<div class="session-dot' + (isActive ? " pulse" : "") + '"></div>';
-        html += '<div class="session-content">';
-        html += '<div class="session-top">';
-        html += '<span class="session-provider">' + providerIcon + " " + esc(sess.provider) + "</span>";
-        html += '<span class="session-duration">' + duration + "</span>";
-        html += "</div>";
-        html += '<div class="session-bottom">';
-        html += '<span class="session-time">' + formatTimeAgo(sess.startedAt) + "</span>";
-        html += '<span class="session-snaps">' + sess.snapCount + " snaps</span>";
-        if (isActive) html += '<span class="session-active-badge">LIVE</span>';
-        html += "</div>";
-        html += "</div></div>";
-      }
-      html += "</div></div></div>";
-      var codexCard = container.querySelector(".codex-card");
-      var existing = container.querySelector(".sessions-card");
-      if (existing) {
-        existing.outerHTML = html;
-      } else if (codexCard) {
-        codexCard.insertAdjacentHTML("afterend", html);
-      } else {
-        container.insertAdjacentHTML("afterbegin", html);
-      }
-    }).catch(function() {
     });
   }
   window.openBudgetModal = openBudgetModal;
