@@ -25,6 +25,7 @@
 @import './overview-ext.css';
 @import './advisor.css';
 @import './health.css';
+@import './heatmap.css';
 
 /* Advanced features */
 @import './palette.css';

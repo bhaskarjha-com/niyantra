@@ -114,6 +114,59 @@ func (s *Store) SnapshotCount() int {
 	return count
 }
 
+// HeatmapDay represents a single day's snapshot activity for the heatmap.
+type HeatmapDay struct {
+	Date        string `json:"date"`        // YYYY-MM-DD
+	Count       int    `json:"count"`       // total snapshots
+	Antigravity int    `json:"antigravity"` // Antigravity snapshots
+	Claude      int    `json:"claude"`      // Claude Code snapshots
+	Codex       int    `json:"codex"`       // Codex snapshots
+}
+
+// HeatmapData returns daily snapshot counts across all providers for the last N days.
+// Used by the F6 Activity Heatmap to render a GitHub-style contribution calendar.
+func (s *Store) HeatmapData(days int) ([]HeatmapDay, error) {
+	if days <= 0 {
+		days = 365
+	}
+
+	cutoff := fmt.Sprintf("-%d days", days)
+
+	rows, err := s.db.Query(`
+		SELECT
+			day,
+			SUM(ag) as antigravity,
+			SUM(cl) as claude,
+			SUM(cx) as codex
+		FROM (
+			SELECT date(captured_at) as day, 1 as ag, 0 as cl, 0 as cx
+			FROM snapshots WHERE captured_at >= datetime('now', ?)
+			UNION ALL
+			SELECT date(captured_at) as day, 0 as ag, 1 as cl, 0 as cx
+			FROM claude_snapshots WHERE captured_at >= datetime('now', ?)
+			UNION ALL
+			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 1 as cx
+			FROM codex_snapshots WHERE captured_at >= datetime('now', ?)
+		)
+		GROUP BY day
+		ORDER BY day ASC`, cutoff, cutoff, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("store: heatmap query: %w", err)
+	}
+	defer rows.Close()
+
+	var result []HeatmapDay
+	for rows.Next() {
+		var d HeatmapDay
+		if err := rows.Scan(&d.Date, &d.Antigravity, &d.Claude, &d.Codex); err != nil {
+			return nil, fmt.Errorf("store: scan heatmap row: %w", err)
+		}
+		d.Count = d.Antigravity + d.Claude + d.Codex
+		result = append(result, d)
+	}
+	return result, rows.Err()
+}
+
 // DeleteSnapshotsOlderThan removes snapshots older than the given number of days.
 // Also cleans up old Claude and Codex snapshots with the same retention policy.
 // Returns the total number of deleted rows.

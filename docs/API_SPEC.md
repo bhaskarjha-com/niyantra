@@ -626,6 +626,52 @@ Returns estimated dollar costs for all tracked accounts based on quota fraction 
 
 ---
 
+### `GET /api/history/heatmap` (Phase 14: F6)
+
+Returns daily snapshot counts across all providers (Antigravity, Claude Code, Codex) for rendering a GitHub-style contribution calendar.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `days` | `int` | 365 | Number of days of history (max 730) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "days": [
+    { "date": "2026-05-12", "count": 5, "antigravity": 3, "claude": 1, "codex": 1 },
+    { "date": "2026-05-11", "count": 12, "antigravity": 8, "claude": 2, "codex": 2 }
+  ],
+  "maxCount": 12,
+  "totalSnapshots": 847,
+  "activeDays": 45,
+  "streak": 7,
+  "longestStreak": 14
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `days` | array | Per-day snapshot counts, ordered chronologically ASC |
+| `days[].date` | string | Date in YYYY-MM-DD format |
+| `days[].count` | int | Total snapshots across all providers |
+| `days[].antigravity` | int | Antigravity snapshot count |
+| `days[].claude` | int | Claude Code snapshot count |
+| `days[].codex` | int | Codex snapshot count |
+| `maxCount` | int | Highest single-day count (used for intensity scaling) |
+| `totalSnapshots` | int | Sum of all snapshot counts in the range |
+| `activeDays` | int | Number of days with at least 1 snapshot |
+| `streak` | int | Current consecutive-day activity streak |
+| `longestStreak` | int | Longest consecutive-day activity streak ever |
+
+> **Data Source:** UNION ALL query across `snapshots`, `claude_snapshots`, and `codex_snapshots` tables, grouped by `date(captured_at)`.
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:

@@ -5,6 +5,7 @@ import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api';
 import { getBudget, openBudgetModal } from './budget';
 import { renderServerInsights, loadAdvisorCard } from './insights';
 import { loadCostKPI } from './cost';
+import { loadHeatmap } from './heatmap';
 import { renderRenewalCalendar } from './calendar';
 import { formatResetTime } from '../quotas/render';
 import { renderClaudeCodeCard, loadClaudeCardData } from '../advanced/claude';
@@ -176,11 +177,14 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   }
   providerHTML += '</div></div>';
 
-  // ── F8: Estimated Cost KPI (async — fetched from /api/cost) ──
+  // F8: Estimated Cost KPI (async — fetched from /api/cost) ──
   var costKPIHTML = '<div id="cost-kpi-container"></div>';
 
+  // F6: Activity Heatmap (async — fetched from /api/history/heatmap) ──
+  var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
+
   // P1: Content order — advisor first (most actionable), then budget, cost KPI, provider health, spend, insights
-  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // Async load Claude Code data
   if (serverConfig['claude_bridge'] === 'true') {
@@ -192,6 +196,9 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
 
   // F8: Async load estimated cost KPI
   loadCostKPI();
+
+  // F6: Async load activity heatmap
+  loadHeatmap();
 
   // Render calendar with renewal data (only if container exists)
   if (renewals.length > 0) {

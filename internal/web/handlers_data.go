@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -340,5 +341,85 @@ func (s *Server) handleModelPricingPut(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{
 		"message": "pricing updated",
 		"pricing": req.Pricing,
+	})
+}
+
+// ── Phase 14: Activity Heatmap (F6) ─────────────────────────────
+
+// handleHeatmap returns daily snapshot counts across all providers
+// for rendering a GitHub-style contribution calendar.
+func (s *Server) handleHeatmap(w http.ResponseWriter, r *http.Request) {
+	days := 365
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 && v <= 730 {
+			days = v
+		}
+	}
+
+	data, err := s.store.HeatmapData(days)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if data == nil {
+		data = []store.HeatmapDay{}
+	}
+
+	// Build lookup map for streak calculation
+	dayMap := make(map[string]bool, len(data))
+	totalSnapshots := 0
+	maxCount := 0
+	for _, d := range data {
+		dayMap[d.Date] = true
+		totalSnapshots += d.Count
+		if d.Count > maxCount {
+			maxCount = d.Count
+		}
+	}
+
+	activeDays := len(data)
+
+	// Compute current streak and longest streak by walking dates
+	now := time.Now().UTC()
+	today := now.Format("2006-01-02")
+	streak := 0
+	longestStreak := 0
+	currentStreak := 0
+
+	for i := 0; i < days; i++ {
+		d := now.AddDate(0, 0, -i).Format("2006-01-02")
+		if dayMap[d] {
+			currentStreak++
+			if currentStreak > longestStreak {
+				longestStreak = currentStreak
+			}
+		} else {
+			// If we haven't counted a streak yet and it's not today, stop
+			if i == 0 {
+				// Today has no activity — streak starts from yesterday
+				currentStreak = 0
+			} else if streak == 0 {
+				// First gap after initial run
+				streak = currentStreak
+				currentStreak = 0
+			} else {
+				currentStreak = 0
+			}
+		}
+	}
+	// If we never hit a gap, streak = currentStreak
+	if streak == 0 {
+		streak = currentStreak
+	}
+	_ = today // suppress unused warning
+
+	writeJSON(w, map[string]interface{}{
+		"days":           data,
+		"maxCount":       maxCount,
+		"totalSnapshots": totalSnapshots,
+		"activeDays":     activeDays,
+		"streak":         streak,
+		"longestStreak":  longestStreak,
 	})
 }

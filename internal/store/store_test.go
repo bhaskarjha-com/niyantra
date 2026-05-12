@@ -579,3 +579,68 @@ func TestGetModelPrice(t *testing.T) {
 		t.Error("expected nil for nonexistent model")
 	}
 }
+
+func TestHeatmapData(t *testing.T) {
+	s := openTestDB(t)
+
+	// Empty heatmap should return no error
+	days, err := s.HeatmapData(365)
+	if err != nil {
+		t.Fatalf("HeatmapData empty: %v", err)
+	}
+	if len(days) != 0 {
+		t.Errorf("expected 0 days, got %d", len(days))
+	}
+
+	// Insert snapshots across all 3 providers
+	accountID, _ := s.GetOrCreateAccount("heatmap@example.com", "Pro")
+
+	// Antigravity snapshot (today)
+	snap := &client.Snapshot{
+		AccountID:     accountID,
+		CapturedAt:    time.Now().UTC(),
+		Email:         "heatmap@example.com",
+		PlanName:      "Pro",
+		Models:        []client.ModelQuota{{ModelID: "m1", RemainingFraction: 0.5}},
+		CaptureMethod: "auto",
+		CaptureSource: "server",
+		SourceID:      "antigravity",
+	}
+	_, _ = s.InsertSnapshot(snap)
+	_, _ = s.InsertSnapshot(snap) // 2 AG snaps today
+
+	// Claude snapshot (today)
+	_, _ = s.InsertClaudeSnapshot(50.0, nil, nil, nil, "statusline", nil)
+
+	// Codex snapshot (today)
+	codexSnap := &CodexSnapshot{
+		FiveHourPct:   30.0,
+		CaptureMethod: "auto",
+		CaptureSource: "api",
+	}
+	_, _ = s.InsertCodexSnapshot(codexSnap)
+
+	// Query heatmap
+	days, err = s.HeatmapData(365)
+	if err != nil {
+		t.Fatalf("HeatmapData with data: %v", err)
+	}
+	if len(days) != 1 {
+		t.Fatalf("expected 1 day, got %d", len(days))
+	}
+
+	day := days[0]
+	if day.Antigravity != 2 {
+		t.Errorf("expected 2 AG snapshots, got %d", day.Antigravity)
+	}
+	if day.Claude != 1 {
+		t.Errorf("expected 1 Claude snapshot, got %d", day.Claude)
+	}
+	if day.Codex != 1 {
+		t.Errorf("expected 1 Codex snapshot, got %d", day.Codex)
+	}
+	if day.Count != 4 {
+		t.Errorf("expected total count 4, got %d", day.Count)
+	}
+}
+

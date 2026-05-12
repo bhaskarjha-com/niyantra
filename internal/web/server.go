@@ -191,6 +191,7 @@ func (s *Server) ListenAndServe() error {
 	// Phase 14 routes
 	mux.HandleFunc("GET /api/forecast", s.handleForecast)
 	mux.HandleFunc("GET /api/cost", s.handleCost)
+	mux.HandleFunc("GET /api/history/heatmap", s.handleHeatmap)
 
 	// Data management routes
 	mux.HandleFunc("GET /api/accounts", s.handleAccounts)
