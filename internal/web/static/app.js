@@ -1,4 +1,5 @@
 // GENERATED FILE - do not edit. Source: internal/web/src/
+"use strict";
 (() => {
   // internal/web/src/core/state.js
   var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];

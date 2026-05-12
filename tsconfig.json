@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "outDir": "./dist",
+    "rootDir": "./internal/web/src",
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["internal/web/src/core/*"],
+      "@quotas/*": ["internal/web/src/quotas/*"],
+      "@overview/*": ["internal/web/src/overview/*"],
+      "@settings/*": ["internal/web/src/settings/*"],
+      "@advanced/*": ["internal/web/src/advanced/*"],
+      "@charts/*": ["internal/web/src/charts/*"]
+    }
+  },
+  "include": ["internal/web/src/**/*.ts", "internal/web/src/**/*.js"],
+  "exclude": ["node_modules", "dist", "internal/web/static"]
+}
