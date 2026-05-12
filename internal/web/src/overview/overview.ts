@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Overview Tab Renderer
-// @ts-nocheck
 import { serverConfig, latestQuotaData } from '../core/state';
 import { esc, formatTimeAgo, formatDurationSec } from '../core/utils';
 import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api';
@@ -15,15 +14,15 @@ export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
   Promise.all([fetchOverview(), fetchSubscriptions('', ''), fetchUsage()]).then(function(results) {
     var data = results[0];
-    var subsData = results[1];
+    var subsData = results[1] as any;
     var usageData = results[2];
-    renderOverviewEnhanced(data, subsData.subscriptions || [], usageData);
+    renderOverviewEnhanced(data, subsData.subscriptions || subsData || [], usageData);
   }).catch(function(err) {
     console.error('Failed to load overview:', err);
   });
 }
 
-export function renderOverviewEnhanced(data, subs, usageData) {
+export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): void {
   var el = document.getElementById('overview-content');
   if (!el) return;
 
@@ -104,7 +103,7 @@ export function renderOverviewEnhanced(data, subs, usageData) {
   // ── Quick Links — most recent URL per platform (no stale duplicates) ──
   var linksHTML = '';
   if (links.length > 0) {
-    var platformLinks = {};
+    var platformLinks: Record<string, any> = {};
     for (var l = 0; l < links.length; l++) {
       var lnk = links[l];
       // Keep only the first occurrence per platform (API returns newest first)
@@ -154,7 +153,7 @@ export function renderOverviewEnhanced(data, subs, usageData) {
   }
   // Codex
   if (latestQuotaData && latestQuotaData.codexSnapshot) {
-    var cs = latestQuotaData.codexSnapshot;
+    var cs = latestQuotaData.codexSnapshot as any;
     var cxStatus = cs.status === 'healthy' ? 'health-good' : 'health-bad';
     var cxLabel = cs.email || 'Codex account';
     providerHTML += '<div class="provider-health-row">' +
@@ -166,7 +165,7 @@ export function renderOverviewEnhanced(data, subs, usageData) {
   }
   // Claude
   if (latestQuotaData && latestQuotaData.claudeSnapshot) {
-    var cls2 = latestQuotaData.claudeSnapshot;
+    var cls2 = latestQuotaData.claudeSnapshot as any;
     var clStatus = cls2.status === 'healthy' ? 'health-good' : 'health-bad';
     providerHTML += '<div class="provider-health-row">' +
       '<span class="ph-name">🔮 Claude Code</span>' +

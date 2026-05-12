@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Quota History Chart
-// @ts-nocheck
 var Chart = (window as any).Chart;
 
 
@@ -25,8 +24,8 @@ export function updateChartTheme(theme: string): void {
 export function loadHistoryChart(): void {
   if (typeof Chart === 'undefined') return; // CDN not loaded (offline)
 
-  var accountId = parseInt(document.getElementById('chart-account').value) || 0;
-  var limit = parseInt(document.getElementById('chart-range').value) || 20;
+  var accountId = parseInt((document.getElementById('chart-account') as HTMLSelectElement).value) || 0;
+  var limit = parseInt((document.getElementById('chart-range') as HTMLSelectElement).value) || 20;
 
   var url = '/api/history?limit=' + limit;
   if (accountId > 0) url += '&account=' + accountId;
@@ -58,15 +57,15 @@ export function renderHistoryChart(snapshots: any[]): void {
   });
 
   // Build datasets per group
-  var groupData = {};
-  var groupNames = { claude_gpt: 'Claude + GPT', gemini_pro: 'Gemini Pro', gemini_flash: 'Gemini Flash' };
-  var groupColors = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flash: '#3B82F6' };
+  var groupData: Record<string, (number|null)[]> = {};
+  var groupNames: Record<string, string> = { claude_gpt: 'Claude + GPT', gemini_pro: 'Gemini Pro', gemini_flash: 'Gemini Flash' };
+  var groupColors: Record<string, string> = { claude_gpt: '#D97757', gemini_pro: '#10B981', gemini_flash: '#3B82F6' };
 
   for (var i = 0; i < snapshots.length; i++) {
     var groups = snapshots[i].groups || [];
     for (var j = 0; j < groups.length; j++) {
       var g = groups[j];
-      if (!groupData[g.groupKey]) groupData[g.groupKey] = [];
+      if (!(groupData as any)[g.groupKey]) (groupData as any)[g.groupKey] = [];
     }
   }
 
@@ -76,7 +75,7 @@ export function renderHistoryChart(snapshots: any[]): void {
   for (var i = 0; i < snapshots.length; i++) {
     var snap = snapshots[i];
     var groups = snap.groups || [];
-    var seen = {};
+    var seen: Record<string, boolean> = {};
     for (var j = 0; j < groups.length; j++) {
       var g = groups[j];
       if (!groupData[g.groupKey]) groupData[g.groupKey] = [];
@@ -165,7 +164,7 @@ export function renderHistoryChart(snapshots: any[]): void {
           titleFont: { family: "'Inter', sans-serif", weight: '600' },
           bodyFont: { family: "'Inter', sans-serif" },
           callbacks: {
-            label: function(ctx) {
+            label: function(ctx: any) {
               if (ctx.dataset.yAxisID === 'yCredits') return ctx.dataset.label + ': ' + ctx.parsed.y.toLocaleString();
               return ctx.dataset.label + ': ' + ctx.parsed.y + '%';
             }
@@ -179,7 +178,7 @@ export function renderHistoryChart(snapshots: any[]): void {
           position: 'left',
           min: 0, max: 100,
           grid: { color: gridColor },
-          ticks: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 }, callback: function(v) { return v + '%'; } },
+          ticks: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 }, callback: function(v: any) { return v + '%'; } },
           border: { display: false }
         },
         yCredits: {
@@ -204,7 +203,7 @@ export function populateChartAccountSelect(data: any): void {
   var sel = document.getElementById('chart-account');
   if (!sel || !data.accounts) return;
   // Keep "All Accounts" option, remove others
-  while (sel.options.length > 1) sel.remove(1);
+  while ((sel as HTMLSelectElement).options.length > 1) (sel as HTMLSelectElement).remove(1);
   for (var i = 0; i < data.accounts.length; i++) {
     var opt = document.createElement('option');
     opt.value = data.accounts[i].accountId;

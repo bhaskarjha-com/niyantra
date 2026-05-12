@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Claude Code Bridge
-// @ts-nocheck
 import { esc, formatTimeAgo } from '../core/utils';
 import { formatResetTime } from '../quotas/render';
 

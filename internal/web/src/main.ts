@@ -1,6 +1,16 @@
 // Niyantra Dashboard — Entry Point
-// @ts-nocheck
 // All core functionality is imported from modules.
+
+// Augment Window for inline onclick handler exposure
+declare global {
+  interface Window {
+    openBudgetModal: typeof openBudgetModal;
+    dismissAlert: typeof dismissAlert;
+    switchToTab: typeof switchToTab;
+    calendarNav: typeof calendarNav;
+    handleCodexSnap: typeof handleCodexSnap;
+  }
+}
 
 import {
   GROUP_ORDER, GROUP_LABELS, GROUP_COLORS, GROUP_NAMES,
@@ -97,12 +107,12 @@ document.addEventListener('DOMContentLoaded', function() {
     loadOverview();
   });
 
-  document.getElementById('snap-btn').addEventListener('click', handleSnap);
+  document.getElementById('snap-btn')!.addEventListener('click', handleSnap);
   initSnapDropdown();
 
   // Chart controls
-  document.getElementById('chart-account').addEventListener('change', loadHistoryChart);
-  document.getElementById('chart-range').addEventListener('change', loadHistoryChart);
+  document.getElementById('chart-account')!.addEventListener('change', loadHistoryChart);
+  document.getElementById('chart-range')!.addEventListener('change', loadHistoryChart);
 
   // Load quotas and usage intelligence
   Promise.all([fetchStatus(), fetchUsage()]).then(function(results) {
@@ -137,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
     for (var i = 0; i < presetsData.length; i++) {
       var opt = document.createElement('option');
       opt.value = presetsData[i].platform;
-      list.appendChild(opt);
+      list!.appendChild(opt);
     }
   });
 

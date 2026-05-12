@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Command Palette
-// @ts-nocheck
 import { esc } from '../core/utils';
 import { switchToTab } from '../core/theme';
 import { handleSnap } from './snap';
@@ -18,7 +17,7 @@ export var PALETTE_COMMANDS = [
   { name: 'New Subscription',    key: 'N',    icon: '➕', action: function() { openModal(); } },
   { name: 'Toggle Auto-Capture',              icon: '🔄', action: function() {
     var el = document.getElementById('s-auto-capture');
-    if (el) { el.checked = !el.checked; el.dispatchEvent(new Event('change')); }
+    if (el) { (el as HTMLInputElement).checked = !(el as HTMLInputElement).checked; el.dispatchEvent(new Event('change')); }
   }},
   { name: 'Export CSV',                       icon: '📥', action: function() { window.location.href = '/api/export/csv'; } },
   { name: 'Export JSON',                      icon: '📦', action: function() { window.location.href = '/api/export/json'; } },
@@ -34,7 +33,7 @@ export var PALETTE_COMMANDS = [
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('niyantra-theme', next);
     var themeEl = document.getElementById('s-theme');
-    if (themeEl) themeEl.value = next;
+    if (themeEl) (themeEl as HTMLSelectElement).value = next;
     updateChartTheme(next);
   }},
   { name: 'Codex Snap',                        icon: '🤖', action: function() { handleCodexSnap(); } },
@@ -57,7 +56,7 @@ export function initCommandPalette(): void {
   });
 
   search.addEventListener('input', function() {
-    var query = search.value.toLowerCase().trim();
+    var query = (search as HTMLInputElement).value.toLowerCase().trim();
     paletteFilteredCommands = PALETTE_COMMANDS.filter(function(cmd) {
       return cmd.name.toLowerCase().indexOf(query) >= 0;
     });
@@ -88,32 +87,32 @@ export function initCommandPalette(): void {
 
 export function toggleCommandPalette(): void {
   var overlay = document.getElementById('command-palette-overlay');
-  if (overlay.hidden) {
+  if (overlay!.hidden) {
     openCommandPalette();
   } else {
     closeCommandPalette();
   }
 }
 
-export function openCommandPalette() {
+export function openCommandPalette(): void {
   var overlay = document.getElementById('command-palette-overlay');
   var search = document.getElementById('command-palette-search');
-  overlay.hidden = false;
-  search.value = '';
+  overlay!.hidden = false;
+  (search as HTMLInputElement).value = '';
   paletteFilteredCommands = PALETTE_COMMANDS;
   paletteSelectedIndex = 0;
   renderPaletteList();
-  setTimeout(function() { search.focus(); }, 50);
+  setTimeout(function() { search!.focus(); }, 50);
 }
 
-export function closeCommandPalette() {
-  document.getElementById('command-palette-overlay').hidden = true;
+export function closeCommandPalette(): void {
+  document.getElementById('command-palette-overlay')!.hidden = true;
 }
 
-export function renderPaletteList() {
+export function renderPaletteList(): void {
   var list = document.getElementById('command-palette-list');
   if (paletteFilteredCommands.length === 0) {
-    list.innerHTML = '<div class="command-palette-empty">No matching commands</div>';
+    list!.innerHTML = '<div class="command-palette-empty">No matching commands</div>';
     return;
   }
   var html = '';
@@ -126,19 +125,19 @@ export function renderPaletteList() {
       (cmd.key ? '<span class="cp-shortcut">' + cmd.key + '</span>' : '') +
       '</div>';
   }
-  list.innerHTML = html;
+  list!.innerHTML = html;
 
   // Click handlers
-  list.querySelectorAll('.command-palette-item').forEach(function(el) {
+  list!.querySelectorAll('.command-palette-item').forEach(function(el) {
     el.addEventListener('click', function() {
-      var idx = parseInt(el.getAttribute('data-idx'));
+      var idx = parseInt(el.getAttribute('data-idx')!);
       closeCommandPalette();
       paletteFilteredCommands[idx].action();
     });
   });
 
   // Scroll selected into view
-  var selected = list.querySelector('.selected');
+  var selected = list!.querySelector('.selected');
   if (selected) selected.scrollIntoView({ block: 'nearest' });
 }
 

@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Quota Features
-// @ts-nocheck
 // Pinned model, credit renewal, account tags & notes.
 
 import { GROUP_NAMES } from '../core/state';
@@ -70,26 +69,26 @@ export function openRenewalPicker(el: HTMLElement): void {
   if (existing) existing.remove();
 
   var accountId = el.getAttribute('data-renewal-edit');
-  var currentDay = parseInt(el.getAttribute('data-renewal-day')) || 0;
+  var currentDay = parseInt(el.getAttribute('data-renewal-day')!) || 0;
 
   var picker = document.createElement('div');
   picker.className = 'renewal-picker';
-  picker.innerHTML =
+  picker!.innerHTML =
     '<div class="renewal-picker-label">Credit Renewal Day</div>' +
     '<input type="number" class="renewal-picker-input" min="1" max="31" value="' + (currentDay || '') + '" placeholder="1–31">' +
     '<div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>';
 
-  el.closest('.credits-cell').appendChild(picker);
-  var input = picker.querySelector('input');
-  input.focus();
-  input.select();
+  el!.closest('.credits-cell')!.appendChild(picker);
+  var input = picker!.querySelector('input') as HTMLInputElement | null;
+  input!.focus();
+  input!.select();
 
   function save() {
-    var day = parseInt(input.value) || 0;
+    var day = parseInt((input as HTMLInputElement).value) || 0;
     if (day > 31) day = 31;
     if (day < 0) day = 0;
-    picker.remove();
-    updateAccountMeta(accountId, { creditRenewalDay: day }).then(function() {
+    picker!.remove();
+    updateAccountMeta(accountId!, { creditRenewalDay: day }).then(function() {
       if (day > 0) {
         showToast('↻ Renewal day set to ' + day, 'success');
       } else {
@@ -99,11 +98,11 @@ export function openRenewalPicker(el: HTMLElement): void {
     });
   }
 
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); save(); }
-    if (e.key === 'Escape') { e.preventDefault(); picker.remove(); }
+  input!.addEventListener('keydown', function(e) {
+    if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); save(); }
+    if ((e as KeyboardEvent).key === 'Escape') { e.preventDefault(); picker!.remove(); }
   });
-  input.addEventListener('blur', function() {
+  input!.addEventListener('blur', function() {
     setTimeout(function() { if (picker.parentNode) save(); }, 150);
   });
 }
@@ -113,7 +112,7 @@ export function openRenewalPicker(el: HTMLElement): void {
 var TAG_PRESETS = ['work', 'personal', 'primary', 'backup', 'shared', 'test', 'dev'];
 
 export function renderAccountTags(acc: any): string {
-  var tags = (acc.tags || '').split(',').filter(function(t) { return t.trim(); });
+  var tags = (acc.tags || '').split(',').filter(function(t: any) { return t.trim(); });
   var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
   for (var i = 0; i < tags.length; i++) {
     html += '<span class="tag-chip" data-tag="' + esc(tags[i].trim()) + '">' +
@@ -145,7 +144,7 @@ export function addTagToAccount(accountId: number | string, newTag: string): voi
   newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (!newTag) return;
   var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
-  var existing = [];
+  var existing: any[] = [];
   if (container) {
     container.querySelectorAll('.tag-chip').forEach(function(chip) {
       existing.push(chip.getAttribute('data-tag'));
@@ -161,7 +160,7 @@ export function addTagToAccount(accountId: number | string, newTag: string): voi
 
 export function removeTagFromAccount(accountId: number | string, tag: string): void {
   var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
-  var tags = [];
+  var tags: any[] = [];
   if (container) {
     container.querySelectorAll('.tag-chip').forEach(function(chip) {
       var t = chip.getAttribute('data-tag');
@@ -179,7 +178,7 @@ export function openTagPicker(btn: HTMLElement): void {
   var accountId = btn.getAttribute('data-tag-add');
   var meta = btn.closest('.account-meta');
   if (!meta) return;
-  var existing = [];
+  var existing: any[] = [];
   var container = meta.querySelector('.account-tags');
   if (container) {
     container.querySelectorAll('.tag-chip').forEach(function(chip) {
@@ -189,7 +188,7 @@ export function openTagPicker(btn: HTMLElement): void {
   var picker = document.createElement('div');
   picker.className = 'tag-picker';
   picker.id = 'active-tag-picker';
-  picker.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20">' +
+  picker!.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20">' +
     '<div class="tag-picker-hint">Enter to add</div>' +
     '<div class="tag-picker-presets">' +
     TAG_PRESETS.map(function(p) {
@@ -198,23 +197,23 @@ export function openTagPicker(btn: HTMLElement): void {
     }).join('') +
     '</div>';
   meta.appendChild(picker);
-  var input = picker.querySelector('.tag-picker-input');
-  input.focus();
+  var input = picker!.querySelector('.tag-picker-input');
+  (input as HTMLElement).focus();
   picker.addEventListener('click', function(e) { e.stopPropagation(); });
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
+  input!.addEventListener('keydown', function(e) {
+    if ((e as KeyboardEvent).key === 'Enter') {
       e.preventDefault();
-      var val = input.value.trim();
-      if (val) { addTagToAccount(accountId, val); closeTagPicker(); }
+      var val = (input as HTMLInputElement).value.trim();
+      if (val) { addTagToAccount(accountId!, val); closeTagPicker(); }
     }
-    if (e.key === 'Escape') { closeTagPicker(); }
+    if ((e as KeyboardEvent).key === 'Escape') { closeTagPicker(); }
   });
-  picker.querySelectorAll('.tag-preset').forEach(function(btn2) {
+  picker!.querySelectorAll('.tag-preset').forEach(function(btn2) {
     btn2.addEventListener('click', function(e) {
       e.stopPropagation();
       var tag = btn2.getAttribute('data-preset-tag');
-      if (btn2.classList.contains('active')) { removeTagFromAccount(accountId, tag); }
-      else { addTagToAccount(accountId, tag); }
+      if (btn2.classList.contains('active')) { removeTagFromAccount(accountId!, tag!); }
+      else { addTagToAccount(accountId!, tag!); }
       closeTagPicker();
     });
   });
@@ -223,13 +222,13 @@ export function openTagPicker(btn: HTMLElement): void {
 
 export function closeTagPicker(): void {
   var picker = document.getElementById('active-tag-picker');
-  if (picker) picker.remove();
+  if (picker) picker!.remove();
   document.removeEventListener('click', closeTagPickerOnOutside);
 }
 
 function closeTagPickerOnOutside(e: Event): void {
   var picker = document.getElementById('active-tag-picker');
-  if (picker && !picker.contains(e.target as Node)) { closeTagPicker(); }
+  if (picker && !picker!.contains(e.target as Node)) { closeTagPicker(); }
 }
 
 export function openNoteEditor(el: HTMLElement): void {
@@ -240,21 +239,21 @@ export function openNoteEditor(el: HTMLElement): void {
   editor.innerHTML = '<input type="text" class="note-inline-input" value="' + esc(currentNote) + '" placeholder="Add a note..." maxlength="100">';
   el.replaceWith(editor);
   var input = editor.querySelector('.note-inline-input');
-  input.focus();
-  input.select();
+  (input as HTMLElement).focus();
+  (input as HTMLInputElement).select();
   editor.addEventListener('click', function(e) { e.stopPropagation(); });
   function save() {
-    var val = input.value.trim();
-    updateAccountMeta(accountId, { notes: val }).then(function() {
+    var val = (input as HTMLInputElement).value.trim();
+    updateAccountMeta(accountId!, { notes: val }).then(function() {
       if (val) showToast('📝 Note saved', 'success');
       refreshGrid();
     });
   }
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') { e.preventDefault(); save(); }
-    if (e.key === 'Escape') { refreshGrid(); }
+  input!.addEventListener('keydown', function(e) {
+    if ((e as KeyboardEvent).key === 'Enter') { e.preventDefault(); save(); }
+    if ((e as KeyboardEvent).key === 'Escape') { refreshGrid(); }
   });
-  input.addEventListener('blur', save);
+  input!.addEventListener('blur', save);
 }
 
 // Wire F1 interactions via delegation on the grid
@@ -265,23 +264,23 @@ export function initAccountMetaHandlers(): void {
     var removeBtn = (e.target as HTMLElement).closest('[data-remove-tag]');
     if (removeBtn) {
       e.stopPropagation(); e.preventDefault();
-      removeTagFromAccount(removeBtn.getAttribute('data-account-id'), removeBtn.getAttribute('data-remove-tag'));
+      removeTagFromAccount(removeBtn.getAttribute('data-account-id')!, removeBtn.getAttribute('data-remove-tag')!);
       return;
     }
-    var addBtn = e.target.closest('[data-tag-add]');
-    if (addBtn) { e.stopPropagation(); e.preventDefault(); openTagPicker(addBtn); return; }
-    var noteEl = e.target.closest('[data-note-edit]');
-    if (noteEl) { e.stopPropagation(); e.preventDefault(); openNoteEditor(noteEl); return; }
-    var pinBtn = e.target.closest('[data-pin-group]');
+    var addBtn = (e!.target as HTMLElement).closest('[data-tag-add]');
+    if (addBtn) { e.stopPropagation(); e.preventDefault(); openTagPicker(addBtn as HTMLElement); return; }
+    var noteEl = (e!.target as HTMLElement).closest('[data-note-edit]');
+    if (noteEl) { e.stopPropagation(); e.preventDefault(); openNoteEditor(noteEl as HTMLElement); return; }
+    var pinBtn = (e!.target as HTMLElement).closest('[data-pin-group]');
     if (pinBtn) {
       e.stopPropagation(); e.preventDefault();
-      var pinAccountId = pinBtn.getAttribute('data-pin-account');
-      var pinGroupKey = pinBtn.getAttribute('data-pin-group');
+      var pinAccountId = pinBtn.getAttribute('data-pin-account')!;
+      var pinGroupKey = pinBtn.getAttribute('data-pin-group')!;
       if (pinBtn.classList.contains('pinned')) { unpinGroup(pinAccountId); }
       else { pinGroup(pinAccountId, pinGroupKey); }
       return;
     }
-    var renewalEl = e.target.closest('[data-renewal-edit]');
-    if (renewalEl) { e.stopPropagation(); e.preventDefault(); openRenewalPicker(renewalEl); return; }
+    var renewalEl = (e!.target as HTMLElement).closest('[data-renewal-edit]');
+    if (renewalEl) { e.stopPropagation(); e.preventDefault(); openRenewalPicker(renewalEl as HTMLElement); return; }
   });
 }

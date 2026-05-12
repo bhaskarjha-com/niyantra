@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Quota Grid Rendering
-// @ts-nocheck
 // Sort, filter, tag strip, and account grid rendering.
 
 import {
@@ -90,7 +89,7 @@ export function filterAccountsArray(accounts: any[]): any[] {
     // F4: Tag-based filtering
     var matchesTag = true;
     if (activeTagFilter) {
-      var accTags = (acc.tags || '').split(',').map(function(t) { return t.trim().toLowerCase(); });
+      var accTags = (acc.tags || '').split(',').map(function(t: any) { return t.trim().toLowerCase(); });
       matchesTag = accTags.indexOf(activeTagFilter) >= 0;
     }
 
@@ -115,7 +114,7 @@ export function updateSortHeaders(): void {
 // ════════════════════════════════════════════
 
 export function getUniqueTagsFromData(data: any): Record<string, number> {
-  var tagCounts = {};
+  var tagCounts: Record<string, number> = {};
   var accounts = data.accounts || [];
   for (var i = 0; i < accounts.length; i++) {
     var tags = (accounts[i].tags || '').split(',');
@@ -236,11 +235,11 @@ export function renderAccounts(data: any): void {
   for (var i = 0; i < sorted.length; i++) {
     var acc = sorted[i];
     var accId = 'acc-' + acc.accountId;
-    var isExpanded = expandedAccounts.has(accId);
+    var isExpanded = expandedAccounts.has(accId as any);
 
     var groupCells = '';
     // Pre-index models by group for Quick Adjust
-    var modelsByGroup = {};
+    var modelsByGroup: Record<string, string[]> = {};
     if (acc.models) {
       for (var mi2 = 0; mi2 < acc.models.length; mi2++) {
         var mm = acc.models[mi2];
@@ -362,7 +361,7 @@ export function renderAccounts(data: any): void {
     var modelsHTML = '';
     if (acc.models && acc.models.length > 0) {
       // F3: Build group headers with pin stars in expanded view
-      var groupedModels = {};
+      var groupedModels: Record<string, any[]> = {};
       for (var mi = 0; mi < acc.models.length; mi++) {
         var m = acc.models[mi];
         var gk2 = m.groupKey || 'claude_gpt';
@@ -517,7 +516,7 @@ export function renderAccounts(data: any): void {
 
   // Wire up provider section collapse (state already baked into HTML)
   grid.querySelectorAll('.provider-header[data-toggle-provider]').forEach(function(hdr) {
-    hdr.addEventListener('click', function() {
+    (hdr as HTMLElement).addEventListener('click', function() {
       var targetId = (hdr as HTMLElement).dataset.toggleProvider;
       var body = document.getElementById(targetId!);
       var chev = document.getElementById('pchev-' + targetId!);
@@ -527,7 +526,7 @@ export function renderAccounts(data: any): void {
       if (collapsed) {
         collapsedProviders.add(targetId!);
       } else {
-        collapsedProviders.delete(targetId);
+        collapsedProviders.delete(targetId!);
       }
     });
   });

@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Data Sources
-// @ts-nocheck
 import { esc, formatTimeAgo } from '../core/utils';
 
 
@@ -8,11 +7,11 @@ export function loadDataSources(): void {
   .then(function(data) {
     var container = document.getElementById('data-sources-list');
     if (!data.sources || data.sources.length === 0) {
-      container.innerHTML = '';
+      container!.innerHTML = '';
       return;
     }
     var html = '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';
-    data.sources.forEach(function(src) {
+    data.sources.forEach(function(src: any) {
       var meta = src.captureCount + ' captures';
       if (src.lastCapture) {
         meta += ' · Last: ' + formatTimeAgo(src.lastCapture);
@@ -27,7 +26,7 @@ export function loadDataSources(): void {
         '</span>' +
       '</div>';
     });
-    container.innerHTML = html;
+    container!.innerHTML = html;
   }).catch(function() {});
 }
 

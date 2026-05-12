@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Insights & Advisor
-// @ts-nocheck
 import { latestQuotaData } from '../core/state';
 import { esc } from '../core/utils';
 
@@ -95,7 +94,7 @@ export function renderServerInsights(insights: any[]): string {
 
   for (var i = 0; i < insights.length; i++) {
     var ins = insights[i];
-    var icon = iconMap[ins.type] || '💡';
+    var icon = (iconMap as any)[ins.type] || '💡';
     var cls = ins.severity === 'critical' ? 'critical' : (ins.severity === 'warning' ? 'warning' : 'info');
     html += '<div class="insight-item ' + cls + '">' +
       '<span class="insight-item-icon">' + icon + '</span>' +
@@ -125,7 +124,7 @@ export function loadAdvisorCard(): void {
 }
 
 export function renderAdvisorWithGroup(container: HTMLElement, groupKey: string): void {
-  var accounts = latestQuotaData.accounts;
+  var accounts = latestQuotaData!.accounts;
 
   // Build ranked list based on selected group's remaining %
   var ranked = [];
@@ -197,7 +196,7 @@ export function renderAdvisorWithGroup(container: HTMLElement, groupKey: string)
     actionIcon + ' ' + actionLabel + '</div>' +
     '<div class="advisor-reason">' + (allHealthy ? 'All accounts have healthy quotas — no switch needed' :
     'Best: ' + esc(best.email) + ' (' + best.pct + '% ' +
-    esc(groupNames[groupKey] || groupKey) + ' remaining)') +
+    esc((groupNames as any)[groupKey] || groupKey) + ' remaining)') +
     (best.stale ? ' ⚠️ stale data' : '') + '</div>';
 
   // Score bars — show top 5, toggle for rest
@@ -236,9 +235,9 @@ export function renderAdvisorWithGroup(container: HTMLElement, groupKey: string)
   if (toggleBtn) {
     toggleBtn.addEventListener('click', function() {
       var extras = container.querySelectorAll('[data-advisor-extra]');
-      var showing = toggleBtn.textContent.indexOf('Hide') >= 0;
-      extras.forEach(function(el) { el.style.display = showing ? 'none' : ''; });
-      toggleBtn.textContent = showing ? 'Show all ' + ranked.length + ' accounts' : 'Hide extras';
+      var showing = toggleBtn!.textContent.indexOf('Hide') >= 0;
+      extras.forEach(function(el) { (el as HTMLElement).style.display = showing ? 'none' : ''; });
+      toggleBtn!.textContent = showing ? 'Show all ' + ranked.length + ' accounts' : 'Hide extras';
     });
   }
 }

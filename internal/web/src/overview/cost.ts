@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Estimated Cost KPI
-// @ts-nocheck
 import { esc } from '../core/utils';
 
 export function loadCostKPI(): void {
@@ -8,14 +7,14 @@ export function loadCostKPI(): void {
 
   fetch('/api/cost').then(function(res) { return res.json(); }).then(function(data) {
     if (!data || !data.accounts || data.accounts.length === 0) {
-      container.innerHTML = '';
+      container!.innerHTML = '';
       return;
     }
 
     var total = data.totalCost || 0;
     if (total < 0.01) {
       // No meaningful cost — hide the card entirely
-      container.innerHTML = '';
+      container!.innerHTML = '';
       return;
     }
     var totalLabel = data.totalLabel || '$0.00';
@@ -46,10 +45,10 @@ export function loadCostKPI(): void {
     if (hasChips) html += chipsHTML;
 
     html += '</div>';
-    container.innerHTML = html;
+    container!.innerHTML = html;
   }).catch(function(err) {
     console.error('Cost KPI fetch failed:', err);
-    container.innerHTML = '';
+    container!.innerHTML = '';
   });
 }
 

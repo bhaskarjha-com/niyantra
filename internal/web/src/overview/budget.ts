@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Budget Threshold
-// @ts-nocheck
 import { serverConfig } from '../core/state';
 import { showToast } from '../core/utils';
 
@@ -26,7 +25,7 @@ export function updateConfig(key: string, value: string): Promise<any> {
   }).then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.config) {
-      data.config.forEach(function(c) { serverConfig[c.key] = c.value; });
+      
     }
   }).catch(function(err) { console.error('Config update failed:', err); });
 }
@@ -35,19 +34,19 @@ export function loadConfig(): Promise<void> {
   return fetch('/api/config').then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.config) {
-      data.config.forEach(function(c) { serverConfig[c.key] = c.value; });
+      data.config.forEach(function(c: any) { serverConfig[c.key] = c.value; });
     }
-    return serverConfig;
+    // serverConfig updated in-place
   });
 }
 
 export function initBudget(): void {
-  document.getElementById('budget-close').addEventListener('click', closeBudget);
-  document.getElementById('budget-cancel').addEventListener('click', closeBudget);
-  document.getElementById('budget-overlay').addEventListener('click', function(e) {
+  document.getElementById('budget-close')!.addEventListener('click', closeBudget);
+  document.getElementById('budget-cancel')!.addEventListener('click', closeBudget);
+  document.getElementById('budget-overlay')!.addEventListener('click', function(e) {
     if ((e.target as HTMLElement).id === 'budget-overlay') closeBudget();
   });
-  document.getElementById('budget-save').addEventListener('click', function() {
+  document.getElementById('budget-save')!.addEventListener('click', function() {
     var val = parseFloat((document.getElementById('f-budget') as HTMLInputElement).value) || 0;
     setBudget(val);
     closeBudget();

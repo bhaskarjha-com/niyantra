@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Model Pricing Config
-// @ts-nocheck
 import { esc, showToast } from '../core/utils';
 
 
@@ -9,17 +8,17 @@ export function loadModelPricing(): void {
   fetch('/api/config/pricing').then(function(res) { return res.json(); })
   .then(function(data) {
     pricingDataCache = data.pricing || [];
-    renderPricingTable(pricingDataCache);
+    renderPricingTable(pricingDataCache!);
   }).catch(function(err) {
     console.error('Failed to load model pricing:', err);
   });
 }
 
-export function renderPricingTable(pricing) {
+export function renderPricingTable(pricing: any[]): void {
   var tbody = document.getElementById('pricing-tbody');
   if (!tbody) return;
 
-  var providerIcons = { anthropic: '🟤', openai: '🟢', google: '🔵' };
+  var providerIcons: Record<string, string> = { anthropic: '🟤', openai: '🟢', google: '🔵' };
 
   var html = '';
   for (var i = 0; i < pricing.length; i++) {
@@ -43,12 +42,12 @@ export function renderPricingTable(pricing) {
   // Wire change handlers on inputs
   tbody.querySelectorAll('.pricing-input').forEach(function(input) {
     input.addEventListener('change', function() {
-      var tr = input.closest('tr');
-      var idx = parseInt(tr.dataset.pricingIdx);
-      var field = input.dataset.field;
-      var val = parseFloat(input.value) || 0;
+      var tr = (input as HTMLElement).closest('tr');
+      var idx = parseInt((tr as HTMLElement).dataset.pricingIdx!);
+      var field = (input as HTMLElement).dataset.field!;
+      var val = parseFloat((input as HTMLInputElement).value) || 0;
       if (val < 0) val = 0;
-      input.value = val;
+      (input as HTMLInputElement).value = String(val);
       if (pricingDataCache && pricingDataCache[idx]) {
         pricingDataCache[idx][field] = val;
         savePricingFromTable();
@@ -59,13 +58,13 @@ export function renderPricingTable(pricing) {
   // Wire delete buttons
   tbody.querySelectorAll('.pricing-delete-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var idx = parseInt(btn.dataset.pricingDel);
+      var idx = parseInt((btn as HTMLElement).dataset.pricingDel!);
       deletePricingRow(idx);
     });
   });
 }
 
-export function savePricingFromTable() {
+export function savePricingFromTable(): void {
   if (!pricingDataCache || pricingDataCache.length === 0) return;
 
   fetch('/api/config/pricing', {
@@ -100,35 +99,35 @@ export function addPricingRow(): void {
 
   // Focus the name cell of the new row for editing
   var tbody = document.getElementById('pricing-tbody');
-  var lastRow = tbody.lastElementChild;
+  var lastRow = tbody!.lastElementChild as HTMLElement;
   if (lastRow) {
     var nameCell = lastRow.querySelector('.pricing-model-name');
     if (nameCell) {
       // Make name editable inline
-      nameCell.contentEditable = 'true';
-      nameCell.focus();
+      (nameCell as HTMLElement).contentEditable = 'true';
+      (nameCell as HTMLElement).focus();
       // Select all text for quick replace
       var range = document.createRange();
-      range.selectNodeContents(nameCell);
+      range.selectNodeContents(nameCell!);
       var sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
+      sel!.removeAllRanges();
+      sel!.addRange(range);
 
-      nameCell.addEventListener('blur', function() {
-        nameCell.contentEditable = 'false';
-        var idx = parseInt(lastRow.dataset.pricingIdx);
-        var newName = nameCell.textContent.trim();
-        if (newName && pricingDataCache[idx]) {
-          pricingDataCache[idx].displayName = newName;
-          pricingDataCache[idx].modelId = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      nameCell!.addEventListener('blur', function() {
+        (nameCell as HTMLElement).contentEditable = 'false';
+        var idx = parseInt(lastRow!.dataset.pricingIdx!);
+        var newName = nameCell!.textContent!.trim();
+        if (newName && pricingDataCache![idx]) {
+          pricingDataCache![idx].displayName = newName;
+          pricingDataCache![idx].modelId = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
           savePricingFromTable();
         }
       }, { once: true });
 
-      nameCell.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
+      nameCell!.addEventListener('keydown', function(e) {
+        if ((e as KeyboardEvent).key === 'Enter') {
           e.preventDefault();
-          nameCell.blur();
+          (nameCell as HTMLElement).blur();
         }
       });
     }
@@ -137,7 +136,7 @@ export function addPricingRow(): void {
   showToast('💰 New model added — edit the name and prices', 'info');
 }
 
-export function deletePricingRow(idx) {
+export function deletePricingRow(idx: number): void {
   if (!pricingDataCache || idx < 0 || idx >= pricingDataCache.length) return;
 
   var name = pricingDataCache[idx].displayName;

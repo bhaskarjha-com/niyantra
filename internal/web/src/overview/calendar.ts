@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Renewal Calendar
-// @ts-nocheck
 import { esc } from '../core/utils';
 //  Phase 10: RENEWAL CALENDAR
 // ════════════════════════════════════════════
@@ -11,7 +10,7 @@ export function renderRenewalCalendar(renewals: any[], subs: any[]): void {
   if (!container) return;
 
   // Build a map of date -> [{ platform, category }]
-  var renewalMap = {};
+  var renewalMap: Record<string, any[]> = {};
   if (renewals) {
     for (var i = 0; i < renewals.length; i++) {
       var r = renewals[i];
@@ -70,7 +69,7 @@ export function renderRenewalCalendar(renewals: any[], subs: any[]): void {
 
   // Current month days
   for (var day = 1; day <= daysInMonth; day++) {
-    var dateKey = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+    dateKey = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
     var isToday = dateKey === todayKey;
     var dayClass = isToday ? 'calendar-day today' : 'calendar-day';
     var events = renewalMap[dateKey];
@@ -79,7 +78,7 @@ export function renderRenewalCalendar(renewals: any[], subs: any[]): void {
 
     // Tooltip
     if (events && events.length > 0) {
-      var tooltipText = events.map(function(e) { return e.platform; }).join(', ');
+      var tooltipText = events.map(function(e: any) { return e.platform; }).join(', ');
       html += ' title="' + esc(tooltipText) + '"';
     }
     html += '>';
@@ -109,7 +108,7 @@ export function renderRenewalCalendar(renewals: any[], subs: any[]): void {
   html += '</div>';
 
   // Legend
-  var categories = {};
+  var categories: Record<string, boolean> = {};
   for (var key in renewalMap) {
     for (var ci = 0; ci < renewalMap[key].length; ci++) {
       categories[renewalMap[key][ci].category] = true;

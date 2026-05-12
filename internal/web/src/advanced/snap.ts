@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Snap Handler
-// @ts-nocheck
 import { snapInProgress, setSnapInProgress } from '../core/state';
 import { showToast, updateTimestamp } from '../core/utils';
 import { triggerSnap } from '../core/api';
@@ -19,28 +18,28 @@ export function initSnapDropdown(): void {
   // Toggle dropdown
   caret.addEventListener('click', function(e) {
     e.stopPropagation();
-    dropdown.classList.toggle('open');
+    dropdown!.classList.toggle('open');
   });
 
   // Close on outside click
   document.addEventListener('click', function() {
-    dropdown.classList.remove('open');
+    dropdown!.classList.remove('open');
   });
 
   // Option clicks
   dropdown.querySelectorAll('.snap-option').forEach(function(opt) {
     opt.addEventListener('click', function(e) {
       e.stopPropagation();
-      var source = opt.dataset.source;
-      dropdown.classList.remove('open');
+      var source = (opt as HTMLElement).dataset.source;
+      dropdown!.classList.remove('open');
       if (source === 'all') {
         snapSource('all');
       } else {
         // Set as new default + snap it
-        snapDefault = source;
-        localStorage.setItem('niyantra_snap_default', source);
+        snapDefault = source!;
+        localStorage.setItem('niyantra_snap_default', source!);
         updateSnapDropdownIndicators();
-        snapSource(source);
+        snapSource(source!);
       }
     });
   });
@@ -48,14 +47,14 @@ export function initSnapDropdown(): void {
   updateSnapDropdownIndicators();
 }
 
-export function updateSnapDropdownIndicators() {
+export function updateSnapDropdownIndicators(): void {
   var dropdown = document.getElementById('snap-dropdown');
   if (!dropdown) return;
   dropdown.querySelectorAll('.snap-option').forEach(function(opt) {
-    if (opt.dataset.source === 'all') return; // divider option
-    var isActive = opt.dataset.source === snapDefault;
-    opt.textContent = (isActive ? '◉ ' : '○ ') + opt.textContent.replace(/^[◉○] /, '');
-    opt.classList.toggle('active', isActive);
+    if ((opt as HTMLElement).dataset.source === 'all') return; // divider option
+    var isActive = (opt as HTMLElement).dataset.source === snapDefault;
+    (opt as HTMLElement).textContent = (isActive ? '◉ ' : '○ ') + (opt as HTMLElement).textContent!.replace(/^[◉○] /, '');
+    (opt as HTMLElement).classList.toggle('active', isActive);
   });
 }
 
@@ -63,13 +62,13 @@ export function handleSnap(): void {
   snapSource(snapDefault);
 }
 
-export function snapSource(source) {
+export function snapSource(source: string): void {
   var btn = document.getElementById('snap-btn');
-  if (!btn || btn.disabled || snapInProgress) return;
+  if (!btn || (btn as HTMLButtonElement).disabled || snapInProgress) return;
 
   setSnapInProgress(true);
-  btn.disabled = true;
-  btn.classList.add('snapping');
+  (btn as HTMLButtonElement).disabled = true;
+  btn!.classList.add('snapping');
   var orig = btn.innerHTML;
   btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Capturing...';
 
@@ -97,16 +96,16 @@ export function snapSource(source) {
   }
 
   if (promises.length === 0) {
-    btn.innerHTML = orig;
-    btn.disabled = false;
+    (btn as HTMLButtonElement).innerHTML = orig;
+    (btn as HTMLButtonElement).disabled = false;
     setSnapInProgress(false);
     showToast('No snap source selected', 'warning');
     return;
   }
 
-  Promise.all(promises).then(function(results) {
+  Promise.all(promises).then(function(results: any[]) {
     var msgs = [];
-    var antigravityData = null;
+    var antigravityData: any = null;
     for (var i = 0; i < results.length; i++) {
       var r = results[i];
       if (r.error) {
@@ -122,9 +121,9 @@ export function snapSource(source) {
       updateTimestamp();
     }
   }).finally(function() {
-    btn.innerHTML = orig;
-    btn.disabled = false;
-    btn.classList.remove('snapping');
+    (btn as HTMLButtonElement).innerHTML = orig;
+    (btn as HTMLButtonElement).disabled = false;
+    (btn as HTMLButtonElement).classList.remove('snapping');
     setSnapInProgress(false);
   });
 }

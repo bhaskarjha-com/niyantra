@@ -1,5 +1,4 @@
 // Niyantra Dashboard — System Alerts
-// @ts-nocheck
 import { esc, showToast } from '../core/utils';
 import { switchToTab } from '../core/theme';
 

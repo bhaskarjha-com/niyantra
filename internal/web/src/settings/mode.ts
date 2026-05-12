@@ -1,12 +1,11 @@
 // Niyantra Dashboard — Mode Badge
-// @ts-nocheck
 import { presetsData } from '../core/state';
 import { formatTimeAgo, formatPollInterval } from '../core/utils';
 import { loadSystemAlerts } from '../advanced/alerts';
 import { loadActivityLog } from './activity';
 
 
-export var modeRefreshTimer = null;
+export var modeRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 export function loadMode(): void {
   fetch('/api/mode').then(function(r) { return r.json(); })
@@ -14,11 +13,11 @@ export function loadMode(): void {
     var badge = document.getElementById('mode-badge');
     var label = document.getElementById('mode-label');
     if (data.mode === 'auto') {
-      badge.className = 'mode-badge mode-auto';
-      label.textContent = 'Auto';
+      badge!.className = 'mode-badge mode-auto';
+      label!.textContent = 'Auto';
     } else {
-      badge.className = 'mode-badge mode-manual';
-      label.textContent = 'Manual';
+      badge!.className = 'mode-badge mode-manual';
+      label!.textContent = 'Manual';
     }
 
     // Show polling status indicator
@@ -43,7 +42,7 @@ export function loadMode(): void {
     // Update about section
     var aboutEl = document.getElementById('s-about-info');
     if (aboutEl) {
-      var srcCount = (data.sources || []).filter(function(s) { return s.enabled; }).length;
+      var srcCount = (data.sources || []).filter(function(s: any) { return s.enabled; }).length;
       var schemaV = data.schemaVersion ? ('Schema v' + data.schemaVersion) : 'Schema';
       var presetCount = presetsData.length || 0;
       aboutEl.textContent = schemaV + ' · ' + presetCount + ' presets · Mode: ' +

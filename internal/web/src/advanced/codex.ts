@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Codex & Sessions
-// @ts-nocheck
 import { esc, showToast, formatTimeAgo, formatDurationSec } from '../core/utils';
 import { formatResetTime } from '../quotas/render';
 
@@ -11,9 +10,9 @@ export function loadCodexSettingsStatus(): void {
 
   fetch('/api/codex/status').then(function(r) { return r.json(); })
   .then(function(data) {
-    statusEl.style.display = '';
+    statusEl!.style.display = '';
     if (!data.installed) {
-      statusEl.innerHTML = '<span style="color:var(--text-muted)">⚠️ Codex CLI not detected. ' +
+      statusEl!.innerHTML = '<span style="color:var(--text-muted)">⚠️ Codex CLI not detected. ' +
         'Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> ' +
         'and run <code>codex auth</code> to enable.</span>';
       return;
@@ -22,16 +21,16 @@ export function loadCodexSettingsStatus(): void {
       '<span style="color:var(--warning)">⚠️ Token expired — will auto-refresh on next poll</span>' :
       '<span style="color:var(--success)">✅ Token valid (expires ' + (data.tokenExpiresIn || '?') + ')</span>';
     var displayId = data.email || (data.accountId && data.accountId.length > 12 ? data.accountId.substring(0,6) + '…' + data.accountId.slice(-6) : (data.accountId || 'unknown'));
-    statusEl.innerHTML =
+    statusEl!.innerHTML =
       '🤖 Codex detected · Account: <strong>' + esc(displayId) + '</strong><br>' +
       tokenStatus;
     if (data.snapshot) {
-      statusEl.innerHTML += '<br>Latest: <strong>' + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) · ' +
+      statusEl!.innerHTML += '<br>Latest: <strong>' + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) · ' +
         '<span style="color:var(--text-muted)">' + formatTimeAgo(data.snapshot.capturedAt) + '</span>';
     }
   })
   .catch(function() {
-    statusEl.style.display = 'none';
+    statusEl!.style.display = 'none';
   });
 }
 

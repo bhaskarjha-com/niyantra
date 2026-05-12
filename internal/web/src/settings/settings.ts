@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Settings Panel
-// @ts-nocheck
 import { serverConfig, presetsData } from '../core/state';
 import { showToast, formatTimeAgo } from '../core/utils';
 import { fetchStatus } from '../core/api';
@@ -21,10 +20,11 @@ export function initSettings(): void {
 
   // Theme stays in localStorage (visual-only)
   var savedTheme = localStorage.getItem('niyantra-theme') || 'dark';
-  themeEl.value = savedTheme;
+  (themeEl as HTMLSelectElement).value = savedTheme;
+  if (!themeEl) return;
 
   themeEl.addEventListener('change', function() {
-    var val = themeEl.value;
+    var val = (themeEl as HTMLSelectElement).value;
     if (val === 'system') {
       localStorage.removeItem('niyantra-theme');
       var prefer = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -34,12 +34,13 @@ export function initSettings(): void {
       document.documentElement.setAttribute('data-theme', val);
     }
     // M2: Update chart theme in-place instead of destroy+rebuild
-    var applied = document.documentElement.getAttribute('data-theme');
+    var applied = document.documentElement.getAttribute('data-theme')!;
     updateChartTheme(applied);
   });
 
   // Load server config and populate settings UI
-  loadConfig().then(function(cfg) {
+  loadConfig().then(function() {
+    var cfg = serverConfig;
     // Migrate localStorage budget/currency to server config (one-time)
     migrateLocalStorage(cfg);
 
@@ -51,66 +52,66 @@ export function initSettings(): void {
     var pollEl = document.getElementById('s-poll-interval');
     var retentionEl = document.getElementById('s-retention');
 
-    budgetEl.value = parseFloat(cfg['budget_monthly'] || '0') || '';
-    currencyEl.value = cfg['currency'] || 'USD';
-    autoCaptureEl.checked = cfg['auto_capture'] === 'true';
-    autoLinkEl.checked = cfg['auto_link_subs'] !== 'false';
-    pollEl.value = cfg['poll_interval'] || '300';
-    retentionEl.value = cfg['retention_days'] || '365';
+    (budgetEl as HTMLInputElement).value = String(parseFloat(cfg['budget_monthly'] || '0') || '');
+    (currencyEl as HTMLSelectElement).value = cfg['currency'] || 'USD';
+    (autoCaptureEl as HTMLInputElement).checked = cfg['auto_capture'] === 'true';
+    (autoLinkEl as HTMLInputElement).checked = cfg['auto_link_subs'] !== 'false';
+    (pollEl as HTMLSelectElement).value = cfg['poll_interval'] || '300';
+    (retentionEl as HTMLInputElement).value = cfg['retention_days'] || '365';
 
     // Show/hide poll interval based on auto_capture
-    document.getElementById('poll-interval-row').style.display =
-      autoCaptureEl.checked ? '' : 'none';
+    document.getElementById('poll-interval-row')!.style.display =
+      (autoCaptureEl as HTMLInputElement).checked ? '' : 'none';
 
     // Auto-save handlers
-    budgetEl.addEventListener('change', function() {
-      var val = parseFloat(budgetEl.value) || 0;
+    budgetEl!.addEventListener('change', function() {
+      var val = parseFloat((budgetEl as HTMLInputElement).value) || 0;
       setBudget(val);
       if (val > 0) showToast('✅ Budget: $' + val.toFixed(0) + '/mo', 'success');
     });
 
-    currencyEl.addEventListener('change', function() {
-      updateConfig('currency', currencyEl.value);
-      showToast('✅ Currency: ' + currencyEl.value, 'success');
+    currencyEl!.addEventListener('change', function() {
+      updateConfig('currency', (currencyEl as HTMLSelectElement).value);
+      showToast('✅ Currency: ' + (currencyEl as HTMLSelectElement).value, 'success');
     });
 
-    autoCaptureEl.addEventListener('change', function() {
-      var val = autoCaptureEl.checked ? 'true' : 'false';
+    autoCaptureEl!.addEventListener('change', function() {
+      var val = (autoCaptureEl as HTMLInputElement).checked ? 'true' : 'false';
       updateConfig('auto_capture', val).then(function() {
         loadMode();
-        showToast(autoCaptureEl.checked ? '🟢 Auto-capture started' : '⏸️ Auto-capture stopped', 'success');
+        showToast((autoCaptureEl as HTMLInputElement).checked ? '🟢 Auto-capture started' : '⏸️ Auto-capture stopped', 'success');
       });
-      document.getElementById('poll-interval-row').style.display =
-        autoCaptureEl.checked ? '' : 'none';
+      document.getElementById('poll-interval-row')!.style.display =
+        (autoCaptureEl as HTMLInputElement).checked ? '' : 'none';
     });
 
-    autoLinkEl.addEventListener('change', function() {
-      updateConfig('auto_link_subs', autoLinkEl.checked ? 'true' : 'false');
+    autoLinkEl!.addEventListener('change', function() {
+      updateConfig('auto_link_subs', (autoLinkEl as HTMLInputElement).checked ? 'true' : 'false');
     });
 
-    pollEl.addEventListener('change', function() {
-      var v = pollEl.value;
+    pollEl!.addEventListener('change', function() {
+      var v = (pollEl as HTMLSelectElement).value;
       updateConfig('poll_interval', v).then(function() {
         // Show human-readable label from the selected option
-        var label = pollEl.options[pollEl.selectedIndex].text;
+        var label = (pollEl as HTMLSelectElement).options[(pollEl as HTMLSelectElement).selectedIndex].text;
         showToast('⏱️ Interval updated to ' + label + ' — takes effect on next cycle.', 'success');
         loadMode();
       });
     });
 
-    retentionEl.addEventListener('change', function() {
-      var v = parseInt(retentionEl.value);
+    retentionEl!.addEventListener('change', function() {
+      var v = parseInt((retentionEl as HTMLInputElement).value);
       if (v >= 30 && v <= 3650) updateConfig('retention_days', v.toString());
     });
 
     // ── Phase 9: Claude Code Bridge ──
     var claudeBridgeEl = document.getElementById('s-claude-bridge');
     if (claudeBridgeEl) {
-      claudeBridgeEl.checked = cfg['claude_bridge'] === 'true';
+      (claudeBridgeEl as HTMLInputElement).checked = cfg['claude_bridge'] === 'true';
       claudeBridgeEl.addEventListener('change', function() {
-        var val = claudeBridgeEl.checked ? 'true' : 'false';
+        var val = (claudeBridgeEl as HTMLInputElement).checked ? 'true' : 'false';
         updateConfig('claude_bridge', val).then(function() {
-          showToast(claudeBridgeEl.checked ? '🔗 Claude Code bridge enabled' : '🔗 Bridge disabled', 'success');
+          showToast((claudeBridgeEl as HTMLInputElement).checked ? '🔗 Claude Code bridge enabled' : '🔗 Bridge disabled', 'success');
           loadClaudeBridgeStatus();
         });
       });
@@ -123,29 +124,29 @@ export function initSettings(): void {
     var thresholdRow = document.getElementById('notify-threshold-row');
     var testRow = document.getElementById('notify-test-row');
     if (notifyEl) {
-      notifyEl.checked = cfg['notify_enabled'] === 'true';
-      thresholdEl.value = cfg['notify_threshold'] || '10';
-      thresholdRow.style.display = notifyEl.checked ? '' : 'none';
-      testRow.style.display = notifyEl.checked ? '' : 'none';
+      (notifyEl as HTMLInputElement).checked = cfg['notify_enabled'] === 'true';
+      (thresholdEl as HTMLInputElement).value = cfg['notify_threshold'] || '10';
+      thresholdRow!.style.display = (notifyEl as HTMLInputElement).checked ? '' : 'none';
+      testRow!.style.display = (notifyEl as HTMLInputElement).checked ? '' : 'none';
 
       notifyEl.addEventListener('change', function() {
-        var val = notifyEl.checked ? 'true' : 'false';
+        var val = (notifyEl as HTMLInputElement).checked ? 'true' : 'false';
         updateConfig('notify_enabled', val).then(function() {
-          showToast(notifyEl.checked ? '🔔 Notifications enabled' : '🔕 Notifications disabled', 'success');
+          showToast((notifyEl as HTMLInputElement).checked ? '🔔 Notifications enabled' : '🔕 Notifications disabled', 'success');
         });
-        thresholdRow.style.display = notifyEl.checked ? '' : 'none';
-        testRow.style.display = notifyEl.checked ? '' : 'none';
+        thresholdRow!.style.display = (notifyEl as HTMLInputElement).checked ? '' : 'none';
+        testRow!.style.display = (notifyEl as HTMLInputElement).checked ? '' : 'none';
       });
 
-      thresholdEl.addEventListener('change', function() {
-        var v = parseInt(thresholdEl.value);
+      thresholdEl!.addEventListener('change', function() {
+        var v = parseInt((thresholdEl as HTMLInputElement).value);
         if (v >= 5 && v <= 50) {
           updateConfig('notify_threshold', v.toString());
           showToast('🔔 Threshold: ' + v + '%', 'success');
         }
       });
 
-      document.getElementById('notify-test-btn').addEventListener('click', function() {
+      document.getElementById('notify-test-btn')!.addEventListener('click', function() {
         fetch('/api/notify/test', { method: 'POST' })
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -159,11 +160,11 @@ export function initSettings(): void {
     // ── Phase 11: Codex Capture Toggle ──
     var codexCaptureEl = document.getElementById('s-codex-capture');
     if (codexCaptureEl) {
-      codexCaptureEl.checked = cfg['codex_capture'] === 'true';
+      (codexCaptureEl as HTMLInputElement).checked = cfg['codex_capture'] === 'true';
       codexCaptureEl.addEventListener('change', function() {
-        var val = codexCaptureEl.checked ? 'true' : 'false';
+        var val = (codexCaptureEl as HTMLInputElement).checked ? 'true' : 'false';
         updateConfig('codex_capture', val).then(function() {
-          showToast(codexCaptureEl.checked ? '🤖 Codex capture enabled' : '🤖 Codex capture disabled', 'success');
+          showToast((codexCaptureEl as HTMLInputElement).checked ? '🤖 Codex capture enabled' : '🤖 Codex capture disabled', 'success');
           loadCodexSettingsStatus();
           // T1: Refresh data sources list to reflect new enabled state
           loadDataSources();
@@ -176,17 +177,17 @@ export function initSettings(): void {
     var importBtn = document.getElementById('import-json-btn');
     var importFile = document.getElementById('import-file');
     if (importBtn && importFile) {
-      importBtn.addEventListener('click', function() { importFile.click(); });
+      importBtn.addEventListener('click', function() { (importFile as HTMLInputElement).click(); });
       importFile.addEventListener('change', function() {
-        if (!importFile.files || !importFile.files[0]) return;
-        var file = importFile.files[0];
+        if (!(importFile as HTMLInputElement).files || !(importFile as HTMLInputElement).files![0]) return;
+        var file = (importFile as HTMLInputElement).files![0];
         showToast('📥 Importing ' + file.name + '...', 'info');
         var reader = new FileReader();
         reader.onload = function(e) {
           fetch('/api/import/json', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: e.target.result
+            body: (e.target as FileReader).result as string
           })
           .then(function(r) { return r.json(); })
           .then(function(data) {
@@ -214,15 +215,15 @@ export function initSettings(): void {
           .catch(function() { showToast('❌ Import failed', 'error'); });
         };
         reader.readAsText(file);
-        importFile.value = ''; // reset for re-import
+        (importFile as HTMLInputElement).value = ''; // reset for re-import
       });
     }
   });
 
   // ── Phase 13 F5: Model Pricing ──
   loadModelPricing();
-  document.getElementById('pricing-add-btn').addEventListener('click', addPricingRow);
-  document.getElementById('pricing-reset-btn').addEventListener('click', resetPricingDefaults);
+  document.getElementById('pricing-add-btn')!.addEventListener('click', addPricingRow);
+  document.getElementById('pricing-reset-btn')!.addEventListener('click', resetPricingDefaults);
 
   // Load mode badge
   loadMode();
@@ -231,13 +232,13 @@ export function initSettings(): void {
   loadDataSources();
 
   // Activity log controls
-  document.getElementById('activity-refresh').addEventListener('click', loadActivityLog);
-  document.getElementById('activity-filter').addEventListener('change', loadActivityLog);
+  document.getElementById('activity-refresh')!.addEventListener('click', loadActivityLog);
+  document.getElementById('activity-filter')!.addEventListener('change', loadActivityLog);
   loadActivityLog();
 }
 
 // One-time migration of localStorage budget/currency to server config
-export function migrateLocalStorage(cfg) {
+export function migrateLocalStorage(cfg: Record<string, string>): void {
   var lsBudget = localStorage.getItem('niyantra-budget');
   var lsCurrency = localStorage.getItem('niyantra-currency');
 

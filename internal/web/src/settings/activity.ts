@@ -1,10 +1,9 @@
 // Niyantra Dashboard — Activity Log
-// @ts-nocheck
 import { esc } from '../core/utils';
 
 
 export function loadActivityLog(): void {
-  var filter = document.getElementById('activity-filter').value;
+  var filter = (document.getElementById('activity-filter') as HTMLSelectElement).value;
   var url = '/api/activity?limit=50';
   if (filter) url += '&type=' + filter;
 
@@ -12,13 +11,13 @@ export function loadActivityLog(): void {
   .then(function(data) {
     var container = document.getElementById('activity-log');
     if (!data.entries || data.entries.length === 0) {
-      container.innerHTML = '<div class="activity-empty">No activity' +
+      container!.innerHTML = '<div class="activity-empty">No activity' +
         (filter ? ' for "' + filter + '"' : '') + ' yet</div>';
       return;
     }
 
     var html = '';
-    data.entries.forEach(function(entry) {
+    data.entries.forEach(function(entry: any) {
       var time = entry.timestamp ? entry.timestamp.replace('T', ' ').substring(5, 16) : '';
       var detail = formatActivityDetail(entry);
       html += '<div class="activity-entry">' +
@@ -29,14 +28,14 @@ export function loadActivityLog(): void {
         '<span class="activity-detail">' + detail + '</span>' +
       '</div>';
     });
-    container.innerHTML = html;
+    container!.innerHTML = html;
   }).catch(function() {
-    document.getElementById('activity-log').innerHTML =
+    document.getElementById('activity-log')!.innerHTML =
       '<div class="activity-empty">Failed to load activity log</div>';
   });
 }
 
-export function formatActivityDetail(entry) {
+export function formatActivityDetail(entry: any): string {
   try {
     var d = JSON.parse(entry.details || '{}');
     switch (entry.eventType) {

@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Quota Expand/Collapse & Init
-// @ts-nocheck
 // Toggle handlers, sort delegation, quick adjust, and quota init.
 
 import {
@@ -36,7 +35,7 @@ export function setupToggle(): void {
     }
 
     // Handle delete account button
-    var deleteBtn = e.target.closest('[data-delete-account]');
+    var deleteBtn = (e!.target as HTMLElement).closest('[data-delete-account]');
     if (deleteBtn) {
       e.stopPropagation();
       var accountId2 = deleteBtn.getAttribute('data-delete-account');
@@ -46,7 +45,7 @@ export function setupToggle(): void {
           .then(function(res) { return res.json(); })
           .then(function(data) {
             showToast('✅ Removed ' + email2 + ' (' + (data.totalDeleted || 0) + ' records deleted)', 'success');
-            expandedAccounts.delete('acc-' + accountId2);
+            expandedAccounts.delete(('acc-' + accountId2) as any);
             fetchStatus().then(renderAccounts);
             document.dispatchEvent(new CustomEvent('niyantra:chart-refresh'));
           })
@@ -61,11 +60,11 @@ export function setupToggle(): void {
       e.stopPropagation();
       var gControls = gadjBtn.closest('.group-adjust');
       if (!gControls) return;
-      var gSnapId = parseInt(gControls.getAttribute('data-snap-id'), 10);
-      var gGroupKey = gControls.getAttribute('data-group-key');
-      var gLabelsStr = gControls.getAttribute('data-group-labels');
-      var gCurrentPct = parseFloat(gControls.getAttribute('data-current-pct'));
-      var gDelta = parseFloat(gadjBtn.getAttribute('data-delta'));
+      var gSnapId = parseInt(gControls.getAttribute('data-snap-id')!, 10);
+      var gGroupKey = gControls.getAttribute('data-group-key')!;
+      var gLabelsStr = gControls.getAttribute('data-group-labels')!;
+      var gCurrentPct = parseFloat(gControls.getAttribute('data-current-pct')!);
+      var gDelta = parseFloat((gadjBtn as HTMLElement).getAttribute('data-delta')!);
       var gNewPct = Math.max(0, Math.min(100, gCurrentPct + gDelta));
 
       // Optimistic UI update on group cell
@@ -78,14 +77,14 @@ export function setupToggle(): void {
           gPctSpan.className = 'quota-pct ' + (gNewPct <= 0 ? 'exhausted' : gNewPct < 20 ? 'warning' : gNewPct < 50 ? 'ok' : 'good');
         }
         if (gBarFill) {
-          gBarFill.style.width = gNewPct + '%';
+          (gBarFill as HTMLElement).style.width = gNewPct + '%';
           gBarFill.className = 'quota-minibar-fill ' + (gNewPct <= 0 ? 'exhausted' : gNewPct < 20 ? 'warning' : gNewPct < 50 ? 'ok' : 'good');
         }
       }
-      gControls.setAttribute('data-current-pct', gNewPct);
+      gControls.setAttribute('data-current-pct', String(gNewPct));
 
       // Build adjustments for ALL models in this group
-      var gLabels = gLabelsStr.split('|||').filter(function(l) { return l.length > 0; });
+      var gLabels = gLabelsStr!.split('|||').filter(function(l) { return l.length > 0; });
       var adjustments = [];
       for (var li = 0; li < gLabels.length; li++) {
         // Each model gets the same delta applied
@@ -107,7 +106,7 @@ export function setupToggle(): void {
           showToast('❌ ' + data.error, 'error');
           return;
         }
-        var groupName = GROUP_NAMES[gGroupKey] || gGroupKey;
+        var groupName = (GROUP_NAMES as any)[gGroupKey!] || gGroupKey;
         showToast('✎ ' + groupName + ' → ' + Math.round(gNewPct) + '% (' + adjustments.length + ' models)', 'info');
         fetchStatus().then(renderAccounts);
       })
@@ -121,10 +120,10 @@ export function setupToggle(): void {
       e.stopPropagation();
       var controls = adjBtn.closest('.adjust-controls');
       if (!controls) return;
-      var snapId = parseInt(controls.getAttribute('data-snap-id'), 10);
-      var label = controls.getAttribute('data-model-label');
-      var currentPct = parseFloat(controls.getAttribute('data-current-pct'));
-      var delta = parseFloat(adjBtn.getAttribute('data-delta'));
+      var snapId = parseInt(controls.getAttribute('data-snap-id')!, 10);
+      var label = controls.getAttribute('data-model-label')!;
+      var currentPct = parseFloat(controls.getAttribute('data-current-pct')!);
+      var delta = parseFloat((adjBtn as HTMLElement).getAttribute('data-delta')!);
       var newPct = Math.max(0, Math.min(100, currentPct + delta));
 
       // Optimistic UI update
@@ -137,11 +136,11 @@ export function setupToggle(): void {
           pctSpan.className = 'model-pct ' + (newPct <= 0 ? 'exhausted' : newPct < 20 ? 'warning' : newPct < 50 ? 'ok' : 'good');
         }
         if (barFill) {
-          barFill.style.width = newPct + '%';
+          (barFill as HTMLElement).style.width = newPct + '%';
           barFill.className = 'model-bar-fill ' + (newPct <= 0 ? 'exhausted' : newPct < 20 ? 'warning' : newPct < 50 ? 'ok' : 'good');
         }
       }
-      controls.setAttribute('data-current-pct', newPct);
+      controls.setAttribute('data-current-pct', String(newPct));
 
       // API call
       fetch('/api/snap/adjust', {
@@ -168,22 +167,22 @@ export function setupToggle(): void {
 
     // Handle row toggle (existing)
     // Guard: skip expand/collapse if clicking on tag/note/pin/renewal controls
-    if ((e.target as HTMLElement).closest('[data-tag-add]') || e.target.closest('[data-remove-tag]') ||
-        e.target.closest('[data-note-edit]') || e.target.closest('[data-pin-group]') ||
-        e.target.closest('[data-renewal-edit]') || e.target.closest('.tag-picker') ||
-        e.target.closest('.tag-chip')) {
+    if ((e.target as HTMLElement).closest('[data-tag-add]') || (e.target as HTMLElement).closest('[data-remove-tag]') ||
+        (e.target as HTMLElement).closest('[data-note-edit]') || (e.target as HTMLElement).closest('[data-pin-group]') ||
+        (e.target as HTMLElement).closest('[data-renewal-edit]') || (e.target as HTMLElement).closest('.tag-picker') ||
+        (e.target as HTMLElement).closest('.tag-chip')) {
       return;
     }
     var row = (e.target as HTMLElement).closest('.account-row[data-toggle]');
     if (!row) return;
-    var id = row.getAttribute('data-toggle');
+    var id = row.getAttribute('data-toggle')!;
     var el = document.getElementById(id);
     var chev = document.getElementById('chev-' + id);
     if (!el) return;
     var willExpand = !el.classList.contains('is-expanded');
     el.classList.toggle('is-expanded', willExpand);
-    if (willExpand) expandedAccounts.add(id);
-    else expandedAccounts.delete(id);
+    if (willExpand) expandedAccounts.add(id as any);
+    else expandedAccounts.delete(id as any);
     if (chev) chev.classList.toggle('expanded', willExpand);
   });
 }

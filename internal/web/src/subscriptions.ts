@@ -1,15 +1,14 @@
 // Niyantra Dashboard — Subscriptions Module
-// @ts-nocheck
 // Render, modal, search for subscription management.
 
 import { presetsData } from './core/state';
 import type { Subscription } from './types/api';
-import { esc, showToast, currencySymbol, formatDurationSec } from './core/utils';
+import { esc, showToast, currencySymbol, formatDurationSec, formatNumber } from './core/utils';
 import { fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription } from './core/api';
 
 export function loadSubscriptions(): void {
-  var status = document.getElementById('filter-status').value;
-  var category = document.getElementById('filter-category').value;
+  var status = (document.getElementById('filter-status') as HTMLInputElement).value;
+  var category = (document.getElementById('filter-category') as HTMLInputElement).value;
 
   fetchSubscriptions(status, category).then(function(data) {
     renderSubscriptions(data);
@@ -18,13 +17,13 @@ export function loadSubscriptions(): void {
   });
 }
 
-export function renderSubscriptions(data) {
+export function renderSubscriptions(data: any) {
   var grid = document.getElementById('subs-grid');
   var summary = document.getElementById('subs-summary');
   if (!grid) return;
 
   var subs = data.subscriptions || [];
-  summary.textContent = subs.length + ' subscription' + (subs.length !== 1 ? 's' : '');
+  summary!.textContent = subs.length + ' subscription' + (subs.length !== 1 ? 's' : '');
 
   if (subs.length === 0) {
     grid.innerHTML = '<div class="empty-state">' +
@@ -36,8 +35,8 @@ export function renderSubscriptions(data) {
   }
 
   // Split subs into auto-tracked provider groups vs manual
-  var providerGroups = {};
-  var manualSubs = [];
+  var providerGroups: Record<string, any> = {};
+  var manualSubs: any[] = [];
   var grandTotal = 0;
   for (var i = 0; i < subs.length; i++) {
     var s = subs[i];
@@ -70,7 +69,7 @@ export function renderSubscriptions(data) {
     '</div>' +
     '<div class="spend-breakdown">';
 
-  var providerIcons = { 'Antigravity': '⚡', 'Codex': '🤖', 'Claude': '🔮' };
+  var providerIcons: Record<string, string> = { 'Antigravity': '⚡', 'Codex': '🤖', 'Claude': '🔮' };
   for (var pk = 0; pk < providerKeys.length; pk++) {
     var pName = providerKeys[pk];
     var pIcon = providerIcons[pName] || '📦';
@@ -127,7 +126,7 @@ export function renderSubscriptions(data) {
 
   // ── Manual Subscriptions ──
   if (manualSubs.length > 0) {
-    var grouped = {};
+    var grouped: Record<string, any[]> = {};
     for (var mi2 = 0; mi2 < manualSubs.length; mi2++) {
       var cat = manualSubs[mi2].category || 'other';
       if (!grouped[cat]) grouped[cat] = [];
@@ -157,7 +156,7 @@ export function renderSubscriptions(data) {
   // Wire up provider section collapse/expand
   grid.querySelectorAll('.provider-header').forEach(function(hdr) {
     hdr.addEventListener('click', function() {
-      var targetId = hdr.dataset.toggleProvider;
+      var targetId = (hdr as HTMLElement).dataset.toggleProvider!;
       var body = document.getElementById(targetId);
       var chev = document.getElementById('pchev-' + targetId);
       if (!body) return;
@@ -167,7 +166,7 @@ export function renderSubscriptions(data) {
   });
 }
 
-export function renderSubCard(sub) {
+export function renderSubCard(sub: any) {
   // Cost display
   var costHTML = '';
   if (sub.costAmount > 0) {
@@ -295,20 +294,20 @@ export function initModal(): void {
   var saveBtn = document.getElementById('modal-save');
 
   // Open modal buttons
-  document.getElementById('add-sub-btn').addEventListener('click', function() { openModal(); });
-  document.getElementById('add-sub-btn-2').addEventListener('click', function() { openModal(); });
+  document.getElementById('add-sub-btn')!.addEventListener('click', function() { openModal(); });
+  document.getElementById('add-sub-btn-2')!.addEventListener('click', function() { openModal(); });
 
-  closeBtn.addEventListener('click', closeModal);
-  cancelBtn.addEventListener('click', closeModal);
-  overlay.addEventListener('click', function(e) {
+  closeBtn!.addEventListener('click', closeModal);
+  cancelBtn!.addEventListener('click', closeModal);
+  overlay!.addEventListener('click', function(e) {
     if (e.target === overlay) closeModal();
   });
 
-  saveBtn.addEventListener('click', handleSave);
+  saveBtn!.addEventListener('click', handleSave);
 
   // Preset autofill
-  document.getElementById('f-platform').addEventListener('input', function() {
-    var val = this.value;
+  document.getElementById('f-platform')!.addEventListener('input', function() {
+    var val = (this as HTMLInputElement).value;
     for (var i = 0; i < presetsData.length; i++) {
       if (presetsData[i].platform === val) {
         fillFromPreset(presetsData[i]);
@@ -318,31 +317,31 @@ export function initModal(): void {
   });
 
   // Subscription card actions (delegation)
-  document.getElementById('subs-grid').addEventListener('click', function(e) {
-    var editBtn = e.target.closest('[data-edit-id]');
+  document.getElementById('subs-grid')!.addEventListener('click', function(e) {
+    var editBtn = (e!.target as HTMLElement).closest('[data-edit-id]');
     if (editBtn) {
-      var id = parseInt(editBtn.getAttribute('data-edit-id'));
+      var id = parseInt(editBtn.getAttribute('data-edit-id')!);
       openEditModal(id);
       return;
     }
-    var deleteBtn = e.target.closest('[data-delete-id]');
+    var deleteBtn = (e!.target as HTMLElement).closest('[data-delete-id]');
     if (deleteBtn) {
-      var deleteId = parseInt(deleteBtn.getAttribute('data-delete-id'));
-      var deleteName = deleteBtn.getAttribute('data-delete-name');
-      openDeleteConfirm(deleteId, deleteName);
+      var deleteId = parseInt(deleteBtn.getAttribute('data-delete-id')!);
+      var deleteName = deleteBtn.getAttribute('data-delete-name')!;
+      openDeleteConfirm(deleteId, deleteName!);
     }
   });
 
   // Delete confirmation
-  document.getElementById('delete-close').addEventListener('click', closeDelete);
-  document.getElementById('delete-cancel').addEventListener('click', closeDelete);
-  document.getElementById('delete-overlay').addEventListener('click', function(e) {
-    if (e.target.id === 'delete-overlay') closeDelete();
+  document.getElementById('delete-close')!.addEventListener('click', closeDelete);
+  document.getElementById('delete-cancel')!.addEventListener('click', closeDelete);
+  document.getElementById('delete-overlay')!.addEventListener('click', function(e) {
+    if ((e!.target as HTMLElement).id === 'delete-overlay') closeDelete();
   });
 
   // Filters
-  document.getElementById('filter-status').addEventListener('change', loadSubscriptions);
-  document.getElementById('filter-category').addEventListener('change', loadSubscriptions);
+  document.getElementById('filter-status')!.addEventListener('change', loadSubscriptions);
+  document.getElementById('filter-category')!.addEventListener('change', loadSubscriptions);
 }
 
 export function openModal(sub?: any): void {
@@ -350,62 +349,62 @@ export function openModal(sub?: any): void {
   var title = document.getElementById('modal-title');
 
   if (sub) {
-    title.textContent = 'Edit Subscription';
-    document.getElementById('f-id').value = sub.id || '';
-    document.getElementById('f-platform').value = sub.platform || '';
-    document.getElementById('f-category').value = sub.category || 'other';
-    document.getElementById('f-status').value = sub.status || 'active';
-    document.getElementById('f-email').value = sub.email || '';
-    document.getElementById('f-plan').value = sub.planName || '';
-    document.getElementById('f-cost').value = sub.costAmount || '';
-    document.getElementById('f-currency').value = sub.costCurrency || 'USD';
-    document.getElementById('f-cycle').value = sub.billingCycle || 'monthly';
-    document.getElementById('f-token-limit').value = sub.tokenLimit || '';
-    document.getElementById('f-credit-limit').value = sub.creditLimit || '';
-    document.getElementById('f-request-limit').value = sub.requestLimit || '';
-    document.getElementById('f-limit-period').value = sub.limitPeriod || 'monthly';
-    document.getElementById('f-renewal').value = sub.nextRenewal || '';
-    document.getElementById('f-trial-ends').value = sub.trialEndsAt || '';
-    document.getElementById('f-url').value = sub.url || '';
-    document.getElementById('f-notes').value = sub.notes || '';
-    document.getElementById('f-status-page-url').value = sub.statusPageUrl || '';
-    document.getElementById('f-auto-tracked').value = sub.autoTracked ? '1' : '0';
-    document.getElementById('f-account-id').value = sub.accountId || '0';
+    title!.textContent = 'Edit Subscription';
+    (document.getElementById('f-id') as HTMLInputElement).value = sub.id || '';
+    (document.getElementById('f-platform') as HTMLInputElement).value = sub.platform || '';
+    (document.getElementById('f-category') as HTMLInputElement).value = sub.category || 'other';
+    (document.getElementById('f-status') as HTMLInputElement).value = sub.status || 'active';
+    (document.getElementById('f-email') as HTMLInputElement).value = sub.email || '';
+    (document.getElementById('f-plan') as HTMLInputElement).value = sub.planName || '';
+    (document.getElementById('f-cost') as HTMLInputElement).value = sub.costAmount || '';
+    (document.getElementById('f-currency') as HTMLInputElement).value = sub.costCurrency || 'USD';
+    (document.getElementById('f-cycle') as HTMLInputElement).value = sub.billingCycle || 'monthly';
+    (document.getElementById('f-token-limit') as HTMLInputElement).value = sub.tokenLimit || '';
+    (document.getElementById('f-credit-limit') as HTMLInputElement).value = sub.creditLimit || '';
+    (document.getElementById('f-request-limit') as HTMLInputElement).value = sub.requestLimit || '';
+    (document.getElementById('f-limit-period') as HTMLInputElement).value = sub.limitPeriod || 'monthly';
+    (document.getElementById('f-renewal') as HTMLInputElement).value = sub.nextRenewal || '';
+    (document.getElementById('f-trial-ends') as HTMLInputElement).value = sub.trialEndsAt || '';
+    (document.getElementById('f-url') as HTMLInputElement).value = sub.url || '';
+    (document.getElementById('f-notes') as HTMLInputElement).value = sub.notes || '';
+    (document.getElementById('f-status-page-url') as HTMLInputElement).value = sub.statusPageUrl || '';
+    (document.getElementById('f-auto-tracked') as HTMLInputElement).value = sub.autoTracked ? '1' : '0';
+    (document.getElementById('f-account-id') as HTMLInputElement).value = sub.accountId || '0';
   } else {
-    title.textContent = 'Add Subscription';
-    document.getElementById('sub-modal').querySelectorAll('input, select, textarea').forEach(function(el) {
-      if (el.type === 'hidden') { el.value = ''; return; }
-      if (el.tagName === 'SELECT') { el.selectedIndex = 0; return; }
-      el.value = '';
+    title!.textContent = 'Add Subscription';
+    document.getElementById('sub-modal')!.querySelectorAll('input, select, textarea').forEach(function(el) {
+      if ((el as HTMLInputElement).type === 'hidden') { (el as HTMLInputElement).value = ''; return; }
+      if (el.tagName === 'SELECT') { (el as HTMLSelectElement).selectedIndex = 0; return; }
+      (el as HTMLInputElement).value = '';
     });
-    document.getElementById('f-currency').value = 'USD';
-    document.getElementById('f-cycle').value = 'monthly';
-    document.getElementById('f-category').value = 'coding';
-    document.getElementById('f-limit-period').value = 'monthly';
+    (document.getElementById('f-currency') as HTMLInputElement).value = 'USD';
+    (document.getElementById('f-cycle') as HTMLInputElement).value = 'monthly';
+    (document.getElementById('f-category') as HTMLInputElement).value = 'coding';
+    (document.getElementById('f-limit-period') as HTMLInputElement).value = 'monthly';
   }
 
-  overlay.hidden = false;
-  document.getElementById('f-platform').focus();
+  overlay!.hidden = false;
+  document.getElementById('f-platform')!.focus();
 }
 
 export function closeModal(): void {
-  document.getElementById('modal-overlay').hidden = true;
+  document.getElementById('modal-overlay')!.hidden = true;
 }
 
-export function fillFromPreset(preset) {
-  document.getElementById('f-category').value = preset.category || 'other';
-  document.getElementById('f-cost').value = preset.costAmount || '';
-  document.getElementById('f-cycle').value = preset.billingCycle || 'monthly';
-  document.getElementById('f-token-limit').value = preset.tokenLimit || '';
-  document.getElementById('f-credit-limit').value = preset.creditLimit || '';
-  document.getElementById('f-request-limit').value = preset.requestLimit || '';
-  document.getElementById('f-limit-period').value = preset.limitPeriod || 'monthly';
-  document.getElementById('f-url').value = preset.url || '';
-  document.getElementById('f-notes').value = preset.notes || '';
-  document.getElementById('f-status-page-url').value = preset.statusPageUrl || '';
+export function fillFromPreset(preset: any) {
+  (document.getElementById('f-category') as HTMLInputElement).value = preset.category || 'other';
+  (document.getElementById('f-cost') as HTMLInputElement).value = preset.costAmount || '';
+  (document.getElementById('f-cycle') as HTMLInputElement).value = preset.billingCycle || 'monthly';
+  (document.getElementById('f-token-limit') as HTMLInputElement).value = preset.tokenLimit || '';
+  (document.getElementById('f-credit-limit') as HTMLInputElement).value = preset.creditLimit || '';
+  (document.getElementById('f-request-limit') as HTMLInputElement).value = preset.requestLimit || '';
+  (document.getElementById('f-limit-period') as HTMLInputElement).value = preset.limitPeriod || 'monthly';
+  (document.getElementById('f-url') as HTMLInputElement).value = preset.url || '';
+  (document.getElementById('f-notes') as HTMLInputElement).value = preset.notes || '';
+  (document.getElementById('f-status-page-url') as HTMLInputElement).value = preset.statusPageUrl || '';
 }
 
-export function openEditModal(id) {
+export function openEditModal(id: any) {
   fetch('/api/subscriptions/' + id).then(function(res) {
     return res.json();
   }).then(function(sub) {
@@ -416,27 +415,27 @@ export function openEditModal(id) {
 }
 
 export function handleSave() {
-  var id = document.getElementById('f-id').value;
+  var id = (document.getElementById('f-id') as HTMLInputElement).value;
   var sub = {
-    platform: document.getElementById('f-platform').value.trim(),
-    category: document.getElementById('f-category').value,
-    status: document.getElementById('f-status').value,
-    email: document.getElementById('f-email').value.trim(),
-    planName: document.getElementById('f-plan').value.trim(),
-    costAmount: parseFloat(document.getElementById('f-cost').value) || 0,
-    costCurrency: document.getElementById('f-currency').value,
-    billingCycle: document.getElementById('f-cycle').value,
-    tokenLimit: parseInt(document.getElementById('f-token-limit').value) || 0,
-    creditLimit: parseInt(document.getElementById('f-credit-limit').value) || 0,
-    requestLimit: parseInt(document.getElementById('f-request-limit').value) || 0,
-    limitPeriod: document.getElementById('f-limit-period').value,
-    nextRenewal: document.getElementById('f-renewal').value,
-    trialEndsAt: document.getElementById('f-trial-ends').value,
-    url: document.getElementById('f-url').value.trim(),
-    notes: document.getElementById('f-notes').value.trim(),
-    statusPageUrl: document.getElementById('f-status-page-url').value,
-    autoTracked: document.getElementById('f-auto-tracked').value === '1',
-    accountId: parseInt(document.getElementById('f-account-id').value) || 0,
+    platform: (document.getElementById('f-platform') as HTMLInputElement).value.trim(),
+    category: (document.getElementById('f-category') as HTMLInputElement).value,
+    status: (document.getElementById('f-status') as HTMLInputElement).value,
+    email: (document.getElementById('f-email') as HTMLInputElement).value.trim(),
+    planName: (document.getElementById('f-plan') as HTMLInputElement).value.trim(),
+    costAmount: parseFloat((document.getElementById('f-cost') as HTMLInputElement).value) || 0,
+    costCurrency: (document.getElementById('f-currency') as HTMLInputElement).value,
+    billingCycle: (document.getElementById('f-cycle') as HTMLInputElement).value,
+    tokenLimit: parseInt((document.getElementById('f-token-limit') as HTMLInputElement).value) || 0,
+    creditLimit: parseInt((document.getElementById('f-credit-limit') as HTMLInputElement).value) || 0,
+    requestLimit: parseInt((document.getElementById('f-request-limit') as HTMLInputElement).value) || 0,
+    limitPeriod: (document.getElementById('f-limit-period') as HTMLInputElement).value,
+    nextRenewal: (document.getElementById('f-renewal') as HTMLInputElement).value,
+    trialEndsAt: (document.getElementById('f-trial-ends') as HTMLInputElement).value,
+    url: (document.getElementById('f-url') as HTMLInputElement).value.trim(),
+    notes: (document.getElementById('f-notes') as HTMLInputElement).value.trim(),
+    statusPageUrl: (document.getElementById('f-status-page-url') as HTMLInputElement).value,
+    autoTracked: (document.getElementById('f-auto-tracked') as HTMLInputElement).value === '1',
+    accountId: parseInt((document.getElementById('f-account-id') as HTMLInputElement).value) || 0,
   };
 
   if (!sub.platform) {
@@ -445,8 +444,8 @@ export function handleSave() {
   }
 
   var saveBtn = document.getElementById('modal-save');
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving...';
+  (saveBtn as HTMLButtonElement).disabled = true;
+  saveBtn!.textContent = 'Saving...';
 
   var promise = id
     ? updateSubscription(parseInt(id), sub)
@@ -459,8 +458,8 @@ export function handleSave() {
   }).catch(function(err) {
     showToast('❌ ' + err.message, 'error');
   }).finally(function() {
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save Subscription';
+    (saveBtn as HTMLButtonElement).disabled = false;
+    saveBtn!.textContent = 'Save Subscription';
   });
 }
 
@@ -468,15 +467,15 @@ export function handleSave() {
 //  DELETE CONFIRMATION
 // ════════════════════════════════════════════
 
-var pendingDeleteId = null;
+var pendingDeleteId: number | null = null;
 
-export function openDeleteConfirm(id, name) {
+export function openDeleteConfirm(id: number, name: string) {
   pendingDeleteId = id;
-  document.getElementById('delete-name').textContent = name;
-  document.getElementById('delete-overlay').hidden = false;
+  document.getElementById('delete-name')!.textContent = name;
+  document.getElementById('delete-overlay')!.hidden = false;
 
-  document.getElementById('delete-confirm').onclick = function() {
-    deleteSubscription(pendingDeleteId).then(function() {
+  document.getElementById('delete-confirm')!.onclick = function() {
+    deleteSubscription(pendingDeleteId!).then(function() {
       showToast('✅ Deleted: ' + name, 'success');
       closeDelete();
       loadSubscriptions();
@@ -487,7 +486,7 @@ export function openDeleteConfirm(id, name) {
 }
 
 export function closeDelete(): void {
-  document.getElementById('delete-overlay').hidden = true;
+  document.getElementById('delete-overlay')!.hidden = true;
   pendingDeleteId = null;
 }
 
@@ -500,24 +499,24 @@ export function initSearch(): void {
   if (!searchEl) return;
 
   searchEl.addEventListener('input', function() {
-    var query = searchEl.value.toLowerCase().trim();
+    var query = (searchEl as HTMLInputElement).value.toLowerCase().trim();
     var cards = document.querySelectorAll('.sub-card');
     var labels = document.querySelectorAll('.sub-category-label');
     cards.forEach(function(card) {
       var text = card.textContent.toLowerCase();
-      card.style.display = text.indexOf(query) >= 0 ? '' : 'none';
+      (card as HTMLElement).style.display = text.indexOf(query) >= 0 ? '' : 'none';
     });
     // Hide empty category labels
     labels.forEach(function(label) {
       var next = label.nextElementSibling;
       var anyVisible = false;
       while (next && !next.classList.contains('sub-category-label')) {
-        if (next.classList.contains('sub-card') && next.style.display !== 'none') {
+        if (next.classList.contains('sub-card') && (next as HTMLElement).style.display !== 'none') {
           anyVisible = true;
         }
         next = next.nextElementSibling;
       }
-      label.style.display = anyVisible ? '' : 'none';
+      (label as HTMLElement).style.display = anyVisible ? '' : 'none';
     });
   });
 }

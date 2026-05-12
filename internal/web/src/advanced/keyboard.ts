@@ -1,5 +1,4 @@
 // Niyantra Dashboard — Keyboard Shortcuts
-// @ts-nocheck
 import { switchToTab } from '../core/theme';
 import { closeModal, openModal, closeDelete } from '../subscriptions';
 import { closeBudget } from '../overview/budget';
@@ -10,10 +9,10 @@ import { toggleCommandPalette } from './palette';
 export function initKeyboardShortcuts(): void {
   document.addEventListener('keydown', function(e) {
     // Skip if user is typing in an input/textarea/select
-    var tag = document.activeElement.tagName;
+    var tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
       if (e.key === 'Escape') {
-        document.activeElement.blur();
+        (document.activeElement as HTMLElement)?.blur();
         closeModal();
         closeDelete();
         closeBudget();
@@ -22,9 +21,9 @@ export function initKeyboardShortcuts(): void {
     }
 
     // Don't fire shortcuts when modals are open (except Escape)
-    var anyModal = !document.getElementById('modal-overlay').hidden ||
-                   !document.getElementById('delete-overlay').hidden ||
-                   !document.getElementById('budget-overlay').hidden;
+    var anyModal = !document.getElementById('modal-overlay')!.hidden ||
+                   !document.getElementById('delete-overlay')!.hidden ||
+                   !document.getElementById('budget-overlay')!.hidden;
 
     if (e.key === 'Escape') {
       closeModal();
