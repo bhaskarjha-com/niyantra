@@ -217,7 +217,8 @@ Re-run the install command or download the latest from [Releases](https://github
 | [`go-sdk/mcp`](https://github.com/modelcontextprotocol/go-sdk) | Official MCP Go SDK for AI agent integration |
 | Go stdlib | Everything else -- HTTP, JSON, embed, crypto |
 
-No web frameworks. No ORMs. No npm. Chart.js bundled locally from embedded assets.
+No web frameworks. No ORMs. Chart.js bundled locally from embedded assets.
+Frontend: 27 TypeScript modules (strict mode) bundled by esbuild into a single IIFE.
 
 ## Documentation
 
@@ -227,7 +228,7 @@ No web frameworks. No ORMs. No npm. Chart.js bundled locally from embedded asset
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
 | [API_SPEC.md](docs/API_SPEC.md) | REST API reference (30 endpoints) |
-| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v9 (11 tables) |
+| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v11 (11 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
 | [TESTING.md](docs/TESTING.md) | Test cases |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |

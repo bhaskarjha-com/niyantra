@@ -310,17 +310,19 @@ MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (
 - **Subscription tab pre-loading** — subscription data loaded on init, eliminating white flash on tab switch
 - **Tab animation removed** — `tabFadeIn` CSS animation removed (was causing background flickering during DOM re-paints)
 
-### 🔲 Phase 13: Foundation Sprint (NEXT) — ~9 days
+### ✅ Phase 13: Foundation Sprint — ~9 days
 - **Account notes + tags** — per-account metadata with predefined palette + custom tags (schema v10)
 - **Live poll interval reload** — poll interval read inside ticker loop, not just at startup
 - **Pinned/favorite model** — star one group per account, shows in collapsed view
 - **Tag-based filtering** — filter accounts by tag in Quotas toolbar
 - **Model pricing config** — per-model $/1M token pricing stored in config (prerequisite for cost tracking)
 - **Notification wiring** — connect existing `notify/` engine to polling loop with threshold alerts
-
-### 🔲 Phase 14: Competitive Parity Sprint — ~5 weeks
-- **Quota time-to-exhaustion** — linear regression burn rate: "Claude+GPT will hit 0% in ~2.3h"
+- **Quota time-to-exhaustion** — linear regression burn rate forecasting with severity badges
 - **Estimated cost tracking** — quota delta × model pricing = estimated spend
+- **Credit renewal day** — per-account renewal tracking with countdown badges (schema v11)
+- **Frontend modularization** — monolithic 4,265-line `app.js` decomposed into 27 strict-mode TypeScript modules bundled via esbuild (IIFE format, 89 KB minified)
+
+### 🔲 Phase 14: Competitive Parity Sprint (NEXT) — ~5 weeks
 - **Activity heatmap** — GitHub-style 365-day contribution grid from existing snapshot data
 - **Claude Code: deep tracking** — extend existing bridge to parse `~/.claude/stats-cache.json` for full token analytics
 - **Provider: Cursor** — session token → HTTP API (`cursor.com/api/usage`) for quota/usage data

@@ -3,6 +3,29 @@
 All notable changes to Niyantra are documented here.
 
 
+## [0.16.0] - 2026-05-12
+
+### Added
+- **Account notes + tags** — per-account metadata: predefined tag palette (work, personal, primary, backup, shared, test, dev) + custom freeform tags, inline note editor (schema v10)
+- **Pinned/favorite model** — star one group per account; pinned badge displays in collapsed view with percentage
+- **Tag-based filtering** — dynamic tag filter strip in Quotas toolbar, click-to-filter with active state, auto-refresh on tag changes
+- **Model pricing config** — editable per-model $/1M token pricing table in Settings, stored in server config, inline edit with Enter/Escape support
+- **Notification wiring** — `notify/` engine connected to polling agent with once-per-cycle guard, OnReset callback for cycle-based clearing, proactive Codex monitoring, in-app system alerts
+- **Quota time-to-exhaustion** — sliding-window linear regression forecasting with severity badges (Normal/Warning/Critical/Exhausted) per-group
+- **Estimated cost tracking** — quota delta × model pricing = estimated session cost, displayed in Overview tab
+- **Credit renewal day** — per-account renewal tracking with countdown badges and date picker (schema v11)
+- **Live poll interval reload** — poll interval read inside ticker loop on every cycle, not just at startup
+
+### Changed
+- **Frontend modularized** — monolithic 4,265-line `app.js` decomposed into **27 strict-mode TypeScript modules** bundled via esbuild (IIFE format):
+  - Entry point: `main.ts` (147 lines) with Window augmentation for inline handlers
+  - 8 domain packages: `core/`, `quotas/`, `overview/`, `charts/`, `settings/`, `advanced/`, `types/`, root
+  - 0 TypeScript compilation errors in strict mode, 0 `@ts-nocheck` directives
+  - Bundle output: `app.js` (89 KB minified), build time: 7ms
+  - Makefile targets: `make js`, `make js-prod`, `make js-watch`
+- Schema version: v9 → v11 (accounts table gains `notes`, `tags`, `pinned_group`, `credit_renewal_day`)
+- PATCH `/api/accounts/:id/meta` endpoint for account metadata updates (notes, tags, pinnedGroup, creditRenewalDay)
+
 ## [0.15.0] - 2026-05-09
 
 ### Added

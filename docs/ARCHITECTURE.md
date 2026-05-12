@@ -89,10 +89,12 @@ Uses modernc.org/sqlite (pure Go, no CGo) for true single-binary cross-compilati
 | v7 | codex_snapshots, usage_sessions, usage_logs | Codex integration + sessions (Phase 11) |
 | v8 | snapshots.ai_credits_json column | AI Credits tracking (Phase 12) |
 | v9 | codex_snapshots.email column | Codex multi-account identity (Phase 12) |
+| v10 | accounts: notes, tags, pinned_group | Account metadata (Phase 13) |
+| v11 | accounts: credit_renewal_day | AI credit renewal tracking (Phase 13) |
 
-### Tables (v9 - Current)
+### Tables (v11 - Current)
 
-- accounts: id, email, plan_name, created_at, updated_at
+- accounts: id, email, plan_name, notes, tags, pinned_group, credit_renewal_day, created_at, updated_at
 - snapshots: id, account_id, captured_at, email, plan_name, prompt_credits, monthly_credits, models_json, raw_json, capture_method, capture_source, source_id
 - subscriptions: id, platform, category, plan_name, status, cost_monthly, currency, billing_cycle, email, next_renewal, trial_ends_at, notes, dashboard_url, status_page_url
 - config: key, value, value_type, category, label, description, updated_at
@@ -167,7 +169,7 @@ Serves a 4-tab dashboard with embedded static assets and a REST API.
 | DELETE | /api/snapshots/:id | Delete single snapshot |
 | PATCH | /api/snap/adjust | Quick Adjust: fine-tune model quotas on a snapshot |
 
-Stack: Go embed.FS + vanilla HTML/CSS/JS. No frameworks, no bundler, no npm.
+Stack: Go embed.FS + TypeScript (strict mode, 27 modules) bundled via esbuild into a single IIFE. Chart.js bundled locally from embedded assets.
 
 ## Data Flow
 

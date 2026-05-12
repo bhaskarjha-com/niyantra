@@ -26,9 +26,9 @@ go run ./cmd/niyantra serve
 
 ### Requirements
 
-- **Go 1.25+** — the only build dependency
+- **Go 1.25+** — the only build dependency for the backend
+- **Node.js 18+** — for TypeScript type-checking and esbuild bundling (frontend only)
 - No CGo, no C compiler needed (`modernc.org/sqlite` is pure Go)
-- No npm, no Node.js, no frontend build step (JS/CSS are embedded as-is)
 
 ## Run Locally
 
@@ -53,6 +53,9 @@ go run ./cmd/niyantra serve  # Windows
 | `make demo` | Seed sample data + launch dashboard |
 | `make test` | Run all tests with race detection |
 | `make vet` | Run Go vet |
+| `make js` | Bundle frontend TypeScript → `app.js` (dev) |
+| `make js-prod` | Bundle + minify for production |
+| `make js-watch` | Watch mode — auto-rebuild on save |
 | `make clean` | Remove built binaries |
 
 ## Project Layout
@@ -108,11 +111,31 @@ internal/
     server.go                         8 tools: quota, models, usage, budget, best_model, spending, switch, codex
 
   web/                             ← HTTP server + embedded dashboard
-    server.go                         Setup, handlers (29 REST endpoints)
+    server.go                         Setup, handlers (30 REST endpoints)
     static/                           Embedded via Go embed.FS
       index.html                       Single-page dashboard shell
       style.css                        Design system (CSS variables, dark/light themes)
-      app.js                           Dashboard logic (vanilla JS, no frameworks)
+      app.js                           GENERATED — do not edit (bundled from src/)
+    src/                              TypeScript source (27 modules, strict mode)
+      main.ts                          Entry point: imports + DOMContentLoaded init
+      subscriptions.ts                 Subscription cards, modal, search
+      core/                            state.ts, utils.ts, api.ts, theme.ts
+      quotas/                          render.ts, expand.ts, features.ts
+      overview/                        overview.ts, budget.ts, insights.ts, cost.ts, calendar.ts
+      charts/                          history.ts (Chart.js integration)
+      settings/                        settings.ts, pricing.ts, mode.ts, activity.ts, data.ts
+      advanced/                        snap.ts, palette.ts, keyboard.ts, alerts.ts, codex.ts, claude.ts
+      types/                           api.ts (API response interfaces)
+```
+
+### Frontend Build Pipeline
+
+```
+TypeScript sources (27 .ts files, strict mode)
+        ↓ esbuild --bundle --format=iife --minify
+    static/app.js (89 KB, single IIFE)
+        ↓ go:embed
+    Go binary (self-contained)
 ```
 
 ## Key Design Decisions (read these first!)
