@@ -37,6 +37,7 @@
                     <div class="snap-dropdown" id="snap-dropdown">
                         <div class="snap-option" data-source="antigravity">◉ Antigravity</div>
                         <div class="snap-option" data-source="codex">○ Codex / ChatGPT</div>
+                        <div class="snap-option" data-source="cursor">○ Cursor</div>
                         <div class="snap-divider"></div>
                         <div class="snap-option" data-source="all">⚡ Snap All Sources</div>
                     </div>
@@ -76,6 +77,7 @@
                             <option value="antigravity">Antigravity</option>
                             <option value="codex">Codex / ChatGPT</option>
                             <option value="claude">Claude Code</option>
+                            <option value="cursor">Cursor</option>
                         </select>
                     </div>
                 </div>
@@ -225,6 +227,23 @@
                             </div>
                         </div>
                         <div id="codex-status-settings" class="polling-status" style="display:none"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>🖱️ Cursor</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Enable Cursor Capture</strong>
+                                <span>Track Cursor IDE quotas via session token API</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-cursor-capture">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="cursor-status-settings" class="polling-status" style="display:none"></div>
                     </div>
 
                     <div class="settings-section">

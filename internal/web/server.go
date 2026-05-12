@@ -185,6 +185,10 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("DELETE /api/usage-logs/{id}", s.handleUsageLogByID)
 	mux.HandleFunc("POST /api/import/json", s.handleImportJSON)
 
+	// Phase 14 routes: Cursor provider
+	mux.HandleFunc("GET /api/cursor/status", s.handleCursorStatus)
+	mux.HandleFunc("POST /api/cursor/snap", s.handleCursorSnap)
+
 	// Phase 13 routes
 	mux.HandleFunc("GET /api/config/pricing", s.handleModelPricingGet)
 	mux.HandleFunc("PUT /api/config/pricing", s.handleModelPricingPut)

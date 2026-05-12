@@ -198,10 +198,11 @@ export function renderAccounts(data: any): void {
   if (acctCount > 0) parts.push(acctCount + ' Antigravity');
   if (data.codexSnapshot) parts.push('1 Codex');
   if (data.claudeSnapshot) parts.push('1 Claude');
+  if (data.cursorSnapshot) parts.push('1 Cursor');
   if (countBadge) countBadge.textContent = parts.join(' · ') || '0 accounts';
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
-  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot) {
+  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot) {
     grid.innerHTML = '<div class="empty-state">' +
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>' +
       '<p>No accounts tracked yet</p>' +
@@ -491,6 +492,12 @@ export function renderAccounts(data: any): void {
       html += renderClaudeProviderSection(data.claudeSnapshot);
     }
   }
+  if (data.cursorSnapshot && (pf === 'all' || pf === 'cursor')) {
+    var crStatus = getCursorStatus(data.cursorSnapshot);
+    if (statusVal === 'all' || crStatus === statusVal) {
+      html += renderCursorProviderSection(data.cursorSnapshot);
+    }
+  }
 
   // V3: Empty states when a specific provider is selected but has no data
   if (pf === 'antigravity' && acctCount === 0) {
@@ -510,6 +517,12 @@ export function renderAccounts(data: any): void {
       '<span class="provider-empty-icon">🔮</span>' +
       '<p>No Claude Code data yet</p>' +
       '<p class="empty-hint">Enable the Claude bridge in <strong>Settings</strong></p></div>';
+  }
+  if (pf === 'cursor' && !data.cursorSnapshot) {
+    html += '<div class="provider-empty-state" data-provider="cursor">' +
+      '<span class="provider-empty-icon">🖱️</span>' +
+      '<p>No Cursor data yet</p>' +
+      '<p class="empty-hint">Enable Cursor capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
   }
 
   grid.innerHTML = html;
@@ -617,4 +630,74 @@ export function formatResetTime(isoString: string | null): string {
   var diffSec = (reset.getTime() - now.getTime()) / 1000;
   if (diffSec <= 0) return 'now';
   return formatSeconds(diffSec);
+}
+
+export function getCursorStatus(snap: any): string {
+  var usagePct = snap.usagePct || 0;
+  var rem = Math.max(0, 100 - usagePct);
+  if (rem === 0) return 'empty';
+  if (usagePct >= 80) return 'low';
+  return 'ready';
+}
+
+export function renderCursorProviderSection(cs: any): string {
+  var usagePct = cs.usagePct || 0;
+  var remaining = Math.max(0, 100 - usagePct);
+  var cls = remaining > 50 ? 'good' : remaining > 20 ? 'ok' : remaining > 0 ? 'warning' : 'exhausted';
+  var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : 'unknown';
+  var dotCls = usagePct >= 80 ? 'dot-low' : 'dot-ready';
+  var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  var displayName = cs.email || 'Cursor';
+  var usedStr = cs.premiumUsed !== undefined ? cs.premiumUsed : String.fromCharCode(8212);
+  var limitStr = cs.premiumLimit !== undefined ? cs.premiumLimit : String.fromCharCode(8212);
+  var crCollapseClass = collapsedProviders.has('section-cursor') ? ' collapsed' : '';
+  var crChevron = collapsedProviders.has('section-cursor') ? '\u25b8' : '\u25be';
+
+  // Build per-model breakdown rows from modelsJson
+  var modelRows = '';
+  if (cs.modelsJson && cs.modelsJson !== '{}') {
+    try {
+      var models = typeof cs.modelsJson === 'string' ? JSON.parse(cs.modelsJson) : cs.modelsJson;
+      var modelKeys = Object.keys(models);
+      if (modelKeys.length > 0) {
+        modelRows = '<div class="cursor-model-breakdown">';
+        for (var mi = 0; mi < modelKeys.length; mi++) {
+          var mKey = modelKeys[mi];
+          var mVal = models[mKey];
+          var mUsed = mVal.numRequests || 0;
+          var mLimit = mVal.maxRequestUsage || 0;
+          var mPct = mLimit > 0 ? (mUsed / mLimit * 100) : 0;
+          var mRem = Math.max(0, 100 - mPct);
+          var mCls = mRem > 50 ? 'good' : mRem > 20 ? 'ok' : mRem > 0 ? 'warning' : 'exhausted';
+          modelRows += '<div class="cursor-model-row">' +
+            '<span class="cursor-model-name">' + esc(mKey) + '</span>' +
+            '<div class="quota-minibar"><div class="quota-minibar-fill ' + mCls + '" style="width:' + mRem + '%"></div></div>' +
+            '<span class="cursor-model-usage">' + mUsed + '/' + mLimit + '</span>' +
+            '</div>';
+        }
+        modelRows += '</div>';
+      }
+    } catch(e) { /* graceful degradation */ }
+  }
+
+  return '<div class="provider-section" data-provider="cursor">' +
+    '<div class="provider-header" data-toggle-provider="section-cursor">' +
+    '<div class="provider-header-left">' +
+    '<span class="provider-chevron" id="pchev-section-cursor">' + crChevron + '</span>' +
+    '<span class="provider-name">\ud83d\uddb1\ufe0f Cursor</span>' +
+    '<span class="provider-count">1 account</span>' +
+    '</div></div>' +
+    '<div class="provider-body' + crCollapseClass + '" id="section-cursor">' +
+    '<div class="grid-header grid-cursor">' +
+    '<div>Account</div><div>Plan</div><div>Premium Used</div><div>Usage</div><div>Last Snap</div><div>Status</div>' +
+    '</div>' +
+    '<div class="account-card"><div class="account-row grid-cursor">' +
+    '<div class="account-info"><div class="account-email">' + esc(displayName) + '</div></div>' +
+    '<div>' + (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + '</span>' : String.fromCharCode(8212)) + '</div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + usedStr + ' / ' + limitStr + '</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + cls + '" style="width:' + remaining + '%"></div></div></div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + remaining.toFixed(0) + '% left</span></div>' +
+    '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
+    '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
+    '</div>' + modelRows + '</div></div></div>';
 }

@@ -36,6 +36,9 @@ type PollingAgent struct {
 	codexClient    *codex.Client
 	codexAuthFails int
 
+	// Cursor state
+	cursorAuthFails int
+
 	// Backoff state for consecutive failures
 	mu           sync.Mutex
 	failCount    int
@@ -142,6 +145,9 @@ func (a *PollingAgent) poll(ctx context.Context) {
 
 	// Codex polling: if codex_capture is enabled
 	a.pollCodex(ctx)
+
+	// Cursor polling: if cursor_capture is enabled
+	a.pollCursor(ctx)
 
 	// Data retention cleanup: delete snapshots older than retention_days
 	a.cleanupOldSnapshots()

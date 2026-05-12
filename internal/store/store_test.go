@@ -620,6 +620,16 @@ func TestHeatmapData(t *testing.T) {
 	}
 	_, _ = s.InsertCodexSnapshot(codexSnap)
 
+	// Cursor snapshot (today)
+	cursorSnap := &CursorSnapshot{
+		PremiumUsed:   50,
+		PremiumLimit:  500,
+		UsagePct:      10.0,
+		CaptureMethod: "auto",
+		CaptureSource: "server",
+	}
+	_, _ = s.InsertCursorSnapshot(cursorSnap)
+
 	// Query heatmap
 	days, err = s.HeatmapData(365)
 	if err != nil {
@@ -639,8 +649,11 @@ func TestHeatmapData(t *testing.T) {
 	if day.Codex != 1 {
 		t.Errorf("expected 1 Codex snapshot, got %d", day.Codex)
 	}
-	if day.Count != 4 {
-		t.Errorf("expected total count 4, got %d", day.Count)
+	if day.Cursor != 1 {
+		t.Errorf("expected 1 Cursor snapshot, got %d", day.Cursor)
+	}
+	if day.Count != 5 {
+		t.Errorf("expected total count 5, got %d", day.Count)
 	}
 }
 

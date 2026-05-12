@@ -173,6 +173,19 @@ export function initSettings(): void {
       loadCodexSettingsStatus();
     }
 
+    // ── F15a: Cursor Capture Toggle ──
+    var cursorCaptureEl = document.getElementById('s-cursor-capture');
+    if (cursorCaptureEl) {
+      (cursorCaptureEl as HTMLInputElement).checked = cfg['cursor_capture'] === 'true';
+      cursorCaptureEl.addEventListener('change', function() {
+        var val = (cursorCaptureEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('cursor_capture', val).then(function() {
+          showToast((cursorCaptureEl as HTMLInputElement).checked ? '\ud83d\uddb1\ufe0f Cursor capture enabled' : '\ud83d\uddb1\ufe0f Cursor capture disabled', 'success');
+          loadDataSources();
+        });
+      });
+    }
+
     // ── Phase 11: JSON Import ──
     var importBtn = document.getElementById('import-json-btn');
     var importFile = document.getElementById('import-file');

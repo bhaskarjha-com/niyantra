@@ -51,6 +51,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		result["claudeSnapshot"] = claudeSnap
 	}
 
+	// F15a: Include Cursor snapshot if available
+	cursorSnap, _ := s.store.LatestCursorSnapshot()
+	if cursorSnap != nil {
+		result["cursorSnapshot"] = cursorSnap
+	}
+
 	// F7: Compute per-account forecasts using sliding-window rates
 	forecastsByAccount := s.computeAccountForecasts(snapshots)
 	if forecastsByAccount != nil {
