@@ -147,54 +147,64 @@ func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
 
 	// Quota API routes (auto-tracked)
-	mux.HandleFunc("/api/status", s.handleStatus)
-	mux.HandleFunc("/api/snap", s.handleSnap)
-	mux.HandleFunc("/api/history", s.handleHistory)
+	mux.HandleFunc("GET /api/status", s.handleStatus)
+	mux.HandleFunc("POST /api/snap", s.handleSnap)
+	mux.HandleFunc("GET /api/history", s.handleHistory)
 
 	// Subscription API routes (manual tracking)
-	mux.HandleFunc("/api/subscriptions", s.handleSubscriptions)
-	mux.HandleFunc("/api/subscriptions/", s.handleSubscriptionByID)
-	mux.HandleFunc("/api/overview", s.handleOverview)
-	mux.HandleFunc("/api/presets", s.handlePresets)
-	mux.HandleFunc("/api/export/csv", s.handleExportCSV)
+	mux.HandleFunc("GET /api/subscriptions", s.listSubscriptions)
+	mux.HandleFunc("POST /api/subscriptions", s.createSubscription)
+	mux.HandleFunc("GET /api/subscriptions/{id}", s.getSubscriptionByID)
+	mux.HandleFunc("PUT /api/subscriptions/{id}", s.updateSubscriptionByID)
+	mux.HandleFunc("DELETE /api/subscriptions/{id}", s.deleteSubscriptionByID)
+	mux.HandleFunc("GET /api/overview", s.handleOverview)
+	mux.HandleFunc("GET /api/presets", s.handlePresets)
+	mux.HandleFunc("GET /api/export/csv", s.handleExportCSV)
 
 	// Config & infrastructure routes (v3)
-	mux.HandleFunc("/api/config", s.handleConfig)
-	mux.HandleFunc("/api/activity", s.handleActivity)
-	mux.HandleFunc("/api/mode", s.handleMode)
-	mux.HandleFunc("/api/usage", s.handleUsage)
+	mux.HandleFunc("GET /api/config", s.handleConfigGet)
+	mux.HandleFunc("PUT /api/config", s.handleConfigPut)
+	mux.HandleFunc("GET /api/activity", s.handleActivity)
+	mux.HandleFunc("GET /api/mode", s.handleMode)
+	mux.HandleFunc("GET /api/usage", s.handleUsage)
 
 	// Phase 9 routes
-	mux.HandleFunc("/api/claude/status", s.handleClaudeStatus)
-	mux.HandleFunc("/api/backup", s.handleBackup)
-	mux.HandleFunc("/api/notify/test", s.handleNotifyTest)
+	mux.HandleFunc("GET /api/claude/status", s.handleClaudeStatus)
+	mux.HandleFunc("GET /api/backup", s.handleBackup)
+	mux.HandleFunc("POST /api/notify/test", s.handleNotifyTest)
 
 	// Phase 10 routes
-	mux.HandleFunc("/api/export/json", s.handleExportJSON)
-	mux.HandleFunc("/api/alerts", s.handleAlerts)
-	mux.HandleFunc("/api/alerts/dismiss", s.handleDismissAlert)
-	mux.HandleFunc("/api/advisor", s.handleAdvisor)
+	mux.HandleFunc("GET /api/export/json", s.handleExportJSON)
+	mux.HandleFunc("GET /api/alerts", s.handleAlerts)
+	mux.HandleFunc("POST /api/alerts/dismiss", s.handleDismissAlert)
+	mux.HandleFunc("GET /api/advisor", s.handleAdvisor)
 
 	// Phase 11 routes
-	mux.HandleFunc("/api/codex/status", s.handleCodexStatus)
-	mux.HandleFunc("/api/codex/snap", s.handleCodexSnap)
-	mux.HandleFunc("/api/sessions", s.handleSessions)
-	mux.HandleFunc("/api/usage-logs", s.handleUsageLogs)
-	mux.HandleFunc("/api/usage-logs/", s.handleUsageLogByID)
-	mux.HandleFunc("/api/import/json", s.handleImportJSON)
+	mux.HandleFunc("GET /api/codex/status", s.handleCodexStatus)
+	mux.HandleFunc("POST /api/codex/snap", s.handleCodexSnap)
+	mux.HandleFunc("GET /api/sessions", s.handleSessions)
+	mux.HandleFunc("GET /api/usage-logs", s.handleUsageLogsGet)
+	mux.HandleFunc("POST /api/usage-logs", s.handleUsageLogsPost)
+	mux.HandleFunc("DELETE /api/usage-logs/{id}", s.handleUsageLogByID)
+	mux.HandleFunc("POST /api/import/json", s.handleImportJSON)
 
 	// Phase 13 routes
-	mux.HandleFunc("/api/config/pricing", s.handleModelPricing)
+	mux.HandleFunc("GET /api/config/pricing", s.handleModelPricingGet)
+	mux.HandleFunc("PUT /api/config/pricing", s.handleModelPricingPut)
 
 	// Phase 14 routes
-	mux.HandleFunc("/api/forecast", s.handleForecast)
-	mux.HandleFunc("/api/cost", s.handleCost)
+	mux.HandleFunc("GET /api/forecast", s.handleForecast)
+	mux.HandleFunc("GET /api/cost", s.handleCost)
 
 	// Data management routes
-	mux.HandleFunc("/api/accounts", s.handleAccounts)
-	mux.HandleFunc("/api/accounts/", s.handleAccountByID)
-	mux.HandleFunc("/api/snapshots/", s.handleSnapshotByID)
-	mux.HandleFunc("/api/snap/adjust", s.handleSnapAdjust)
+	mux.HandleFunc("GET /api/accounts", s.handleAccounts)
+	mux.HandleFunc("GET /api/accounts/{id}", s.handleAccountGet)
+	mux.HandleFunc("PATCH /api/accounts/{id}/meta", s.handleAccountMeta)
+	mux.HandleFunc("DELETE /api/accounts/{id}", s.handleAccountDelete)
+	mux.HandleFunc("DELETE /api/accounts/{id}/snapshots", s.handleAccountClearSnapshots)
+	mux.HandleFunc("DELETE /api/snapshots/{id}", s.handleSnapshotByID)
+	mux.HandleFunc("PATCH /api/snap/adjust", s.handleSnapAdjust)
+	mux.HandleFunc("POST /api/snap/adjust", s.handleSnapAdjust)
 
 	// Static files (embedded in prod, disk in dev)
 	staticFS, err := fs.Sub(staticFiles, "static")
@@ -222,11 +232,6 @@ func (s *Server) ListenAndServe() error {
 
 // handleStatus returns readiness for all accounts.
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	snapshots, err := s.store.LatestPerAccount()
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
@@ -281,11 +286,6 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleSnap triggers a snapshot capture.
 func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	ctx := r.Context()
 
 	resp, err := s.client.FetchQuotas(ctx)
@@ -387,11 +387,6 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 
 // handleHistory returns snapshot history.
 func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var accountID int64
 	if v := r.URL.Query().Get("account"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -443,73 +438,64 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleConfig handles GET (list) and PUT (update) for server configuration.
-func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		category := r.URL.Query().Get("category")
-		entries, err := s.store.AllConfig(category)
-		if err != nil {
-			jsonError(w, "database error", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, map[string]interface{}{"config": entries})
-
-	case http.MethodPut:
-		var req struct {
-			Key   string `json:"key"`
-			Value string `json:"value"`
-		}
-		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
-			jsonError(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-		if req.Key == "" {
-			jsonError(w, "key is required", http.StatusBadRequest)
-			return
-		}
-
-		oldVal, err := s.store.SetConfig(req.Key, req.Value)
-		if err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Log the config change
-		s.store.LogInfo("ui", "config_change", "", map[string]interface{}{
-			"key": req.Key, "from": oldVal, "to": req.Value,
-		})
-
-		// React to auto_capture toggle
-		if req.Key == "auto_capture" {
-			if req.Value == "true" {
-				s.startPollingAgent()
-			} else {
-				s.stopPollingAgent()
-			}
-		}
-
-		// F2: poll_interval changes are picked up automatically by the agent
-		// on the next tick — no restart needed.
-
-		// React to bridge/notification config changes
-		s.onConfigChanged(req.Key, req.Value)
-
-		entries, _ := s.store.AllConfig("")
-		writeJSON(w, map[string]interface{}{"config": entries})
-
-	default:
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+// handleConfigGet returns server configuration entries.
+func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
+	category := r.URL.Query().Get("category")
+	entries, err := s.store.AllConfig(category)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
 	}
+	writeJSON(w, map[string]interface{}{"config": entries})
+}
+
+// handleConfigPut updates a single configuration key.
+func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.Key == "" {
+		jsonError(w, "key is required", http.StatusBadRequest)
+		return
+	}
+
+	oldVal, err := s.store.SetConfig(req.Key, req.Value)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Log the config change
+	s.store.LogInfo("ui", "config_change", "", map[string]interface{}{
+		"key": req.Key, "from": oldVal, "to": req.Value,
+	})
+
+	// React to auto_capture toggle
+	if req.Key == "auto_capture" {
+		if req.Value == "true" {
+			s.startPollingAgent()
+		} else {
+			s.stopPollingAgent()
+		}
+	}
+
+	// F2: poll_interval changes are picked up automatically by the agent
+	// on the next tick — no restart needed.
+
+	// React to bridge/notification config changes
+	s.onConfigChanged(req.Key, req.Value)
+
+	entries, _ := s.store.AllConfig("")
+	writeJSON(w, map[string]interface{}{"config": entries})
 }
 
 // handleActivity returns recent activity log entries.
 func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	limit := 50
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 {
@@ -533,11 +519,6 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request) {
 
 // handleMode returns lightweight capture mode status for the header badge.
 func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	autoCapture := s.store.GetConfigBool("auto_capture")
 	mode := "manual"
 	if autoCapture {
@@ -571,11 +552,6 @@ func (s *Server) handleMode(w http.ResponseWriter, r *http.Request) {
 
 // handleUsage returns per-model usage intelligence and budget forecast.
 func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var accountID int64
 	if v := r.URL.Query().Get("account"); v != "" {
 		if id, err := strconv.ParseInt(v, 10, 64); err == nil {
@@ -739,11 +715,6 @@ func (s *Server) handleClaudeStatus(w http.ResponseWriter, r *http.Request) {
 // handleBackup serves a consistent database backup as a download.
 // Uses VACUUM INTO for WAL-safe snapshot instead of raw file copy.
 func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	// Create temp file for VACUUM INTO
 	backupPath := s.store.Path() + ".backup-" + time.Now().Format("20060102-150405")
 	if err := s.store.VacuumInto(backupPath); err != nil {
@@ -775,11 +746,6 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 
 // handleNotifyTest sends a test notification.
 func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	if !notify.IsSupported() {
 		jsonError(w, "notifications not supported on this platform", http.StatusBadRequest)
 		return
@@ -824,11 +790,6 @@ func (s *Server) onConfigChanged(key, value string) {
 
 // handleExportJSON exports all data as a JSON file for full portability.
 func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	export := map[string]interface{}{
 		"version":         "1.0",
 		"exportedAt":      time.Now().UTC().Format(time.RFC3339),
@@ -878,11 +839,6 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleAlerts returns active system alerts.
 func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	alerts, err := s.store.ActiveAlerts()
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
@@ -900,11 +856,6 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 
 // handleDismissAlert dismisses a system alert by ID.
 func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req struct {
 		ID int64 `json:"id"`
 	}
@@ -927,11 +878,6 @@ func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
 
 // handleAdvisor returns account switching recommendation.
 func (s *Server) handleAdvisor(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	snapshots, err := s.store.LatestPerAccount()
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
@@ -957,11 +903,6 @@ func (s *Server) handleAdvisor(w http.ResponseWriter, r *http.Request) {
 
 // handleCodexStatus returns Codex detection state and latest snapshot.
 func (s *Server) handleCodexStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	result := map[string]interface{}{
 		"installed":      false,
 		"captureEnabled": s.store.GetConfigBool("codex_capture"),
@@ -996,11 +937,6 @@ func (s *Server) handleCodexStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleCodexSnap triggers a manual Codex usage snapshot.
 func (s *Server) handleCodexSnap(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	creds, err := codex.DetectCredentials(s.logger)
 	if err != nil {
 		jsonError(w, fmt.Sprintf("Codex not detected: %v", err), http.StatusBadRequest)
@@ -1079,11 +1015,6 @@ func (s *Server) handleCodexSnap(w http.ResponseWriter, r *http.Request) {
 
 // handleSessions returns recent usage sessions.
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	provider := r.URL.Query().Get("provider")
 	limit := 50
 	if v := r.URL.Query().Get("limit"); v != "" {
@@ -1107,85 +1038,76 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleUsageLogs handles GET (list) and POST (create) for usage logs.
-func (s *Server) handleUsageLogs(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		subIDStr := r.URL.Query().Get("subscriptionId")
-		if subIDStr == "" {
-			jsonError(w, "subscriptionId required", http.StatusBadRequest)
-			return
-		}
-		subID, err := strconv.ParseInt(subIDStr, 10, 64)
-		if err != nil {
-			jsonError(w, "invalid subscriptionId", http.StatusBadRequest)
-			return
-		}
-
-		limit := 50
-		if v := r.URL.Query().Get("limit"); v != "" {
-			if n, err := strconv.Atoi(v); err == nil && n > 0 {
-				limit = n
-			}
-		}
-
-		logs, err := s.store.UsageLogsForSubscription(subID, limit)
-		if err != nil {
-			jsonError(w, "database error", http.StatusInternalServerError)
-			return
-		}
-		if logs == nil {
-			logs = []*store.UsageLog{}
-		}
-
-		summary, _ := s.store.UsageLogSummaryFor(subID)
-
-		writeJSON(w, map[string]interface{}{
-			"logs":    logs,
-			"summary": summary,
-		})
-
-	case http.MethodPost:
-		var req struct {
-			SubscriptionID int64   `json:"subscriptionId"`
-			UsageAmount    float64 `json:"usageAmount"`
-			UsageUnit      string  `json:"usageUnit"`
-			Notes          string  `json:"notes"`
-		}
-		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
-			jsonError(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-		if req.SubscriptionID <= 0 || req.UsageAmount <= 0 || req.UsageUnit == "" {
-			jsonError(w, "subscriptionId, usageAmount, and usageUnit are required", http.StatusBadRequest)
-			return
-		}
-
-		id, err := s.store.InsertUsageLog(req.SubscriptionID, req.UsageAmount, req.UsageUnit, req.Notes)
-		if err != nil {
-			jsonError(w, "database error", http.StatusInternalServerError)
-			return
-		}
-
-		writeJSON(w, map[string]interface{}{
-			"message": "usage logged",
-			"id":      id,
-		})
-
-	default:
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+// handleUsageLogsGet returns usage logs for a subscription.
+func (s *Server) handleUsageLogsGet(w http.ResponseWriter, r *http.Request) {
+	subIDStr := r.URL.Query().Get("subscriptionId")
+	if subIDStr == "" {
+		jsonError(w, "subscriptionId required", http.StatusBadRequest)
+		return
 	}
+	subID, err := strconv.ParseInt(subIDStr, 10, 64)
+	if err != nil {
+		jsonError(w, "invalid subscriptionId", http.StatusBadRequest)
+		return
+	}
+
+	limit := 50
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	logs, err := s.store.UsageLogsForSubscription(subID, limit)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if logs == nil {
+		logs = []*store.UsageLog{}
+	}
+
+	summary, _ := s.store.UsageLogSummaryFor(subID)
+
+	writeJSON(w, map[string]interface{}{
+		"logs":    logs,
+		"summary": summary,
+	})
+}
+
+// handleUsageLogsPost creates a new usage log entry.
+func (s *Server) handleUsageLogsPost(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SubscriptionID int64   `json:"subscriptionId"`
+		UsageAmount    float64 `json:"usageAmount"`
+		UsageUnit      string  `json:"usageUnit"`
+		Notes          string  `json:"notes"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.SubscriptionID <= 0 || req.UsageAmount <= 0 || req.UsageUnit == "" {
+		jsonError(w, "subscriptionId, usageAmount, and usageUnit are required", http.StatusBadRequest)
+		return
+	}
+
+	id, err := s.store.InsertUsageLog(req.SubscriptionID, req.UsageAmount, req.UsageUnit, req.Notes)
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]interface{}{
+		"message": "usage logged",
+		"id":      id,
+	})
 }
 
 // handleUsageLogByID handles DELETE for a specific usage log.
 func (s *Server) handleUsageLogByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract ID from URL: /api/usage-logs/{id}
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/usage-logs/")
+	// Extract ID from Go 1.22+ path parameter
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
 		jsonError(w, "invalid usage log ID", http.StatusBadRequest)
@@ -1202,11 +1124,6 @@ func (s *Server) handleUsageLogByID(w http.ResponseWriter, r *http.Request) {
 
 // handleImportJSON handles JSON data import with merge strategy.
 func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	// Read request body (limit to 50MB)
 	body, err := io.ReadAll(io.LimitReader(r.Body, 50<<20))
 	if err != nil {
@@ -1242,11 +1159,6 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleAccounts returns all tracked accounts.
 func (s *Server) handleAccounts(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	accounts, err := s.store.AllAccounts()
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
@@ -1260,133 +1172,154 @@ func (s *Server) handleAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAccountByID handles DELETE /api/accounts/:id, DELETE /api/accounts/:id/snapshots,
-// and PATCH /api/accounts/:id/meta (F1: account notes/tags).
-func (s *Server) handleAccountByID(w http.ResponseWriter, r *http.Request) {
-	// Parse path: /api/accounts/123 or /api/accounts/123/snapshots or /api/accounts/123/meta
-	path := strings.TrimPrefix(r.URL.Path, "/api/accounts/")
-	parts := strings.SplitN(path, "/", 2)
-
-	accountID, err := strconv.ParseInt(parts[0], 10, 64)
+// handleAccountGet returns a single account by ID.
+// Currently not needed by the frontend, reserved for future use.
+func (s *Server) handleAccountGet(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	accountID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || accountID <= 0 {
 		jsonError(w, "invalid account ID", http.StatusBadRequest)
 		return
 	}
 
-	// F1: PATCH /api/accounts/:id/meta — update notes/tags/pinned_group/creditRenewalDay
-	if r.Method == http.MethodPatch && len(parts) > 1 && parts[1] == "meta" {
-		var req struct {
-			Notes            *string `json:"notes"`
-			Tags             *string `json:"tags"`
-			PinnedGroup      *string `json:"pinnedGroup"`
-			CreditRenewalDay *int    `json:"creditRenewalDay"`
-		}
-		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
-			jsonError(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-
-		// Read current values to preserve unchanged fields
-		currentNotes, currentTags, currentPinned, currentRenewalDay, err := s.store.AccountMeta(accountID)
-		if err != nil {
-			jsonError(w, "account not found", http.StatusNotFound)
-			return
-		}
-
-		notes := currentNotes
-		tags := currentTags
-		pinnedGroup := currentPinned
-		creditRenewalDay := currentRenewalDay
-		if req.Notes != nil {
-			notes = *req.Notes
-		}
-		if req.Tags != nil {
-			tags = *req.Tags
-		}
-		if req.PinnedGroup != nil {
-			pinnedGroup = *req.PinnedGroup
-		}
-		if req.CreditRenewalDay != nil {
-			day := *req.CreditRenewalDay
-			if day < 0 || day > 31 {
-				jsonError(w, "creditRenewalDay must be 0-31", http.StatusBadRequest)
-				return
-			}
-			creditRenewalDay = day
-		}
-
-		if err := s.store.UpdateAccountMeta(accountID, notes, tags, pinnedGroup, creditRenewalDay); err != nil {
-			jsonError(w, "update failed", http.StatusInternalServerError)
-			return
-		}
-
-		s.store.LogInfo("ui", "account_meta_update", "", map[string]interface{}{
-			"accountId": accountID, "notes": notes, "tags": tags, "pinnedGroup": pinnedGroup, "creditRenewalDay": creditRenewalDay,
-		})
-
-		writeJSON(w, map[string]interface{}{
-			"message":          "account meta updated",
-			"notes":            notes,
-			"tags":             tags,
-			"pinnedGroup":      pinnedGroup,
-			"creditRenewalDay": creditRenewalDay,
-		})
+	accounts, err := s.store.AllAccounts()
+	if err != nil {
+		jsonError(w, "database error", http.StatusInternalServerError)
 		return
 	}
 
-	// DELETE operations
-	if r.Method != http.MethodDelete {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Check if clear-snapshots-only mode
-	clearSnapshotsOnly := len(parts) > 1 && parts[1] == "snapshots"
-
-	if clearSnapshotsOnly {
-		// Delete snapshots only, keep account
-		deleted, err := s.store.DeleteAccountSnapshots(accountID)
-		if err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
+	for _, a := range accounts {
+		if a.ID == accountID {
+			writeJSON(w, a)
 			return
 		}
-
-		s.store.LogInfo("ui", "snapshots_cleared", "", map[string]interface{}{
-			"accountId":        accountID,
-			"snapshotsDeleted": deleted,
-		})
-
-		writeJSON(w, map[string]interface{}{
-			"message":          "snapshots cleared",
-			"snapshotsDeleted": deleted,
-		})
-	} else {
-		// Full cascade delete: account + all data
-		deleted, err := s.store.DeleteAccount(accountID)
-		if err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		s.store.LogInfo("ui", "account_deleted", "", map[string]interface{}{
-			"accountId":    accountID,
-			"totalDeleted": deleted,
-		})
-
-		writeJSON(w, map[string]interface{}{
-			"message":      "account deleted",
-			"totalDeleted": deleted,
-		})
 	}
+	jsonError(w, "account not found", http.StatusNotFound)
 }
 
-// handleSnapshotByID handles DELETE /api/snapshots/:id
-func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+// handleAccountMeta updates account notes, tags, pinned group, and credit renewal day.
+// F1: PATCH /api/accounts/{id}/meta
+func (s *Server) handleAccountMeta(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	accountID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || accountID <= 0 {
+		jsonError(w, "invalid account ID", http.StatusBadRequest)
 		return
 	}
 
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/snapshots/")
+	var req struct {
+		Notes            *string `json:"notes"`
+		Tags             *string `json:"tags"`
+		PinnedGroup      *string `json:"pinnedGroup"`
+		CreditRenewalDay *int    `json:"creditRenewalDay"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Read current values to preserve unchanged fields
+	currentNotes, currentTags, currentPinned, currentRenewalDay, err := s.store.AccountMeta(accountID)
+	if err != nil {
+		jsonError(w, "account not found", http.StatusNotFound)
+		return
+	}
+
+	notes := currentNotes
+	tags := currentTags
+	pinnedGroup := currentPinned
+	creditRenewalDay := currentRenewalDay
+	if req.Notes != nil {
+		notes = *req.Notes
+	}
+	if req.Tags != nil {
+		tags = *req.Tags
+	}
+	if req.PinnedGroup != nil {
+		pinnedGroup = *req.PinnedGroup
+	}
+	if req.CreditRenewalDay != nil {
+		day := *req.CreditRenewalDay
+		if day < 0 || day > 31 {
+			jsonError(w, "creditRenewalDay must be 0-31", http.StatusBadRequest)
+			return
+		}
+		creditRenewalDay = day
+	}
+
+	if err := s.store.UpdateAccountMeta(accountID, notes, tags, pinnedGroup, creditRenewalDay); err != nil {
+		jsonError(w, "update failed", http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "account_meta_update", "", map[string]interface{}{
+		"accountId": accountID, "notes": notes, "tags": tags, "pinnedGroup": pinnedGroup, "creditRenewalDay": creditRenewalDay,
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message":          "account meta updated",
+		"notes":            notes,
+		"tags":             tags,
+		"pinnedGroup":      pinnedGroup,
+		"creditRenewalDay": creditRenewalDay,
+	})
+}
+
+// handleAccountDelete performs a full cascade delete of an account and all its data.
+func (s *Server) handleAccountDelete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	accountID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || accountID <= 0 {
+		jsonError(w, "invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	deleted, err := s.store.DeleteAccount(accountID)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "account_deleted", "", map[string]interface{}{
+		"accountId":    accountID,
+		"totalDeleted": deleted,
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message":      "account deleted",
+		"totalDeleted": deleted,
+	})
+}
+
+// handleAccountClearSnapshots deletes all snapshots for an account without removing the account.
+func (s *Server) handleAccountClearSnapshots(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	accountID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || accountID <= 0 {
+		jsonError(w, "invalid account ID", http.StatusBadRequest)
+		return
+	}
+
+	deleted, err := s.store.DeleteAccountSnapshots(accountID)
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "snapshots_cleared", "", map[string]interface{}{
+		"accountId":        accountID,
+		"snapshotsDeleted": deleted,
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message":          "snapshots cleared",
+		"snapshotsDeleted": deleted,
+	})
+}
+
+// handleSnapshotByID handles DELETE /api/snapshots/{id}
+func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
 		jsonError(w, "invalid snapshot ID", http.StatusBadRequest)
@@ -1405,7 +1338,7 @@ func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"message": "snapshot deleted"})
 }
 
-// handleSnapAdjust handles PATCH /api/snap/adjust
+// handleSnapAdjust handles PATCH|POST /api/snap/adjust
 // Lets users fine-tune model quota percentages on a snapshot.
 //
 // Request body:
@@ -1418,10 +1351,6 @@ func (s *Server) handleSnapshotByID(w http.ResponseWriter, r *http.Request) {
 //	  ]
 //	}
 func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch && r.Method != http.MethodPost {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	var req struct {
 		SnapshotID  int64 `json:"snapshotId"`
@@ -1509,59 +1438,55 @@ func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
 
 // ── Phase 13: Model Pricing Config (F5) ─────────────────────────
 
-// handleModelPricing handles GET (read) and PUT (update) for per-model token pricing.
-func (s *Server) handleModelPricing(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		prices, err := s.store.GetModelPricing()
-		if err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, map[string]interface{}{"pricing": prices})
-
-	case http.MethodPut:
-		var req struct {
-			Pricing []store.ModelPrice `json:"pricing"`
-		}
-		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
-			jsonError(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-		if len(req.Pricing) == 0 {
-			jsonError(w, "pricing array is required", http.StatusBadRequest)
-			return
-		}
-
-		// Validate: every entry needs a modelId and non-negative prices
-		for _, p := range req.Pricing {
-			if p.ModelID == "" {
-				jsonError(w, "each pricing entry requires a modelId", http.StatusBadRequest)
-				return
-			}
-			if p.InputPer1M < 0 || p.OutputPer1M < 0 || p.CachePer1M < 0 {
-				jsonError(w, "prices cannot be negative", http.StatusBadRequest)
-				return
-			}
-		}
-
-		if err := s.store.SetModelPricing(req.Pricing); err != nil {
-			jsonError(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		s.store.LogInfo("ui", "pricing_updated", "", map[string]interface{}{
-			"modelCount": len(req.Pricing),
-		})
-
-		writeJSON(w, map[string]interface{}{
-			"message": "pricing updated",
-			"pricing": req.Pricing,
-		})
-
-	default:
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+// handleModelPricingGet returns the current per-model token pricing configuration.
+func (s *Server) handleModelPricingGet(w http.ResponseWriter, r *http.Request) {
+	prices, err := s.store.GetModelPricing()
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	writeJSON(w, map[string]interface{}{"pricing": prices})
+}
+
+// handleModelPricingPut updates per-model token pricing configuration.
+func (s *Server) handleModelPricingPut(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Pricing []store.ModelPrice `json:"pricing"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
+		jsonError(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if len(req.Pricing) == 0 {
+		jsonError(w, "pricing array is required", http.StatusBadRequest)
+		return
+	}
+
+	// Validate: every entry needs a modelId and non-negative prices
+	for _, p := range req.Pricing {
+		if p.ModelID == "" {
+			jsonError(w, "each pricing entry requires a modelId", http.StatusBadRequest)
+			return
+		}
+		if p.InputPer1M < 0 || p.OutputPer1M < 0 || p.CachePer1M < 0 {
+			jsonError(w, "prices cannot be negative", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if err := s.store.SetModelPricing(req.Pricing); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	s.store.LogInfo("ui", "pricing_updated", "", map[string]interface{}{
+		"modelCount": len(req.Pricing),
+	})
+
+	writeJSON(w, map[string]interface{}{
+		"message": "pricing updated",
+		"pricing": req.Pricing,
+	})
 }
 
 // ── Phase 14: Cost Tracking (F8) ─────────────────────────────────
@@ -1669,11 +1594,6 @@ func (s *Server) computeAccountCosts(
 
 // handleCost returns estimated costs for all tracked accounts.
 func (s *Server) handleCost(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	snapshots, err := s.store.LatestPerAccount()
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
@@ -1796,11 +1716,6 @@ func (s *Server) computeAccountForecasts(snapshots []*client.Snapshot) map[int64
 
 // handleForecast returns detailed TTX forecasts for all tracked providers.
 func (s *Server) handleForecast(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	result := map[string]interface{}{}
 
 	// Antigravity account forecasts

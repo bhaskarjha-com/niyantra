@@ -8,49 +8,40 @@ import (
 	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
-// handleSubscriptions handles GET (list) and POST (create) on /api/subscriptions.
-func (s *Server) handleSubscriptions(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.listSubscriptions(w, r)
-	case http.MethodPost:
-		s.createSubscription(w, r)
-	default:
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// handleSubscriptionByID handles GET, PUT, DELETE on /api/subscriptions/{id}.
-func (s *Server) handleSubscriptionByID(w http.ResponseWriter, r *http.Request) {
-	// Extract ID from path: /api/subscriptions/123
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/subscriptions/")
-	if idStr == "" {
-		jsonError(w, "subscription ID required", http.StatusBadRequest)
-		return
-	}
-	id, err := strconv.ParseInt(idStr, 10, 64)
+// getSubscriptionByID extracts the path parameter and dispatches to getSubscription.
+func (s *Server) getSubscriptionByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		jsonError(w, "invalid subscription ID", http.StatusBadRequest)
 		return
 	}
+	s.getSubscription(w, id)
+}
 
-	switch r.Method {
-	case http.MethodGet:
-		s.getSubscription(w, id)
-	case http.MethodPut:
-		s.updateSubscription(w, r, id)
-	case http.MethodDelete:
-		s.deleteSubscription(w, id)
-	default:
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+// updateSubscriptionByID extracts the path parameter and dispatches to updateSubscription.
+func (s *Server) updateSubscriptionByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		jsonError(w, "invalid subscription ID", http.StatusBadRequest)
+		return
 	}
+	s.updateSubscription(w, r, id)
+}
+
+// deleteSubscriptionByID extracts the path parameter and dispatches to deleteSubscription.
+func (s *Server) deleteSubscriptionByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		jsonError(w, "invalid subscription ID", http.StatusBadRequest)
+		return
+	}
+	s.deleteSubscription(w, id)
 }
 
 func (s *Server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
@@ -205,11 +196,6 @@ func (s *Server) deleteSubscription(w http.ResponseWriter, id int64) {
 
 // handleOverview returns unified stats: spending, renewals, and auto-tracked summary.
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	// Subscription stats
 	stats, err := s.store.SubscriptionOverview()
 	if err != nil {
@@ -300,10 +286,6 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 // handlePresets returns platform preset templates.
 func (s *Server) handlePresets(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	writeJSON(w, map[string]interface{}{
 		"presets": store.Presets,
 	})
@@ -311,10 +293,6 @@ func (s *Server) handlePresets(w http.ResponseWriter, r *http.Request) {
 
 // handleExportCSV exports subscriptions as CSV for expense/tax reports.
 func (s *Server) handleExportCSV(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 
 	subs, err := s.store.ListSubscriptions("", "")
 	if err != nil {
