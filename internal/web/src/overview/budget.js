@@ -53,7 +53,7 @@ export function initBudget() {
     showToast('✅ Budget set to $' + val.toFixed(0) + '/mo', 'success');
     // Refresh overview if visible
     var overviewPanel = document.getElementById('panel-overview');
-    if (overviewPanel && overviewPanel.classList.contains('active')) loadOverview();
+    if (overviewPanel && overviewPanel.classList.contains('active')) document.dispatchEvent(new CustomEvent('niyantra:overview-refresh'));
   });
 }
 

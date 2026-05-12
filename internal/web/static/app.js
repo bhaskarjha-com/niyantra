@@ -98,6 +98,13 @@
     if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
     return Math.floor(seconds / 60) + "m";
   }
+  function formatDurationSec(sec) {
+    if (!sec || sec <= 0) return "0m";
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor(sec % 3600 / 60);
+    if (h > 0) return h + "h " + m + "m";
+    return m + "m";
+  }
 
   // internal/web/src/core/api.js
   function fetchStatus() {
@@ -1314,15 +1321,15 @@
     var cancelBtn = document.getElementById("modal-cancel");
     var saveBtn = document.getElementById("modal-save");
     document.getElementById("add-sub-btn").addEventListener("click", function() {
-      openModal2();
+      openModal();
     });
     document.getElementById("add-sub-btn-2").addEventListener("click", function() {
-      openModal2();
+      openModal();
     });
-    closeBtn.addEventListener("click", closeModal2);
-    cancelBtn.addEventListener("click", closeModal2);
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
     overlay.addEventListener("click", function(e) {
-      if (e.target === overlay) closeModal2();
+      if (e.target === overlay) closeModal();
     });
     saveBtn.addEventListener("click", handleSave);
     document.getElementById("f-platform").addEventListener("input", function() {
@@ -1348,15 +1355,15 @@
         openDeleteConfirm(deleteId, deleteName);
       }
     });
-    document.getElementById("delete-close").addEventListener("click", closeDelete2);
-    document.getElementById("delete-cancel").addEventListener("click", closeDelete2);
+    document.getElementById("delete-close").addEventListener("click", closeDelete);
+    document.getElementById("delete-cancel").addEventListener("click", closeDelete);
     document.getElementById("delete-overlay").addEventListener("click", function(e) {
-      if (e.target.id === "delete-overlay") closeDelete2();
+      if (e.target.id === "delete-overlay") closeDelete();
     });
     document.getElementById("filter-status").addEventListener("change", loadSubscriptions);
     document.getElementById("filter-category").addEventListener("change", loadSubscriptions);
   }
-  function openModal2(sub) {
+  function openModal(sub) {
     var overlay = document.getElementById("modal-overlay");
     var title = document.getElementById("modal-title");
     if (sub) {
@@ -1402,7 +1409,7 @@
     overlay.hidden = false;
     document.getElementById("f-platform").focus();
   }
-  function closeModal2() {
+  function closeModal() {
     document.getElementById("modal-overlay").hidden = true;
   }
   function fillFromPreset(preset) {
@@ -1421,7 +1428,7 @@
     fetch("/api/subscriptions/" + id).then(function(res) {
       return res.json();
     }).then(function(sub) {
-      openModal2(sub);
+      openModal(sub);
     }).catch(function(err) {
       showToast("\u274C " + err.message, "error");
     });
@@ -1459,7 +1466,7 @@
     var promise = id ? updateSubscription(parseInt(id), sub) : createSubscription(sub);
     promise.then(function(data) {
       showToast("\u2705 " + (id ? "Updated" : "Created") + ": " + sub.platform, "success");
-      closeModal2();
+      closeModal();
       loadSubscriptions();
     }).catch(function(err) {
       showToast("\u274C " + err.message, "error");
@@ -1476,14 +1483,14 @@
     document.getElementById("delete-confirm").onclick = function() {
       deleteSubscription(pendingDeleteId).then(function() {
         showToast("\u2705 Deleted: " + name, "success");
-        closeDelete2();
+        closeDelete();
         loadSubscriptions();
       }).catch(function(err) {
         showToast("\u274C " + err.message, "error");
       });
     };
   }
-  function closeDelete2() {
+  function closeDelete() {
     document.getElementById("delete-overlay").hidden = true;
     pendingDeleteId = null;
   }
@@ -1561,7 +1568,7 @@
       closeBudget();
       showToast("\u2705 Budget set to $" + val.toFixed(0) + "/mo", "success");
       var overviewPanel = document.getElementById("panel-overview");
-      if (overviewPanel && overviewPanel.classList.contains("active")) loadOverview();
+      if (overviewPanel && overviewPanel.classList.contains("active")) document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
     });
   }
   function openBudgetModal() {
@@ -1848,8 +1855,157 @@
     }
   }
 
+  // internal/web/src/advanced/claude.js
+  function loadClaudeBridgeStatus() {
+    fetch("/api/claude/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var statusEl = document.getElementById("claude-bridge-status");
+      if (!statusEl) return;
+      var bridgeOn = data.bridgeEnabled;
+      var installed = data.installed;
+      if (!bridgeOn) {
+        statusEl.style.display = "none";
+        return;
+      }
+      var msg = "";
+      if (!installed) {
+        msg = "\u26A0\uFE0F Claude Code not detected (~/.claude/ not found)";
+      } else if (data.bridgeFresh) {
+        msg = '<span class="claude-bridge-dot"></span> Bridge active';
+        if (data.snapshot) {
+          msg += " \xB7 5h: " + data.snapshot.fiveHourPct.toFixed(1) + "% used";
+        }
+      } else if (data.snapshot) {
+        msg = '<span class="claude-bridge-dot stale"></span> Last data: ' + formatTimeAgo(data.snapshot.capturedAt);
+      } else {
+        msg = '<span class="claude-bridge-dot off"></span> Waiting for Claude Code statusline data...';
+      }
+      statusEl.innerHTML = msg;
+      statusEl.style.display = "";
+    }).catch(function() {
+    });
+  }
+  function renderClaudeCodeCard() {
+    return '<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div></div>';
+  }
+  function loadClaudeCardData() {
+    fetch("/api/claude/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var body = document.getElementById("claude-card-body");
+      if (!body) return;
+      if (!data.snapshot) {
+        body.innerHTML = '<div class="empty-hint">No Claude Code data yet. Start a Claude Code session to see rate limits.</div>';
+        return;
+      }
+      var snap = data.snapshot;
+      var html = "";
+      var fiveColor = meterColor(snap.fiveHourPct);
+      var fiveReset = snap.fiveHourReset ? "\u21BB " + formatResetTime(snap.fiveHourReset) : "";
+      html += '<div class="claude-meter"><span class="claude-meter-label">5-Hour</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.fiveHourPct + "%;background:" + fiveColor + '"></div></div><span class="claude-meter-pct" style="color:' + fiveColor + '">' + snap.fiveHourPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + fiveReset + "</span></div>";
+      if (snap.sevenDayPct !== void 0) {
+        var sevenColor = meterColor(snap.sevenDayPct);
+        var sevenReset = snap.sevenDayReset ? "\u21BB " + formatResetTime(snap.sevenDayReset) : "";
+        html += '<div class="claude-meter"><span class="claude-meter-label">7-Day</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.sevenDayPct + "%;background:" + sevenColor + '"></div></div><span class="claude-meter-pct" style="color:' + sevenColor + '">' + snap.sevenDayPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + sevenReset + "</span></div>";
+      }
+      var dotCls = data.bridgeFresh ? "" : "stale";
+      var agoStr = formatTimeAgo(snap.capturedAt);
+      html += '<div class="claude-bridge-badge"><span class="claude-bridge-dot ' + dotCls + '"></span>Bridge ' + (data.bridgeFresh ? "active" : "stale") + " \xB7 Last: " + agoStr + "</div>";
+      body.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function meterColor(pct) {
+    if (pct >= 80) return "var(--red)";
+    if (pct >= 50) return "var(--amber)";
+    return "var(--green)";
+  }
+
+  // internal/web/src/advanced/codex.js
+  function loadCodexSettingsStatus() {
+    var statusEl = document.getElementById("codex-status-settings");
+    if (!statusEl) return;
+    fetch("/api/codex/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      statusEl.style.display = "";
+      if (!data.installed) {
+        statusEl.innerHTML = '<span style="color:var(--text-muted)">\u26A0\uFE0F Codex CLI not detected. Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> and run <code>codex auth</code> to enable.</span>';
+        return;
+      }
+      var tokenStatus = data.tokenExpired ? '<span style="color:var(--warning)">\u26A0\uFE0F Token expired \u2014 will auto-refresh on next poll</span>' : '<span style="color:var(--success)">\u2705 Token valid (expires ' + (data.tokenExpiresIn || "?") + ")</span>";
+      var displayId = data.email || (data.accountId && data.accountId.length > 12 ? data.accountId.substring(0, 6) + "\u2026" + data.accountId.slice(-6) : data.accountId || "unknown");
+      statusEl.innerHTML = "\u{1F916} Codex detected \xB7 Account: <strong>" + esc(displayId) + "</strong><br>" + tokenStatus;
+      if (data.snapshot) {
+        statusEl.innerHTML += "<br>Latest: <strong>" + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) \xB7 <span style="color:var(--text-muted)">' + formatTimeAgo(data.snapshot.capturedAt) + "</span>";
+      }
+    }).catch(function() {
+      statusEl.style.display = "none";
+    });
+  }
+  function handleCodexSnap() {
+    showToast("\u{1F916} Capturing Codex snapshot...", "info");
+    fetch("/api/codex/snap", { method: "POST" }).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u{1F916} Codex snapshot captured! Plan: " + (data.plan || "unknown"), "success");
+      loadCodexSettingsStatus();
+      document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
+    }).catch(function() {
+      showToast("\u274C Codex snap failed", "error");
+    });
+  }
+  function renderSessionsTimeline(container) {
+    fetch("/api/sessions?limit=10").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (!data.sessions || data.sessions.length === 0) return;
+      var html = '<div class="overview-card sessions-card">';
+      html += '<div class="card-header"><h3>\u23F1\uFE0F Usage Sessions</h3>';
+      html += '<span class="card-count">' + data.count + " sessions</span>";
+      html += "</div>";
+      html += '<div class="card-body">';
+      html += '<div class="session-timeline">';
+      for (var i = 0; i < data.sessions.length; i++) {
+        var sess = data.sessions[i];
+        var isActive = !sess.endedAt;
+        var duration = isActive ? formatDurationSec(Math.floor((Date.now() - new Date(sess.startedAt).getTime()) / 1e3)) : formatDurationSec(sess.durationSec);
+        var providerIcon = sess.provider === "codex" ? "\u{1F916}" : sess.provider === "claude" ? "\u{1F52E}" : "\u26A1";
+        html += '<div class="session-item' + (isActive ? " active" : "") + '">';
+        html += '<div class="session-dot' + (isActive ? " pulse" : "") + '"></div>';
+        html += '<div class="session-content">';
+        html += '<div class="session-top">';
+        html += '<span class="session-provider">' + providerIcon + " " + esc(sess.provider) + "</span>";
+        html += '<span class="session-duration">' + duration + "</span>";
+        html += "</div>";
+        html += '<div class="session-bottom">';
+        html += '<span class="session-time">' + formatTimeAgo(sess.startedAt) + "</span>";
+        html += '<span class="session-snaps">' + sess.snapCount + " snaps</span>";
+        if (isActive) html += '<span class="session-active-badge">LIVE</span>';
+        html += "</div>";
+        html += "</div></div>";
+      }
+      html += "</div></div></div>";
+      var codexCard = container.querySelector(".codex-card");
+      var existing = container.querySelector(".sessions-card");
+      if (existing) {
+        existing.outerHTML = html;
+      } else if (codexCard) {
+        codexCard.insertAdjacentHTML("afterend", html);
+      } else {
+        container.insertAdjacentHTML("afterbegin", html);
+      }
+    }).catch(function() {
+    });
+  }
+
   // internal/web/src/overview/overview.js
-  function loadOverview2() {
+  function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
       var data = results[0];
       var subsData = results[1];
@@ -1960,7 +2116,7 @@
     renderSessionsTimeline(el);
   }
 
-  // internal/web/src/main.js
+  // internal/web/src/advanced/snap.js
   var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
   function initSnapDropdown() {
     var caret = document.getElementById("snap-caret");
@@ -2066,6 +2222,9 @@
       setSnapInProgress(false);
     });
   }
+
+  // internal/web/src/charts/history.js
+  var Chart = window.Chart;
   var historyChart = null;
   function updateChartTheme(theme) {
     if (!historyChart) return;
@@ -2252,6 +2411,331 @@
       sel.appendChild(opt);
     }
   }
+
+  // internal/web/src/advanced/alerts.js
+  function loadSystemAlerts() {
+    fetch("/api/alerts").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("alert-banner-container");
+      if (!container) return;
+      var alerts = data.alerts || [];
+      if (alerts.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var html = "";
+      var shown = Math.min(alerts.length, 3);
+      for (var i = 0; i < shown; i++) {
+        var a = alerts[i];
+        var icon = a.severity === "critical" ? "\u{1F6A8}" : a.severity === "warning" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
+        html += '<div class="alert-banner ' + esc(a.severity) + '"><span class="alert-banner-icon">' + icon + '</span><div class="alert-banner-content"><div class="alert-banner-title">' + esc(a.category) + '</div><div class="alert-banner-msg">' + esc(a.message) + '</div></div><button class="alert-banner-dismiss" onclick="dismissAlert(' + a.id + ')" title="Dismiss">&times;</button></div>';
+      }
+      if (alerts.length > 3) {
+        html += `<div class="alert-more-link" onclick="switchToTab('overview')">+ ` + (alerts.length - 3) + " more alert(s)</div>";
+      }
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function dismissAlert(id) {
+    fetch("/api/alerts/dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    }).then(function() {
+      loadSystemAlerts();
+      showToast("Alert dismissed", "success");
+    }).catch(function() {
+      showToast("Failed to dismiss alert", "error");
+    });
+  }
+
+  // internal/web/src/settings/activity.js
+  function loadActivityLog() {
+    var filter = document.getElementById("activity-filter").value;
+    var url = "/api/activity?limit=50";
+    if (filter) url += "&type=" + filter;
+    fetch(url).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("activity-log");
+      if (!data.entries || data.entries.length === 0) {
+        container.innerHTML = '<div class="activity-empty">No activity' + (filter ? ' for "' + filter + '"' : "") + " yet</div>";
+        return;
+      }
+      var html = "";
+      data.entries.forEach(function(entry) {
+        var time = entry.timestamp ? entry.timestamp.replace("T", " ").substring(5, 16) : "";
+        var detail = formatActivityDetail(entry);
+        html += '<div class="activity-entry"><span class="activity-time">' + time + '</span><span class="activity-type ' + esc(entry.eventType) + '">' + esc(entry.eventType.replace(/_/g, " ")) + '</span><span class="activity-detail">' + detail + "</span></div>";
+      });
+      container.innerHTML = html;
+    }).catch(function() {
+      document.getElementById("activity-log").innerHTML = '<div class="activity-empty">Failed to load activity log</div>';
+    });
+  }
+  function formatActivityDetail(entry) {
+    try {
+      var d = JSON.parse(entry.details || "{}");
+      switch (entry.eventType) {
+        case "snap":
+          return esc(entry.accountEmail || "") + (d.method ? " \xB7 " + d.method : "") + (d.source ? " via " + d.source : "");
+        case "snap_failed":
+          return esc(d.error || "Unknown error");
+        case "config_change":
+          return esc(d.key || "") + ": " + esc(d.from || '""') + " \u2192 " + esc(d.to || '""');
+        case "server_start":
+          return "Port " + (d.port || "?") + " \xB7 " + esc(d.mode || "manual") + " mode";
+        case "sub_created":
+        case "sub_deleted":
+          return esc(d.platform || "");
+        case "auto_link":
+          return esc(entry.accountEmail || "") + " \u2192 " + esc(d.platform || "");
+        case "codex_snap":
+          var acctId = entry.accountEmail || "";
+          if (acctId.length > 20) acctId = acctId.substring(0, 6) + ".." + acctId.slice(-6);
+          return esc(acctId) + (d.plan ? " (" + esc(d.plan) + ")" : "");
+        case "model_reset":
+          return esc(entry.accountEmail || "");
+        case "quota_alert":
+          return "\u{1F514} " + esc(d.model || "") + " \u2014 " + (d.remainingPct != null ? d.remainingPct.toFixed(1) + "% remaining" : "");
+        default:
+          return entry.accountEmail ? esc(entry.accountEmail) : "";
+      }
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // internal/web/src/settings/mode.js
+  var modeRefreshTimer = null;
+  function loadMode() {
+    fetch("/api/mode").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var badge = document.getElementById("mode-badge");
+      var label = document.getElementById("mode-label");
+      if (data.mode === "auto") {
+        badge.className = "mode-badge mode-auto";
+        label.textContent = "Auto";
+      } else {
+        badge.className = "mode-badge mode-manual";
+        label.textContent = "Manual";
+      }
+      var statusEl = document.getElementById("polling-status");
+      if (statusEl) {
+        if (data.isPolling) {
+          var lastMsg = "";
+          if (data.lastPoll) {
+            lastMsg = "Last: " + formatTimeAgo(data.lastPoll);
+            if (data.lastPollOK === false) lastMsg += " (failed)";
+          } else {
+            lastMsg = "Starting...";
+          }
+          statusEl.innerHTML = '<span class="polling-dot"></span> Polling every ' + formatPollInterval(data.pollInterval) + " \xB7 " + lastMsg;
+          statusEl.style.display = "";
+        } else {
+          statusEl.style.display = "none";
+        }
+      }
+      var aboutEl = document.getElementById("s-about-info");
+      if (aboutEl) {
+        var srcCount = (data.sources || []).filter(function(s) {
+          return s.enabled;
+        }).length;
+        var schemaV = data.schemaVersion ? "Schema v" + data.schemaVersion : "Schema";
+        var presetCount = presetsData.length || 0;
+        aboutEl.textContent = schemaV + " \xB7 " + presetCount + " presets \xB7 Mode: " + (data.mode === "auto" ? "Auto" : "Manual") + (data.isPolling ? " (polling)" : "") + " \xB7 " + srcCount + " active source" + (srcCount !== 1 ? "s" : "");
+      }
+      if (modeRefreshTimer) {
+        clearInterval(modeRefreshTimer);
+        modeRefreshTimer = null;
+      }
+      if (data.isPolling) {
+        modeRefreshTimer = setInterval(function() {
+          loadMode();
+          loadSystemAlerts();
+          var activeTab = document.querySelector(".tab-btn.active");
+          if (activeTab && activeTab.getAttribute("data-tab") === "settings") {
+            loadActivityLog();
+          }
+        }, 3e4);
+      }
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/settings/data.js
+  function loadDataSources() {
+    fetch("/api/mode").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("data-sources-list");
+      if (!data.sources || data.sources.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var html = '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';
+      data.sources.forEach(function(src) {
+        var meta = src.captureCount + " captures";
+        if (src.lastCapture) {
+          meta += " \xB7 Last: " + formatTimeAgo(src.lastCapture);
+        }
+        html += '<div class="data-source-item"><div class="data-source-info"><span class="data-source-name">' + esc(src.name) + '</span><span class="data-source-meta">' + esc(src.sourceType) + " \xB7 " + meta + '</span></div><span class="data-source-status ' + (src.enabled ? "enabled" : "disabled") + '">' + (src.enabled ? "\u25CF Active" : "\u25CB Disabled") + "</span></div>";
+      });
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/settings/pricing.js
+  var pricingDataCache = null;
+  function loadModelPricing() {
+    fetch("/api/config/pricing").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      pricingDataCache = data.pricing || [];
+      renderPricingTable(pricingDataCache);
+    }).catch(function(err) {
+      console.error("Failed to load model pricing:", err);
+    });
+  }
+  function renderPricingTable(pricing) {
+    var tbody = document.getElementById("pricing-tbody");
+    if (!tbody) return;
+    var providerIcons = { anthropic: "\u{1F7E4}", openai: "\u{1F7E2}", google: "\u{1F535}" };
+    var html = "";
+    for (var i = 0; i < pricing.length; i++) {
+      var p = pricing[i];
+      var providerCls = p.provider || "custom";
+      var providerLabel = p.provider ? p.provider.charAt(0).toUpperCase() + p.provider.slice(1) : "Custom";
+      var icon = providerIcons[p.provider] || "\u26AA";
+      html += '<tr data-pricing-idx="' + i + '"><td><span class="pricing-model-name">' + esc(p.displayName) + '</span></td><td><span class="pricing-provider ' + esc(providerCls) + '">' + icon + " " + esc(providerLabel) + '</span></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="inputPer1M" step="0.01" min="0" value="' + p.inputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="outputPer1M" step="0.01" min="0" value="' + p.outputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="cachePer1M" step="0.001" min="0" value="' + p.cachePer1M + '"></td><td><button class="pricing-delete-btn" data-pricing-del="' + i + '" title="Remove this model">\u2715</button></td></tr>';
+    }
+    tbody.innerHTML = html;
+    tbody.querySelectorAll(".pricing-input").forEach(function(input) {
+      input.addEventListener("change", function() {
+        var tr = input.closest("tr");
+        var idx = parseInt(tr.dataset.pricingIdx);
+        var field = input.dataset.field;
+        var val = parseFloat(input.value) || 0;
+        if (val < 0) val = 0;
+        input.value = val;
+        if (pricingDataCache && pricingDataCache[idx]) {
+          pricingDataCache[idx][field] = val;
+          savePricingFromTable();
+        }
+      });
+    });
+    tbody.querySelectorAll(".pricing-delete-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var idx = parseInt(btn.dataset.pricingDel);
+        deletePricingRow(idx);
+      });
+    });
+  }
+  function savePricingFromTable() {
+    if (!pricingDataCache || pricingDataCache.length === 0) return;
+    fetch("/api/config/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pricing: pricingDataCache })
+    }).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u{1F4B0} Pricing saved", "success");
+    }).catch(function() {
+      showToast("\u274C Failed to save pricing", "error");
+    });
+  }
+  function addPricingRow() {
+    if (!pricingDataCache) pricingDataCache = [];
+    var newModel = {
+      modelId: "custom-" + Date.now(),
+      displayName: "New Model",
+      provider: "custom",
+      inputPer1M: 1,
+      outputPer1M: 5,
+      cachePer1M: 0.1
+    };
+    pricingDataCache.push(newModel);
+    renderPricingTable(pricingDataCache);
+    var tbody = document.getElementById("pricing-tbody");
+    var lastRow = tbody.lastElementChild;
+    if (lastRow) {
+      var nameCell = lastRow.querySelector(".pricing-model-name");
+      if (nameCell) {
+        nameCell.contentEditable = "true";
+        nameCell.focus();
+        var range = document.createRange();
+        range.selectNodeContents(nameCell);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        nameCell.addEventListener("blur", function() {
+          nameCell.contentEditable = "false";
+          var idx = parseInt(lastRow.dataset.pricingIdx);
+          var newName = nameCell.textContent.trim();
+          if (newName && pricingDataCache[idx]) {
+            pricingDataCache[idx].displayName = newName;
+            pricingDataCache[idx].modelId = newName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            savePricingFromTable();
+          }
+        }, { once: true });
+        nameCell.addEventListener("keydown", function(e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            nameCell.blur();
+          }
+        });
+      }
+    }
+    showToast("\u{1F4B0} New model added \u2014 edit the name and prices", "info");
+  }
+  function deletePricingRow(idx) {
+    if (!pricingDataCache || idx < 0 || idx >= pricingDataCache.length) return;
+    var name = pricingDataCache[idx].displayName;
+    if (!confirm('Remove pricing for "' + name + '"?')) return;
+    pricingDataCache.splice(idx, 1);
+    renderPricingTable(pricingDataCache);
+    savePricingFromTable();
+    showToast("\u{1F5D1}\uFE0F Removed " + name, "success");
+  }
+  function resetPricingDefaults() {
+    if (!confirm("Reset all model pricing to current market defaults? This will overwrite your custom prices.")) return;
+    var defaults = [
+      { modelId: "claude-opus-4.6", displayName: "Claude Opus 4.6", provider: "anthropic", inputPer1M: 5, outputPer1M: 25, cachePer1M: 0.5 },
+      { modelId: "claude-sonnet-4.6", displayName: "Claude Sonnet 4.6", provider: "anthropic", inputPer1M: 3, outputPer1M: 15, cachePer1M: 0.3 },
+      { modelId: "claude-haiku-4.5", displayName: "Claude Haiku 4.5", provider: "anthropic", inputPer1M: 1, outputPer1M: 5, cachePer1M: 0.1 },
+      { modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai", inputPer1M: 2.5, outputPer1M: 10, cachePer1M: 1.25 },
+      { modelId: "gemini-3.1-pro", displayName: "Gemini 3.1 Pro", provider: "google", inputPer1M: 2, outputPer1M: 12, cachePer1M: 0.5 },
+      { modelId: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: "google", inputPer1M: 0.3, outputPer1M: 2.5, cachePer1M: 0.075 }
+    ];
+    pricingDataCache = defaults;
+    renderPricingTable(pricingDataCache);
+    fetch("/api/config/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pricing: defaults })
+    }).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u21BB Pricing reset to defaults", "success");
+    }).catch(function() {
+      showToast("\u274C Failed to reset pricing", "error");
+    });
+  }
+
+  // internal/web/src/settings/settings.js
   function initSettings() {
     var themeEl = document.getElementById("s-theme");
     var savedTheme = localStorage.getItem("niyantra-theme") || "dark";
@@ -2440,410 +2924,8 @@
       localStorage.removeItem("niyantra-currency");
     }
   }
-  var modeRefreshTimer = null;
-  function loadMode() {
-    fetch("/api/mode").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var badge = document.getElementById("mode-badge");
-      var label = document.getElementById("mode-label");
-      if (data.mode === "auto") {
-        badge.className = "mode-badge mode-auto";
-        label.textContent = "Auto";
-      } else {
-        badge.className = "mode-badge mode-manual";
-        label.textContent = "Manual";
-      }
-      var statusEl = document.getElementById("polling-status");
-      if (statusEl) {
-        if (data.isPolling) {
-          var lastMsg = "";
-          if (data.lastPoll) {
-            lastMsg = "Last: " + formatTimeAgo(data.lastPoll);
-            if (data.lastPollOK === false) lastMsg += " (failed)";
-          } else {
-            lastMsg = "Starting...";
-          }
-          statusEl.innerHTML = '<span class="polling-dot"></span> Polling every ' + formatPollInterval(data.pollInterval) + " \xB7 " + lastMsg;
-          statusEl.style.display = "";
-        } else {
-          statusEl.style.display = "none";
-        }
-      }
-      var aboutEl = document.getElementById("s-about-info");
-      if (aboutEl) {
-        var srcCount = (data.sources || []).filter(function(s) {
-          return s.enabled;
-        }).length;
-        var schemaV = data.schemaVersion ? "Schema v" + data.schemaVersion : "Schema";
-        var presetCount = presetsData.length || 0;
-        aboutEl.textContent = schemaV + " \xB7 " + presetCount + " presets \xB7 Mode: " + (data.mode === "auto" ? "Auto" : "Manual") + (data.isPolling ? " (polling)" : "") + " \xB7 " + srcCount + " active source" + (srcCount !== 1 ? "s" : "");
-      }
-      if (modeRefreshTimer) {
-        clearInterval(modeRefreshTimer);
-        modeRefreshTimer = null;
-      }
-      if (data.isPolling) {
-        modeRefreshTimer = setInterval(function() {
-          loadMode();
-          loadSystemAlerts();
-          var activeTab = document.querySelector(".tab-btn.active");
-          if (activeTab && activeTab.getAttribute("data-tab") === "settings") {
-            loadActivityLog();
-          }
-        }, 3e4);
-      }
-    }).catch(function() {
-    });
-  }
-  function loadDataSources() {
-    fetch("/api/mode").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var container = document.getElementById("data-sources-list");
-      if (!data.sources || data.sources.length === 0) {
-        container.innerHTML = "";
-        return;
-      }
-      var html = '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';
-      data.sources.forEach(function(src) {
-        var meta = src.captureCount + " captures";
-        if (src.lastCapture) {
-          meta += " \xB7 Last: " + formatTimeAgo(src.lastCapture);
-        }
-        html += '<div class="data-source-item"><div class="data-source-info"><span class="data-source-name">' + esc(src.name) + '</span><span class="data-source-meta">' + esc(src.sourceType) + " \xB7 " + meta + '</span></div><span class="data-source-status ' + (src.enabled ? "enabled" : "disabled") + '">' + (src.enabled ? "\u25CF Active" : "\u25CB Disabled") + "</span></div>";
-      });
-      container.innerHTML = html;
-    }).catch(function() {
-    });
-  }
-  function loadActivityLog() {
-    var filter = document.getElementById("activity-filter").value;
-    var url = "/api/activity?limit=50";
-    if (filter) url += "&type=" + filter;
-    fetch(url).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var container = document.getElementById("activity-log");
-      if (!data.entries || data.entries.length === 0) {
-        container.innerHTML = '<div class="activity-empty">No activity' + (filter ? ' for "' + filter + '"' : "") + " yet</div>";
-        return;
-      }
-      var html = "";
-      data.entries.forEach(function(entry) {
-        var time = entry.timestamp ? entry.timestamp.replace("T", " ").substring(5, 16) : "";
-        var detail = formatActivityDetail(entry);
-        html += '<div class="activity-entry"><span class="activity-time">' + time + '</span><span class="activity-type ' + esc(entry.eventType) + '">' + esc(entry.eventType.replace(/_/g, " ")) + '</span><span class="activity-detail">' + detail + "</span></div>";
-      });
-      container.innerHTML = html;
-    }).catch(function() {
-      document.getElementById("activity-log").innerHTML = '<div class="activity-empty">Failed to load activity log</div>';
-    });
-  }
-  function formatActivityDetail(entry) {
-    try {
-      var d = JSON.parse(entry.details || "{}");
-      switch (entry.eventType) {
-        case "snap":
-          return esc(entry.accountEmail || "") + (d.method ? " \xB7 " + d.method : "") + (d.source ? " via " + d.source : "");
-        case "snap_failed":
-          return esc(d.error || "Unknown error");
-        case "config_change":
-          return esc(d.key || "") + ": " + esc(d.from || '""') + " \u2192 " + esc(d.to || '""');
-        case "server_start":
-          return "Port " + (d.port || "?") + " \xB7 " + esc(d.mode || "manual") + " mode";
-        case "sub_created":
-        case "sub_deleted":
-          return esc(d.platform || "");
-        case "auto_link":
-          return esc(entry.accountEmail || "") + " \u2192 " + esc(d.platform || "");
-        case "codex_snap":
-          var acctId = entry.accountEmail || "";
-          if (acctId.length > 20) acctId = acctId.substring(0, 6) + ".." + acctId.slice(-6);
-          return esc(acctId) + (d.plan ? " (" + esc(d.plan) + ")" : "");
-        case "model_reset":
-          return esc(entry.accountEmail || "");
-        case "quota_alert":
-          return "\u{1F514} " + esc(d.model || "") + " \u2014 " + (d.remainingPct != null ? d.remainingPct.toFixed(1) + "% remaining" : "");
-        default:
-          return entry.accountEmail ? esc(entry.accountEmail) : "";
-      }
-    } catch (e) {
-      return "";
-    }
-  }
-  var pricingDataCache = null;
-  function loadModelPricing() {
-    fetch("/api/config/pricing").then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      pricingDataCache = data.pricing || [];
-      renderPricingTable(pricingDataCache);
-    }).catch(function(err) {
-      console.error("Failed to load model pricing:", err);
-    });
-  }
-  function renderPricingTable(pricing) {
-    var tbody = document.getElementById("pricing-tbody");
-    if (!tbody) return;
-    var providerIcons = { anthropic: "\u{1F7E4}", openai: "\u{1F7E2}", google: "\u{1F535}" };
-    var html = "";
-    for (var i = 0; i < pricing.length; i++) {
-      var p = pricing[i];
-      var providerCls = p.provider || "custom";
-      var providerLabel = p.provider ? p.provider.charAt(0).toUpperCase() + p.provider.slice(1) : "Custom";
-      var icon = providerIcons[p.provider] || "\u26AA";
-      html += '<tr data-pricing-idx="' + i + '"><td><span class="pricing-model-name">' + esc(p.displayName) + '</span></td><td><span class="pricing-provider ' + esc(providerCls) + '">' + icon + " " + esc(providerLabel) + '</span></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="inputPer1M" step="0.01" min="0" value="' + p.inputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="outputPer1M" step="0.01" min="0" value="' + p.outputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="cachePer1M" step="0.001" min="0" value="' + p.cachePer1M + '"></td><td><button class="pricing-delete-btn" data-pricing-del="' + i + '" title="Remove this model">\u2715</button></td></tr>';
-    }
-    tbody.innerHTML = html;
-    tbody.querySelectorAll(".pricing-input").forEach(function(input) {
-      input.addEventListener("change", function() {
-        var tr = input.closest("tr");
-        var idx = parseInt(tr.dataset.pricingIdx);
-        var field = input.dataset.field;
-        var val = parseFloat(input.value) || 0;
-        if (val < 0) val = 0;
-        input.value = val;
-        if (pricingDataCache && pricingDataCache[idx]) {
-          pricingDataCache[idx][field] = val;
-          savePricingFromTable();
-        }
-      });
-    });
-    tbody.querySelectorAll(".pricing-delete-btn").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var idx = parseInt(btn.dataset.pricingDel);
-        deletePricingRow(idx);
-      });
-    });
-  }
-  function savePricingFromTable() {
-    if (!pricingDataCache || pricingDataCache.length === 0) return;
-    fetch("/api/config/pricing", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pricing: pricingDataCache })
-    }).then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (data.error) {
-        showToast("\u274C " + data.error, "error");
-        return;
-      }
-      showToast("\u{1F4B0} Pricing saved", "success");
-    }).catch(function() {
-      showToast("\u274C Failed to save pricing", "error");
-    });
-  }
-  function addPricingRow() {
-    if (!pricingDataCache) pricingDataCache = [];
-    var newModel = {
-      modelId: "custom-" + Date.now(),
-      displayName: "New Model",
-      provider: "custom",
-      inputPer1M: 1,
-      outputPer1M: 5,
-      cachePer1M: 0.1
-    };
-    pricingDataCache.push(newModel);
-    renderPricingTable(pricingDataCache);
-    var tbody = document.getElementById("pricing-tbody");
-    var lastRow = tbody.lastElementChild;
-    if (lastRow) {
-      var nameCell = lastRow.querySelector(".pricing-model-name");
-      if (nameCell) {
-        nameCell.contentEditable = "true";
-        nameCell.focus();
-        var range = document.createRange();
-        range.selectNodeContents(nameCell);
-        var sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-        nameCell.addEventListener("blur", function() {
-          nameCell.contentEditable = "false";
-          var idx = parseInt(lastRow.dataset.pricingIdx);
-          var newName = nameCell.textContent.trim();
-          if (newName && pricingDataCache[idx]) {
-            pricingDataCache[idx].displayName = newName;
-            pricingDataCache[idx].modelId = newName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-            savePricingFromTable();
-          }
-        }, { once: true });
-        nameCell.addEventListener("keydown", function(e) {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            nameCell.blur();
-          }
-        });
-      }
-    }
-    showToast("\u{1F4B0} New model added \u2014 edit the name and prices", "info");
-  }
-  function deletePricingRow(idx) {
-    if (!pricingDataCache || idx < 0 || idx >= pricingDataCache.length) return;
-    var name = pricingDataCache[idx].displayName;
-    if (!confirm('Remove pricing for "' + name + '"?')) return;
-    pricingDataCache.splice(idx, 1);
-    renderPricingTable(pricingDataCache);
-    savePricingFromTable();
-    showToast("\u{1F5D1}\uFE0F Removed " + name, "success");
-  }
-  function resetPricingDefaults() {
-    if (!confirm("Reset all model pricing to current market defaults? This will overwrite your custom prices.")) return;
-    var defaults = [
-      { modelId: "claude-opus-4.6", displayName: "Claude Opus 4.6", provider: "anthropic", inputPer1M: 5, outputPer1M: 25, cachePer1M: 0.5 },
-      { modelId: "claude-sonnet-4.6", displayName: "Claude Sonnet 4.6", provider: "anthropic", inputPer1M: 3, outputPer1M: 15, cachePer1M: 0.3 },
-      { modelId: "claude-haiku-4.5", displayName: "Claude Haiku 4.5", provider: "anthropic", inputPer1M: 1, outputPer1M: 5, cachePer1M: 0.1 },
-      { modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai", inputPer1M: 2.5, outputPer1M: 10, cachePer1M: 1.25 },
-      { modelId: "gemini-3.1-pro", displayName: "Gemini 3.1 Pro", provider: "google", inputPer1M: 2, outputPer1M: 12, cachePer1M: 0.5 },
-      { modelId: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: "google", inputPer1M: 0.3, outputPer1M: 2.5, cachePer1M: 0.075 }
-    ];
-    pricingDataCache = defaults;
-    renderPricingTable(pricingDataCache);
-    fetch("/api/config/pricing", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pricing: defaults })
-    }).then(function(res) {
-      return res.json();
-    }).then(function(data) {
-      if (data.error) {
-        showToast("\u274C " + data.error, "error");
-        return;
-      }
-      showToast("\u21BB Pricing reset to defaults", "success");
-    }).catch(function() {
-      showToast("\u274C Failed to reset pricing", "error");
-    });
-  }
-  function initKeyboardShortcuts() {
-    document.addEventListener("keydown", function(e) {
-      var tag = document.activeElement.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
-        if (e.key === "Escape") {
-          document.activeElement.blur();
-          closeModal();
-          closeDelete();
-          closeBudget();
-        }
-        return;
-      }
-      var anyModal = !document.getElementById("modal-overlay").hidden || !document.getElementById("delete-overlay").hidden || !document.getElementById("budget-overlay").hidden;
-      if (e.key === "Escape") {
-        closeModal();
-        closeDelete();
-        closeBudget();
-        return;
-      }
-      if (anyModal) return;
-      switch (e.key) {
-        case "1":
-          switchToTab("quotas");
-          break;
-        case "2":
-          switchToTab("subscriptions");
-          break;
-        case "3":
-          switchToTab("overview");
-          break;
-        case "4":
-          switchToTab("settings");
-          break;
-        case "n":
-        case "N":
-          openModal();
-          e.preventDefault();
-          break;
-        case "s":
-        case "S":
-          handleSnap();
-          e.preventDefault();
-          break;
-        case "/":
-          e.preventDefault();
-          switchToTab("subscriptions");
-          setTimeout(function() {
-            var search = document.getElementById("search-subs");
-            if (search) search.focus();
-          }, 100);
-          break;
-      }
-    });
-    document.addEventListener("keydown", function(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        toggleCommandPalette();
-      }
-    });
-  }
-  document.addEventListener("DOMContentLoaded", function() {
-    initTheme();
-    initTabs();
-    setRenderAccounts(renderAccounts);
-    initQuotas();
-    setupToggle();
-    initModal();
-    initBudget();
-    initSettings();
-    initSearch();
-    initKeyboardShortcuts();
-    initAccountMetaHandlers();
-    document.addEventListener("niyantra:tab-change", function(e) {
-      var tab = e.detail.tab;
-      if (tab === "overview") loadOverview2();
-      if (tab === "settings") {
-        loadActivityLog();
-        loadMode();
-        loadDataSources();
-      }
-    });
-    document.addEventListener("niyantra:theme-change", function(e) {
-      updateChartTheme(e.detail.theme);
-    });
-    document.addEventListener("niyantra:chart-refresh", function() {
-      loadHistoryChart();
-    });
-    document.addEventListener("niyantra:overview-refresh", function() {
-      loadOverview2();
-    });
-    document.getElementById("snap-btn").addEventListener("click", handleSnap);
-    initSnapDropdown();
-    document.getElementById("chart-account").addEventListener("change", loadHistoryChart);
-    document.getElementById("chart-range").addEventListener("change", loadHistoryChart);
-    Promise.all([fetchStatus(), fetchUsage()]).then(function(results) {
-      var data = results[0];
-      renderAccounts(data);
-      updateTimestamp();
-      populateChartAccountSelect(data);
-      loadHistoryChart();
-      if (!data.codexSnapshot || !data.claudeSnapshot) {
-        setTimeout(function() {
-          fetchStatus().then(function(data2) {
-            if (data2.codexSnapshot || data2.claudeSnapshot) {
-              renderAccounts(data2);
-            }
-          }).catch(function() {
-          });
-        }, 3e3);
-      }
-    }).catch(function(err) {
-      console.error("Failed to load status:", err);
-    });
-    loadSubscriptions();
-    fetchPresets().then(function(data) {
-      setPresetsData(data.presets || []);
-      var list = document.getElementById("preset-list");
-      for (var i = 0; i < presetsData.length; i++) {
-        var opt = document.createElement("option");
-        opt.value = presetsData[i].platform;
-        list.appendChild(opt);
-      }
-    });
-    loadMode();
-    initCommandPalette();
-    loadSystemAlerts();
-    setInterval(refreshTimestampDisplay, 3e4);
-  });
+
+  // internal/web/src/advanced/palette.js
   var PALETTE_COMMANDS = [
     { name: "Snap Now", key: "S", icon: "\u{1F4F8}", action: function() {
       handleSnap();
@@ -2989,110 +3071,138 @@
     var selected = list.querySelector(".selected");
     if (selected) selected.scrollIntoView({ block: "nearest" });
   }
-  function loadClaudeBridgeStatus() {
-    fetch("/api/claude/status").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var statusEl = document.getElementById("claude-bridge-status");
-      if (!statusEl) return;
-      var bridgeOn = data.bridgeEnabled;
-      var installed = data.installed;
-      if (!bridgeOn) {
-        statusEl.style.display = "none";
-        return;
-      }
-      var msg = "";
-      if (!installed) {
-        msg = "\u26A0\uFE0F Claude Code not detected (~/.claude/ not found)";
-      } else if (data.bridgeFresh) {
-        msg = '<span class="claude-bridge-dot"></span> Bridge active';
-        if (data.snapshot) {
-          msg += " \xB7 5h: " + data.snapshot.fiveHourPct.toFixed(1) + "% used";
+
+  // internal/web/src/advanced/keyboard.js
+  function initKeyboardShortcuts() {
+    document.addEventListener("keydown", function(e) {
+      var tag = document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        if (e.key === "Escape") {
+          document.activeElement.blur();
+          closeModal();
+          closeDelete();
+          closeBudget();
         }
-      } else if (data.snapshot) {
-        msg = '<span class="claude-bridge-dot stale"></span> Last data: ' + formatTimeAgo(data.snapshot.capturedAt);
-      } else {
-        msg = '<span class="claude-bridge-dot off"></span> Waiting for Claude Code statusline data...';
-      }
-      statusEl.innerHTML = msg;
-      statusEl.style.display = "";
-    }).catch(function() {
-    });
-  }
-  function loadSystemAlerts() {
-    fetch("/api/alerts").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      var container = document.getElementById("alert-banner-container");
-      if (!container) return;
-      var alerts = data.alerts || [];
-      if (alerts.length === 0) {
-        container.innerHTML = "";
         return;
       }
-      var html = "";
-      var shown = Math.min(alerts.length, 3);
-      for (var i = 0; i < shown; i++) {
-        var a = alerts[i];
-        var icon = a.severity === "critical" ? "\u{1F6A8}" : a.severity === "warning" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
-        html += '<div class="alert-banner ' + esc(a.severity) + '"><span class="alert-banner-icon">' + icon + '</span><div class="alert-banner-content"><div class="alert-banner-title">' + esc(a.category) + '</div><div class="alert-banner-msg">' + esc(a.message) + '</div></div><button class="alert-banner-dismiss" onclick="dismissAlert(' + a.id + ')" title="Dismiss">&times;</button></div>';
-      }
-      if (alerts.length > 3) {
-        html += `<div class="alert-more-link" onclick="switchToTab('overview')">+ ` + (alerts.length - 3) + " more alert(s)</div>";
-      }
-      container.innerHTML = html;
-    }).catch(function() {
-    });
-  }
-  function dismissAlert(id) {
-    fetch("/api/alerts/dismiss", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id })
-    }).then(function() {
-      loadSystemAlerts();
-      showToast("Alert dismissed", "success");
-    }).catch(function() {
-      showToast("Failed to dismiss alert", "error");
-    });
-  }
-  function loadCodexSettingsStatus() {
-    var statusEl = document.getElementById("codex-status-settings");
-    if (!statusEl) return;
-    fetch("/api/codex/status").then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      statusEl.style.display = "";
-      if (!data.installed) {
-        statusEl.innerHTML = '<span style="color:var(--text-muted)">\u26A0\uFE0F Codex CLI not detected. Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> and run <code>codex auth</code> to enable.</span>';
+      var anyModal = !document.getElementById("modal-overlay").hidden || !document.getElementById("delete-overlay").hidden || !document.getElementById("budget-overlay").hidden;
+      if (e.key === "Escape") {
+        closeModal();
+        closeDelete();
+        closeBudget();
         return;
       }
-      var tokenStatus = data.tokenExpired ? '<span style="color:var(--warning)">\u26A0\uFE0F Token expired \u2014 will auto-refresh on next poll</span>' : '<span style="color:var(--success)">\u2705 Token valid (expires ' + (data.tokenExpiresIn || "?") + ")</span>";
-      var displayId = data.email || (data.accountId && data.accountId.length > 12 ? data.accountId.substring(0, 6) + "\u2026" + data.accountId.slice(-6) : data.accountId || "unknown");
-      statusEl.innerHTML = "\u{1F916} Codex detected \xB7 Account: <strong>" + esc(displayId) + "</strong><br>" + tokenStatus;
-      if (data.snapshot) {
-        statusEl.innerHTML += "<br>Latest: <strong>" + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) \xB7 <span style="color:var(--text-muted)">' + formatTimeAgo(data.snapshot.capturedAt) + "</span>";
+      if (anyModal) return;
+      switch (e.key) {
+        case "1":
+          switchToTab("quotas");
+          break;
+        case "2":
+          switchToTab("subscriptions");
+          break;
+        case "3":
+          switchToTab("overview");
+          break;
+        case "4":
+          switchToTab("settings");
+          break;
+        case "n":
+        case "N":
+          openModal();
+          e.preventDefault();
+          break;
+        case "s":
+        case "S":
+          handleSnap();
+          e.preventDefault();
+          break;
+        case "/":
+          e.preventDefault();
+          switchToTab("subscriptions");
+          setTimeout(function() {
+            var search = document.getElementById("search-subs");
+            if (search) search.focus();
+          }, 100);
+          break;
       }
-    }).catch(function() {
-      statusEl.style.display = "none";
+    });
+    document.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
     });
   }
-  function handleCodexSnap() {
-    showToast("\u{1F916} Capturing Codex snapshot...", "info");
-    fetch("/api/codex/snap", { method: "POST" }).then(function(r) {
-      return r.json();
-    }).then(function(data) {
-      if (data.error) {
-        showToast("\u274C " + data.error, "error");
-        return;
+
+  // internal/web/src/main.js
+  document.addEventListener("DOMContentLoaded", function() {
+    initTheme();
+    initTabs();
+    setRenderAccounts(renderAccounts);
+    initQuotas();
+    setupToggle();
+    initModal();
+    initBudget();
+    initSettings();
+    initSearch();
+    initKeyboardShortcuts();
+    initAccountMetaHandlers();
+    document.addEventListener("niyantra:tab-change", function(e) {
+      var tab = e.detail.tab;
+      if (tab === "overview") loadOverview();
+      if (tab === "settings") {
+        loadActivityLog();
+        loadMode();
+        loadDataSources();
       }
-      showToast("\u{1F916} Codex snapshot captured! Plan: " + (data.plan || "unknown"), "success");
-      loadCodexSettingsStatus();
-      loadOverview2();
-    }).catch(function() {
-      showToast("\u274C Codex snap failed", "error");
     });
-  }
+    document.addEventListener("niyantra:theme-change", function(e) {
+      updateChartTheme(e.detail.theme);
+    });
+    document.addEventListener("niyantra:chart-refresh", function() {
+      loadHistoryChart();
+    });
+    document.addEventListener("niyantra:overview-refresh", function() {
+      loadOverview();
+    });
+    document.getElementById("snap-btn").addEventListener("click", handleSnap);
+    initSnapDropdown();
+    document.getElementById("chart-account").addEventListener("change", loadHistoryChart);
+    document.getElementById("chart-range").addEventListener("change", loadHistoryChart);
+    Promise.all([fetchStatus(), fetchUsage()]).then(function(results) {
+      var data = results[0];
+      renderAccounts(data);
+      updateTimestamp();
+      populateChartAccountSelect(data);
+      loadHistoryChart();
+      if (!data.codexSnapshot || !data.claudeSnapshot) {
+        setTimeout(function() {
+          fetchStatus().then(function(data2) {
+            if (data2.codexSnapshot || data2.claudeSnapshot) {
+              renderAccounts(data2);
+            }
+          }).catch(function() {
+          });
+        }, 3e3);
+      }
+    }).catch(function(err) {
+      console.error("Failed to load status:", err);
+    });
+    loadSubscriptions();
+    fetchPresets().then(function(data) {
+      setPresetsData(data.presets || []);
+      var list = document.getElementById("preset-list");
+      for (var i = 0; i < presetsData.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = presetsData[i].platform;
+        list.appendChild(opt);
+      }
+    });
+    loadMode();
+    initCommandPalette();
+    loadSystemAlerts();
+    setInterval(refreshTimestampDisplay, 3e4);
+  });
   window.openBudgetModal = openBudgetModal;
   window.dismissAlert = dismissAlert;
   window.switchToTab = switchToTab;

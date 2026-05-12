@@ -7,6 +7,8 @@ import { renderServerInsights, loadAdvisorCard } from './insights.js';
 import { loadCostKPI } from './cost.js';
 import { renderRenewalCalendar } from './calendar.js';
 import { formatResetTime } from '../quotas/render.js';
+import { renderClaudeCodeCard, loadClaudeCardData } from '../advanced/claude.js';
+import { renderSessionsTimeline } from '../advanced/codex.js';
 
 export function loadOverview() {
   // Fetch overview, subscriptions, and usage intelligence
