@@ -1,0 +1,68 @@
+/* ═══════════════════════════════════════════
+   NIYANTRA DASHBOARD — Design System
+   ═══════════════════════════════════════════ */
+
+/* Global: ensure hidden attribute always wins over display rules */
+[hidden] { display: none !important; }
+
+:root {
+  --font: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --bg-gradient-start: #0a0e17;
+  --bg-gradient-end: #0f1423;
+  --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  --bg-card: rgba(17, 24, 39, 0.92);
+  --bg-card-hover: rgba(26, 35, 50, 0.95);
+  --bg-elevated: rgba(30, 41, 59, 0.90);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.15);
+  --text: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.2);
+  --green: #34d399;
+  --green-bg: rgba(52, 211, 153, 0.15);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251, 191, 36, 0.15);
+  --red: #f87171;
+  --red-bg: rgba(248, 113, 113, 0.15);
+  --purple: #c084fc;
+  --purple-bg: rgba(192, 132, 252, 0.15);
+  --provider-antigravity: #06b6d4;
+  --provider-codex: #f59e0b;
+  --provider-claude: #a855f7;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --backdrop-blur: blur(12px);
+  --transition: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="light"] {
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: #e2e8f0;
+  --bg: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --bg-elevated: rgba(241, 245, 249, 0.92);
+  --border: rgba(0, 0, 0, 0.06);
+  --border-hover: rgba(0, 0, 0, 0.12);
+  --text: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --accent: #0284c7;
+  --accent-glow: rgba(2, 132, 199, 0.12);
+  --shadow: 0 8px 32px rgba(3, 7, 18, 0.06);
+  --backdrop-blur: blur(16px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+

@@ -1,0 +1,140 @@
+/* ════════════════════════════════════════════
+   Phase 11: SESSIONS TIMELINE
+   ════════════════════════════════════════════ */
+
+.sessions-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.sessions-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+}
+
+.sessions-card .card-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.card-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sessions-card .card-body {
+  padding: 12px 20px 20px;
+}
+
+.session-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.session-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.session-item:last-child {
+  border-bottom: none;
+}
+
+.session-item.active {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.04), transparent);
+  margin: 0 -20px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+}
+
+.session-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-top: 4px;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+
+.session-dot.pulse {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  animation: session-pulse 2s ease-in-out infinite;
+}
+
+@keyframes session-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.08); }
+}
+
+.session-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.session-provider {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: capitalize;
+}
+
+.session-duration {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-bottom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.session-snaps {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.session-active-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  animation: pulse-warn 2s ease-in-out infinite;
+}
+

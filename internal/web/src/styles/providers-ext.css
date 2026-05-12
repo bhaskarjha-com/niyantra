@@ -1,0 +1,92 @@
+/* ════════════════════════════════════════════
+   CLAUDE CODE CARD (Phase 9)
+   ════════════════════════════════════════════ */
+
+.claude-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.claude-card h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.claude-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.claude-meter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.claude-meter-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.claude-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.claude-meter-pct {
+  font-size: 13px;
+  font-weight: 700;
+  width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.claude-meter-reset {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 50px;
+  text-align: right;
+}
+
+.claude-bridge-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.claude-bridge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+.claude-bridge-dot.stale {
+  background: var(--amber);
+  animation: none;
+}
+
+.claude-bridge-dot.off {
+  background: var(--text-muted);
+  animation: none;
+}
+

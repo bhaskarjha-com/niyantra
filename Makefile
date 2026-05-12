@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION)"
 
-.PHONY: build run test vet lint vulncheck clean demo js js-prod js-watch
+.PHONY: build run test vet lint vulncheck clean demo js js-prod js-watch css css-prod css-watch
 
 ## Build the binary with version injection
 build:
@@ -54,3 +54,17 @@ demo: build
 	./niyantra demo
 	./niyantra serve
 
+## Bundle frontend CSS
+css:
+	npx.cmd -y esbuild internal/web/src/styles/main.css --bundle \
+		--outfile=internal/web/static/style.css
+
+## Bundle + minify CSS for production
+css-prod:
+	npx.cmd -y esbuild internal/web/src/styles/main.css --bundle --minify \
+		--outfile=internal/web/static/style.css
+
+## Development: watch + rebuild CSS
+css-watch:
+	npx.cmd -y esbuild internal/web/src/styles/main.css --bundle \
+		--outfile=internal/web/static/style.css --watch

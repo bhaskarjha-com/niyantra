@@ -4,6 +4,9 @@
     "build": "esbuild internal/web/src/main.ts --bundle --format=iife --outfile=internal/web/static/app.js --target=es2020 --banner:js=\"// GENERATED FILE — do not edit. Source: internal/web/src/\"",
     "build:prod": "esbuild internal/web/src/main.ts --bundle --format=iife --outfile=internal/web/static/app.js --target=es2020 --minify --banner:js=\"// GENERATED FILE — do not edit. Source: internal/web/src/\"",
     "watch": "esbuild internal/web/src/main.ts --bundle --format=iife --outfile=internal/web/static/app.js --target=es2020 --watch --banner:js=\"// GENERATED FILE — do not edit. Source: internal/web/src/\"",
+    "css": "esbuild internal/web/src/styles/main.css --bundle --outfile=internal/web/static/style.css",
+    "css:prod": "esbuild internal/web/src/styles/main.css --bundle --minify --outfile=internal/web/static/style.css",
+    "css:watch": "esbuild internal/web/src/styles/main.css --bundle --outfile=internal/web/static/style.css --watch",
     "check": "tsc --noEmit"
   },
   "devDependencies": {

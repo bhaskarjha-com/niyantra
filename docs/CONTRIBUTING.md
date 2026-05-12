@@ -56,6 +56,9 @@ go run ./cmd/niyantra serve  # Windows
 | `make js` | Bundle frontend TypeScript → `app.js` (dev) |
 | `make js-prod` | Bundle + minify for production |
 | `make js-watch` | Watch mode — auto-rebuild on save |
+| `make css` | Bundle CSS source files → `style.css` (dev) |
+| `make css-prod` | Bundle + minify CSS for production |
+| `make css-watch` | Watch mode — auto-rebuild CSS on save |
 | `make clean` | Remove built binaries |
 
 ## Project Layout

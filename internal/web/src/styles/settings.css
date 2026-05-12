@@ -1,0 +1,173 @@
+/* ════════════════════════════════════════════
+   SEARCH BAR
+   ════════════════════════════════════════════ */
+
+.search-bar {
+  margin-bottom: 12px;
+}
+
+.search-input {
+  max-width: 340px;
+  padding-left: 14px !important;
+}
+
+/* ════════════════════════════════════════════
+   SETTINGS PAGE
+   ════════════════════════════════════════════ */
+
+.settings-page {
+  max-width: 640px;
+}
+
+.settings-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.settings-section h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  gap: 16px;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--border);
+}
+
+.settings-label {
+  flex: 1;
+}
+
+.settings-label strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.settings-label span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-control {
+  flex: 0 0 auto;
+}
+
+.settings-control .form-input {
+  width: 160px;
+}
+
+.input-with-prefix {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.input-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.input-with-prefix .form-input {
+  border-radius: 0 6px 6px 0;
+  width: 128px;
+}
+
+.settings-about {
+  padding: 4px 0;
+}
+
+.settings-about p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── Keyboard Shortcuts ── */
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .grid-header { display: none; }
+  .account-row { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+  .quota-cell { flex-direction: row; justify-content: space-between; padding: 8px 12px; background: var(--bg-elevated); border-radius: var(--radius-sm); }
+  .quota-cell::before { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+  .quota-cell:nth-child(2)::before { content: "Claude+GPT"; }
+  .quota-cell:nth-child(3)::before { content: "Gemini Pro"; }
+  .quota-cell:nth-child(4)::before { content: "Gemini Flash"; }
+  .header { flex-wrap: wrap; }
+  .header-status { display: none; }
+  .subs-card-grid { grid-template-columns: 1fr; padding: 12px; }
+  .overview-content { grid-template-columns: 1fr; }
+  .form-row { flex-direction: column; gap: 0; }
+  .tab-btn { padding: 10px 14px; font-size: 12px; }
+  .mode-badge { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

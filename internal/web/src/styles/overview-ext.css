@@ -1,0 +1,83 @@
+/* "Est. Spend Today" KPI card in Overview tab */
+.cost-kpi-card {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(56, 189, 248, 0.06));
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.cost-kpi-card h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.cost-kpi-amount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+.cost-kpi-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cost-kpi-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cost-kpi-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+/* Budget Forecast (Overview tab) */
+.budget-forecast {
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  margin-top: 8px;
+}
+.budget-forecast.forecast-ok {
+  background: var(--green-bg);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+.budget-forecast.forecast-over {
+  background: var(--red-bg);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+.forecast-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+}
+.forecast-details {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.forecast-chip {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+

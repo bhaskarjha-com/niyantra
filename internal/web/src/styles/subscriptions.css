@@ -1,0 +1,251 @@
+/* ════════════════════════════════════════════
+   SUBSCRIPTIONS TAB
+   ════════════════════════════════════════════ */
+
+.subs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.subs-summary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.subs-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.filter-select:hover { border-color: var(--border-hover); }
+
+/* ── Subscription Cards ── */
+
+.subs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.subs-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.sub-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+  position: relative;
+}
+
+.sub-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.sub-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.sub-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.sub-card-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sub-status-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sub-status-badge.active { background: var(--green-bg); color: var(--green); }
+.sub-status-badge.trial { background: var(--purple-bg); color: var(--purple); }
+.sub-status-badge.paused { background: var(--amber-bg); color: var(--amber); }
+.sub-status-badge.cancelled { background: var(--red-bg); color: var(--red); }
+
+.sub-cat-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--accent-glow);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sub-auto-badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 100px;
+  background: rgba(251, 191, 36, 0.1);
+  color: var(--amber);
+}
+
+.trial-countdown {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--red-bg);
+  color: var(--red);
+  animation: pulse 2s infinite;
+}
+
+.sub-card-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+
+/* S1: Subtitle for auto-tracked cards */
+.sub-card-subtitle {
+  margin-bottom: 6px;
+}
+.sub-card-platform-badge {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.sub-card-cost {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.sub-card-cost .cycle {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sub-card-limits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sub-limit-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+
+.sub-card-notes {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  max-height: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sub-card-links {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sub-card-links a {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sub-card-links a:hover { text-decoration: underline; }
+
+.sub-card-actions {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.sub-card-actions button {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.sub-card-actions button:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+.sub-card-actions .btn-edit-card:hover { color: var(--accent); border-color: var(--accent); }
+.sub-card-actions .btn-delete-card:hover { color: var(--red); border-color: var(--red); }
+
+.sub-renewal-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.sub-renewal-tag.soon {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.sub-renewal-tag.overdue {
+  color: var(--red);
+  font-weight: 600;
+}
+

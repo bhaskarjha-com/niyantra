@@ -1,0 +1,38 @@
+/* ═══════════════════════════════════════════
+   NIYANTRA DASHBOARD — CSS Entry Point
+   Split from monolithic style.css into domain files.
+   Bundled by esbuild into static/style.css
+   ═══════════════════════════════════════════ */
+
+/* Foundation */
+@import './base.css';
+@import './layout.css';
+
+/* Tab domains */
+@import './quotas.css';
+@import './subscriptions.css';
+@import './providers.css';
+@import './overview.css';
+
+/* Shared UI */
+@import './modals.css';
+@import './charts.css';
+@import './settings.css';
+@import './components.css';
+@import './badges.css';
+
+/* Overview extensions */
+@import './overview-ext.css';
+@import './advisor.css';
+@import './health.css';
+
+/* Advanced features */
+@import './palette.css';
+@import './alerts.css';
+@import './calendar.css';
+@import './insights-ext.css';
+
+/* Provider extensions */
+@import './providers-ext.css';
+@import './codex.css';
+@import './sessions.css';

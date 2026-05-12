@@ -1,0 +1,103 @@
+/* ════════════════════════════════════════════
+   Phase 11: CODEX CARD
+   ════════════════════════════════════════════ */
+
+.codex-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.codex-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 0;
+}
+
+.codex-card .card-header h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.codex-card .card-body {
+  padding: 16px 20px 20px;
+}
+
+.codex-quota {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.codex-quota-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.quota-bar-track,
+.quota-minibar-alt {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quota-bar-fill,
+.quota-minibar-fill-alt {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quota-bar-fill.healthy { background: var(--green); }
+.quota-bar-fill.warning { background: var(--amber); }
+.quota-bar-fill.danger { background: var(--red); }
+.quota-bar-fill.critical { background: var(--red); animation: pulse-warn 2s ease-in-out infinite; }
+
+.codex-quota-value {
+  font-size: 13px;
+  font-weight: 700;
+  width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.codex-quota-value.healthy { color: var(--green); }
+.codex-quota-value.warning { color: var(--amber); }
+.codex-quota-value.danger { color: var(--red); }
+.codex-quota-value.critical { color: var(--red); }
+
+.codex-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.codex-meta strong {
+  color: var(--text);
+}
+
+.codex-provenance {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
