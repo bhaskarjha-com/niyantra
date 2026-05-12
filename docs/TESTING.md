@@ -307,7 +307,7 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 
 ### 5.6 About
 - [ ] Shows "Niyantra — AI Operations Dashboard"
-- [ ] Shows "Schema v9 · 26 presets · Mode: Manual · 1 active source"
+- [ ] Shows "Schema v11 · 26 presets · Mode: Manual · 1 active source"
 - [ ] Mode text updates when Auto Capture is toggled
 
 ---
@@ -625,7 +625,7 @@ Test each shortcut from the Quotas tab with no modal open:
 - [ ] Protocol version `2025-03-26` in response
 
 ### 17.3 Tools List
-- [ ] `tools/list` returns exactly 8 tools:
+- [ ] `tools/list` returns exactly 9 tools:
   - [ ] `quota_status`
   - [ ] `model_availability`
   - [ ] `usage_intelligence`
@@ -634,6 +634,7 @@ Test each shortcut from the Quotas tab with no modal open:
   - [ ] `analyze_spending`
   - [ ] `switch_recommendation`
   - [ ] `codex_status`
+  - [ ] `quota_forecast`
 - [ ] Each tool has a non-empty description
 - [ ] `model_availability` has input schema with `model` field
 - [ ] `best_model` has input schema with `group` field

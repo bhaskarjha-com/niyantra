@@ -341,7 +341,7 @@ Each account gets a score (0-100) based on three factors:
 
 ## MCP Server
 
-Niyantra exposes 8 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
+Niyantra exposes 9 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ### Setup
 

@@ -251,7 +251,7 @@ Polling agent with ticker loop, exponential backoff, config-driven enable/disabl
 Per-model reset cycle detection (3 methods), usage rate forecasting, projected exhaustion, budget burn rate alerts.
 
 ### ✅ Phase 8: MCP Server
-MCP server over stdio (8 tools) for AI agent integration. Uses official Go SDK (github.com/modelcontextprotocol/go-sdk).
+MCP server over stdio (9 tools) for AI agent integration. Uses official Go SDK (github.com/modelcontextprotocol/go-sdk).
 
 ### ✅ Phase 9: Multi-Source & Safety Net
 - **Claude Code statusline bridge** — real-time rate limit data via shared file, auto-patched `~/.claude/settings.json`, 5h/7d usage meters

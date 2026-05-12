@@ -6,7 +6,7 @@
 User Interfaces
   CLI (snap/status/serve/mcp/demo/backup)
   Dashboard (4 tabs, embedded web app, PWA)
-  MCP Server (8 tools, AI agent access)
+  MCP Server (9 tools, AI agent access)
           |
 Application Layer
   agent/        - polling loop + session management
