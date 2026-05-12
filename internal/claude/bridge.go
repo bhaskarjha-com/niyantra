@@ -1,7 +1,7 @@
-// Package claudebridge provides zero-dependency integration with Claude Code's
-// statusline data. It patches Claude Code's settings.json to intercept rate limit
-// data, saving it to a shared file that Niyantra reads on each poll cycle.
-package claudebridge
+// Package claude provides zero-dependency integration with Claude Code.
+// It includes the statusline bridge for rate limit monitoring and deep session
+// file parsing for token usage analytics.
+package claude
 
 import (
 	"encoding/json"

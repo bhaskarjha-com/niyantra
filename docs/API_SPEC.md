@@ -672,6 +672,67 @@ Returns daily snapshot counts across all providers (Antigravity, Claude Code, Co
 
 ---
 
+### `GET /api/claude/usage` (Phase 14: F15d)
+
+Returns deep token usage analytics from Claude Code's local JSONL session files (`~/.claude/projects/*/sessions/*.jsonl`). Zero network calls — pure filesystem parsing.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `days` | `int` | 30 | Number of days of history (max 365) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "days": [
+    {
+      "date": "2026-05-12",
+      "totalInput": 45000,
+      "totalOutput": 12000,
+      "totalCacheRead": 30000,
+      "totalCacheCreate": 5000,
+      "totalCost": 0.42,
+      "sessionCount": 3,
+      "byModel": {
+        "claude-sonnet-4": {
+          "model": "claude-sonnet-4",
+          "inputTokens": 30000,
+          "outputTokens": 8000,
+          "cacheRead": 20000,
+          "cacheCreate": 3000,
+          "costUSD": 0.28,
+          "turns": 15
+        }
+      }
+    }
+  ],
+  "totalCost": 12.50,
+  "totalInput": 800000,
+  "totalOutput": 450000,
+  "totalTokens": 1250000,
+  "totalSessions": 47,
+  "cacheHitRate": 0.65,
+  "topModel": "claude-sonnet-4"
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `days` | array | Per-day token/cost aggregations, ordered ASC |
+| `totalCost` | float | Estimated cost in USD (using F5 model pricing) |
+| `totalTokens` | int | Total input + output tokens |
+| `totalSessions` | int | Unique Claude Code sessions in the range |
+| `cacheHitRate` | float | Cache read / (cache read + cache create), 0.0-1.0 |
+| `topModel` | string | Most-used model by total token count |
+
+> **Data Source:** Parses `~/.claude/projects/*/sessions/*.jsonl` files. Extracts `message.usage` from `type: "assistant"` records. Cost estimated via `store.GetModelPrice()` (F5 pricing config).
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:

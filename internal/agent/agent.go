@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
+	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
@@ -308,16 +308,16 @@ func (a *PollingAgent) pollClaudeBridge() {
 		return
 	}
 
-	if !claudebridge.IsFresh(claudebridge.DefaultStaleness) {
+	if !claude.IsFresh(claude.DefaultStaleness) {
 		return
 	}
 
-	rl, err := claudebridge.ReadData()
+	rl, err := claude.ReadData()
 	if err != nil {
 		a.logger.Debug("Claude bridge read error", "error", err)
 		return
 	}
-	if !claudebridge.IsValid(rl) {
+	if !claude.IsValid(rl) {
 		return
 	}
 
@@ -359,7 +359,7 @@ func (a *PollingAgent) pollClaudeBridge() {
 	}
 
 	// Ensure bridge is still healthy
-	claudebridge.EnsureBridge(a.logger)
+	claude.EnsureBridge(a.logger)
 
 	// Feed Claude session manager
 	if a.claudeSM != nil {

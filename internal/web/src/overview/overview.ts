@@ -8,7 +8,7 @@ import { loadCostKPI } from './cost';
 import { loadHeatmap } from './heatmap';
 import { renderRenewalCalendar } from './calendar';
 import { formatResetTime } from '../quotas/render';
-import { renderClaudeCodeCard, loadClaudeCardData } from '../advanced/claude';
+import { renderClaudeCodeCard, loadClaudeCardData, loadClaudeDeepUsage } from '../advanced/claude';
 import { renderSessionsTimeline } from '../advanced/codex';
 
 export function loadOverview(): void {
@@ -89,11 +89,8 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   }
   spendHTML += '</div>';
 
-  // ── Claude Code card ──
-  var claudeHTML = '';
-  if (serverConfig['claude_bridge'] === 'true') {
-    claudeHTML = renderClaudeCodeCard();
-  }
+  // ── Claude Code card (always rendered — F15d deep usage works without bridge) ──
+  var claudeHTML = renderClaudeCodeCard();
 
   // ── Renewal Calendar — only if renewals exist ──
   var calendarHTML = '';
@@ -186,10 +183,17 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   // P1: Content order — advisor first (most actionable), then budget, cost KPI, provider health, spend, insights
   el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
-  // Async load Claude Code data
+  // Async load Claude Code bridge data (only if bridge enabled)
   if (serverConfig['claude_bridge'] === 'true') {
     loadClaudeCardData();
+  } else {
+    // Bridge disabled — clear the "Loading..." placeholder
+    var cardBody = document.getElementById('claude-card-body');
+    if (cardBody) cardBody.innerHTML = '';
   }
+
+  // F15d: Async load Claude Code deep token usage (always, even if bridge disabled)
+  loadClaudeDeepUsage();
 
   // Async load advisor card
   loadAdvisorCard();

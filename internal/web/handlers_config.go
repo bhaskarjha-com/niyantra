@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
+	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
@@ -128,11 +128,11 @@ func (s *Server) onConfigChanged(key, value string) {
 	switch key {
 	case "claude_bridge":
 		if value == "true" {
-			if err := claudebridge.SetupBridge(s.logger); err != nil {
+			if err := claude.SetupBridge(s.logger); err != nil {
 				s.logger.Warn("Claude Code bridge setup failed", "error", err)
 			}
 		} else {
-			if err := claudebridge.DisableBridge(s.logger); err != nil {
+			if err := claude.DisableBridge(s.logger); err != nil {
 				s.logger.Warn("Claude Code bridge disable failed", "error", err)
 			}
 		}

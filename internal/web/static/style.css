@@ -3959,6 +3959,76 @@ kbd {
   color: var(--text-muted);
   font-weight: 500;
 }
+.claude-deep-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.claude-deep-section:empty {
+  display: none;
+}
+.claude-deep-stats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.claude-deep-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.claude-deep-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.claude-deep-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.claude-token-bar {
+  display: flex;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.claude-token-in {
+  background: rgba(56, 189, 248, 0.3);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  transition: width 600ms ease;
+}
+.claude-token-out {
+  background: rgba(192, 132, 252, 0.3);
+  color: var(--purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  transition: width 600ms ease;
+}
+.claude-deep-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.claude-deep-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
 
 /* internal/web/src/styles/sessions.css */
 .sessions-card {

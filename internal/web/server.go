@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/agent"
-	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
+	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -76,7 +76,7 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 
 	// Setup Claude Code bridge if enabled
 	if s.GetConfigBool("claude_bridge") {
-		if err := claudebridge.SetupBridge(logger); err != nil {
+		if err := claude.SetupBridge(logger); err != nil {
 			logger.Warn("Claude Code bridge setup failed", "error", err)
 		}
 	}
@@ -166,6 +166,7 @@ func (s *Server) ListenAndServe() error {
 
 	// Phase 9 routes
 	mux.HandleFunc("GET /api/claude/status", s.handleClaudeStatus)
+	mux.HandleFunc("GET /api/claude/usage", s.handleClaudeUsage)
 	mux.HandleFunc("GET /api/backup", s.handleBackup)
 	mux.HandleFunc("POST /api/notify/test", s.handleNotifyTest)
 

@@ -1997,7 +1997,7 @@
     });
   }
   function renderClaudeCodeCard() {
-    return '<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div></div>';
+    return '<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div><div id="claude-deep-usage" class="claude-deep-section"></div></div>';
   }
   function loadClaudeCardData() {
     fetch("/api/claude/status").then(function(r) {
@@ -2030,6 +2030,43 @@
     if (pct >= 80) return "var(--red)";
     if (pct >= 50) return "var(--amber)";
     return "var(--green)";
+  }
+  function loadClaudeDeepUsage() {
+    fetch("/api/claude/usage?days=30").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("claude-deep-usage");
+      if (!container) return;
+      if (!data || !data.days || data.days.length === 0) {
+        container.innerHTML = '<div class="empty-hint">No Claude Code session data found. Start coding with Claude Code to see token analytics.</div>';
+        return;
+      }
+      var html = "";
+      html += '<div class="claude-deep-stats">';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + formatTokens(data.totalTokens) + '</span><span class="claude-deep-label">tokens (30d)</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">$' + (data.totalCost || 0).toFixed(2) + '</span><span class="claude-deep-label">est. cost</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + (data.totalSessions || 0) + '</span><span class="claude-deep-label">sessions</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + ((data.cacheHitRate || 0) * 100).toFixed(0) + '%</span><span class="claude-deep-label">cache hit</span></div>';
+      html += "</div>";
+      var totalIn = data.totalInput || 0;
+      var totalOut = data.totalOutput || 0;
+      var totalAll = totalIn + totalOut;
+      if (totalAll > 0) {
+        var inPct = (totalIn / totalAll * 100).toFixed(0);
+        var outPct = (totalOut / totalAll * 100).toFixed(0);
+        html += '<div class="claude-token-bar"><div class="claude-token-in" style="width:' + inPct + '%"><span>In ' + formatTokens(totalIn) + '</span></div><div class="claude-token-out" style="width:' + outPct + '%"><span>Out ' + formatTokens(totalOut) + "</span></div></div>";
+      }
+      if (data.topModel) {
+        html += '<div class="claude-deep-meta"><span class="claude-deep-chip">\u{1F3C6} ' + data.topModel + "</span></div>";
+      }
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function formatTokens(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return n.toString();
   }
 
   // internal/web/src/advanced/codex.ts
@@ -2161,10 +2198,7 @@
       spendHTML += '<div class="overview-big-label">' + onlyCat.count + " " + cats[0] + " subscription" + (onlyCat.count !== 1 ? "s" : "") + "</div>";
     }
     spendHTML += "</div>";
-    var claudeHTML = "";
-    if (serverConfig["claude_bridge"] === "true") {
-      claudeHTML = renderClaudeCodeCard();
-    }
+    var claudeHTML = renderClaudeCodeCard();
     var calendarHTML = "";
     if (renewals.length > 0) {
       calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
@@ -2218,7 +2252,11 @@
     el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
     if (serverConfig["claude_bridge"] === "true") {
       loadClaudeCardData();
+    } else {
+      var cardBody = document.getElementById("claude-card-body");
+      if (cardBody) cardBody.innerHTML = "";
     }
+    loadClaudeDeepUsage();
     loadAdvisorCard();
     loadCostKPI();
     loadHeatmap();

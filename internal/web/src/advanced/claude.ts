@@ -40,6 +40,7 @@ export function renderClaudeCodeCard(): string {
   return '<div class="claude-card" id="claude-code-card">' +
     '<h3>🔗 Claude Code</h3>' +
     '<div id="claude-card-body"><div class="empty-hint">Loading...</div></div>' +
+    '<div id="claude-deep-usage" class="claude-deep-section"></div>' +
     '</div>';
 }
 
@@ -97,6 +98,73 @@ export function meterColor(pct: number): string {
   return 'var(--green)';
 }
 
+// ── F15d: Deep Token Usage ──────────────────────────────────────
 
+export function loadClaudeDeepUsage(): void {
+  fetch('/api/claude/usage?days=30').then(function(r) { return r.json(); }).then(function(data) {
+    var container = document.getElementById('claude-deep-usage');
+    if (!container) return;
+
+    if (!data || !data.days || data.days.length === 0) {
+      container.innerHTML = '<div class="empty-hint">No Claude Code session data found. Start coding with Claude Code to see token analytics.</div>';
+      return;
+    }
+
+    var html = '';
+
+    // Summary stats row
+    html += '<div class="claude-deep-stats">';
+    html += '<div class="claude-deep-stat">' +
+      '<span class="claude-deep-value">' + formatTokens(data.totalTokens) + '</span>' +
+      '<span class="claude-deep-label">tokens (30d)</span>' +
+    '</div>';
+    html += '<div class="claude-deep-stat">' +
+      '<span class="claude-deep-value">$' + (data.totalCost || 0).toFixed(2) + '</span>' +
+      '<span class="claude-deep-label">est. cost</span>' +
+    '</div>';
+    html += '<div class="claude-deep-stat">' +
+      '<span class="claude-deep-value">' + (data.totalSessions || 0) + '</span>' +
+      '<span class="claude-deep-label">sessions</span>' +
+    '</div>';
+    html += '<div class="claude-deep-stat">' +
+      '<span class="claude-deep-value">' + ((data.cacheHitRate || 0) * 100).toFixed(0) + '%</span>' +
+      '<span class="claude-deep-label">cache hit</span>' +
+    '</div>';
+    html += '</div>';
+
+    // Token breakdown: input vs output
+    var totalIn = data.totalInput || 0;
+    var totalOut = data.totalOutput || 0;
+    var totalAll = totalIn + totalOut;
+    if (totalAll > 0) {
+      var inPct = (totalIn / totalAll * 100).toFixed(0);
+      var outPct = (totalOut / totalAll * 100).toFixed(0);
+      html += '<div class="claude-token-bar">' +
+        '<div class="claude-token-in" style="width:' + inPct + '%">' +
+          '<span>In ' + formatTokens(totalIn) + '</span>' +
+        '</div>' +
+        '<div class="claude-token-out" style="width:' + outPct + '%">' +
+          '<span>Out ' + formatTokens(totalOut) + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+
+    // Top model badge
+    if (data.topModel) {
+      html += '<div class="claude-deep-meta">' +
+        '<span class="claude-deep-chip">🏆 ' + data.topModel + '</span>' +
+      '</div>';
+    }
+
+    container.innerHTML = html;
+  }).catch(function() {});
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toString();
+}
 
 // ════════════════════════════════════════════
+

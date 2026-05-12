@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/advisor"
-	"github.com/bhaskarjha-com/niyantra/internal/claudebridge"
+	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
@@ -35,8 +35,8 @@ func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
 // handleClaudeStatus returns the current Claude Code rate limit data.
 func (s *Server) handleClaudeStatus(w http.ResponseWriter, r *http.Request) {
 	bridgeEnabled := s.store.GetConfigBool("claude_bridge")
-	installed := claudebridge.IsClaudeCodeInstalled()
-	fresh := claudebridge.IsFresh(claudebridge.DefaultStaleness)
+	installed := claude.IsClaudeCodeInstalled()
+	fresh := claude.IsFresh(claude.DefaultStaleness)
 
 	result := map[string]interface{}{
 		"installed":     installed,
@@ -263,3 +263,40 @@ func (s *Server) handleAdvisor(w http.ResponseWriter, r *http.Request) {
 	rec := advisor.Recommend(snapshots, summariesByAccount)
 	writeJSON(w, rec)
 }
+
+// ── Phase 14: Claude Code Deep Tracking (F15d) ──────────────────
+
+// handleClaudeUsage returns deep token usage analytics from Claude Code's
+// local JSONL session files. Zero network calls — pure filesystem parsing.
+func (s *Server) handleClaudeUsage(w http.ResponseWriter, r *http.Request) {
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 && v <= 365 {
+			days = v
+		}
+	}
+
+	// Wire model pricing callback to F5 pricing config
+	priceFn := func(modelID string) (float64, float64, float64, bool) {
+		p := s.store.GetModelPrice(modelID)
+		if p == nil {
+			return 0, 0, 0, false
+		}
+		return p.InputPer1M, p.OutputPer1M, p.CachePer1M, true
+	}
+
+	summary, err := claude.AggregateUsage(days, priceFn)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("failed to aggregate usage: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if summary == nil {
+		summary = &claude.UsageSummary{
+			Days: []claude.DailyUsage{},
+		}
+	}
+
+	writeJSON(w, summary)
+}
+
