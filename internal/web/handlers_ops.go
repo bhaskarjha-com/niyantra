@@ -16,6 +16,19 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
+// ── Operational Endpoints ─────────────────────────────────────────
+
+// handleHealthz returns basic health/liveness data for monitoring.
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"status":        "ok",
+		"version":       s.Version,
+		"schemaVersion": s.store.SchemaVersion(),
+		"accounts":      s.store.AccountCount(),
+		"snapshots":     s.store.SnapshotCount(),
+	})
+}
+
 // ── Phase 9 Handlers ─────────────────────────────────────────────
 
 // handleClaudeStatus returns the current Claude Code rate limit data.

@@ -136,6 +136,9 @@ func (s *Server) Shutdown() {
 func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
 
+	// Operational endpoints (no auth required — registered on inner mux)
+	mux.HandleFunc("GET /healthz", s.handleHealthz)
+
 	// Quota API routes (auto-tracked)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 	mux.HandleFunc("POST /api/snap", s.handleSnap)
