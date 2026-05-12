@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -16,16 +15,15 @@ func (s *Server) handleCursorStatus(w http.ResponseWriter, r *http.Request) {
 		"captureEnabled": s.store.GetConfigBool("cursor_capture"),
 	}
 
-	// Detect credentials
 	manualToken := s.store.GetConfig("cursor_session_token")
 	creds, err := cursor.DetectCredentials(s.logger, manualToken)
 	if err == nil && creds != nil {
 		result["installed"] = true
 		result["email"] = creds.Email
+		result["userId"] = creds.UserID
 		result["source"] = creds.Source
 	}
 
-	// Latest snapshot
 	snap, err := s.store.LatestCursorSnapshot()
 	if err != nil {
 		s.logger.Error("Failed to get Cursor snapshot", "error", err)
@@ -46,30 +44,30 @@ func (s *Server) handleCursorSnap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch usage
-	client := cursor.NewClient(creds.AccessToken, s.logger)
-	usage, err := client.FetchUsage(r.Context())
+	client := cursor.NewClient(creds, s.logger)
+	snapshot, err := client.FetchSnapshot(r.Context())
 	if err != nil {
 		jsonError(w, fmt.Sprintf("Cursor API error: %v", err), http.StatusBadGateway)
 		return
 	}
 
-	// Build models JSON
-	modelsJSON, _ := json.Marshal(usage.Models)
-
-	// Build and store snapshot
 	snap := &store.CursorSnapshot{
 		Email:         creds.Email,
-		PremiumUsed:   usage.PremiumUsed,
-		PremiumLimit:  usage.PremiumLimit,
-		UsagePct:      usage.UsagePct(),
-		StartOfMonth:  usage.StartOfMonth,
-		ModelsJSON:    string(modelsJSON),
+		BillingModel:  snapshot.BillingModel,
+		PlanTier:      snapshot.PlanTier,
+		RequestsUsed:  snapshot.RequestsUsed,
+		RequestsMax:   snapshot.RequestsMax,
+		UsedCents:     snapshot.UsedCents,
+		LimitCents:    snapshot.LimitCents,
+		UsagePct:      snapshot.UsagePct(),
+		AutoPct:       snapshot.AutoPercentUsed,
+		APIPct:        snapshot.APIPercentUsed,
+		CycleStart:    snapshot.CycleStart,
+		CycleEnd:      snapshot.CycleEnd,
 		CaptureMethod: "manual",
 		CaptureSource: "ui",
 	}
 
-	// Try to get or create an account for this cursor user
 	if creds.Email != "" {
 		accountID, err := s.store.GetOrCreateAccount(creds.Email, "Cursor", "cursor")
 		if err == nil {
@@ -83,21 +81,21 @@ func (s *Server) handleCursorSnap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update data source bookkeeping
 	s.store.UpdateSourceCapture("cursor")
-
-	// Log the snap
 	s.store.LogInfo("ui", "cursor_snap", creds.Email, map[string]interface{}{
-		"premiumUsed": usage.PremiumUsed, "premiumLimit": usage.PremiumLimit,
-		"method": "manual", "models": len(usage.Models),
+		"billing": snapshot.BillingModel, "plan": snapshot.PlanTier,
+		"usagePct": snapshot.UsagePct(), "method": "manual",
 	})
 
 	writeJSON(w, map[string]interface{}{
 		"message":      "Cursor snapshot captured",
 		"snapshotId":   snapID,
-		"premiumUsed":  usage.PremiumUsed,
-		"premiumLimit": usage.PremiumLimit,
-		"usagePct":     usage.UsagePct(),
-		"models":       usage.Models,
+		"billingModel": snapshot.BillingModel,
+		"planTier":     snapshot.PlanTier,
+		"usagePct":     snapshot.UsagePct(),
+		"requestsUsed": snapshot.RequestsUsed,
+		"requestsMax":  snapshot.RequestsMax,
+		"usedCents":    snapshot.UsedCents,
+		"limitCents":   snapshot.LimitCents,
 	})
 }

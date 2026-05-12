@@ -622,9 +622,10 @@ func TestHeatmapData(t *testing.T) {
 
 	// Cursor snapshot (today)
 	cursorSnap := &CursorSnapshot{
-		PremiumUsed:   50,
-		PremiumLimit:  500,
+		RequestsUsed:  50,
+		RequestsMax:   500,
 		UsagePct:      10.0,
+		BillingModel:  "request_count",
 		CaptureMethod: "auto",
 		CaptureSource: "server",
 	}
