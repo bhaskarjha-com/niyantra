@@ -22,14 +22,14 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 11
+	// Verify schema version is 12
 	v := s.getUserVersion()
-	if v != 11 {
-		t.Errorf("expected schema version 11, got %d", v)
+	if v != 12 {
+		t.Errorf("expected schema version 12, got %d", v)
 	}
 
 	// Insert a snapshot and query it back
-	accountID, err := s.GetOrCreateAccount("test@example.com", "Pro")
+	accountID, err := s.GetOrCreateAccount("test@example.com", "Pro", "antigravity")
 	if err != nil {
 		t.Fatalf("GetOrCreateAccount: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestConfigCRUD(t *testing.T) {
 func TestRetentionCleanup(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, _ := s.GetOrCreateAccount("cleanup@example.com", "Free")
+	accountID, _ := s.GetOrCreateAccount("cleanup@example.com", "Free", "antigravity")
 
 	// Insert old snapshot (400 days ago)
 	oldTime := time.Now().UTC().Add(-400 * 24 * time.Hour)
@@ -158,7 +158,7 @@ func TestRetentionCleanup(t *testing.T) {
 func TestInsertAndQuerySnapshotWithAICredits(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, _ := s.GetOrCreateAccount("credits@example.com", "Pro")
+	accountID, _ := s.GetOrCreateAccount("credits@example.com", "Pro", "antigravity")
 
 	snap := &client.Snapshot{
 		AccountID:     accountID,
@@ -197,7 +197,7 @@ func TestInsertAndQuerySnapshotWithAICredits(t *testing.T) {
 func TestUpdateSnapshotModels(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, _ := s.GetOrCreateAccount("adjust@example.com", "Pro")
+	accountID, _ := s.GetOrCreateAccount("adjust@example.com", "Pro", "antigravity")
 
 	snap := &client.Snapshot{
 		AccountID:  accountID,
@@ -271,7 +271,7 @@ func TestUpdateSnapshotModels_NotFound(t *testing.T) {
 func TestAccountMeta(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, err := s.GetOrCreateAccount("meta@example.com", "Pro")
+	accountID, err := s.GetOrCreateAccount("meta@example.com", "Pro", "antigravity")
 	if err != nil {
 		t.Fatalf("GetOrCreateAccount: %v", err)
 	}
@@ -351,7 +351,7 @@ func TestAccountMeta(t *testing.T) {
 func TestPinnedGroupPartialUpdate(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, err := s.GetOrCreateAccount("pin@example.com", "Pro")
+	accountID, err := s.GetOrCreateAccount("pin@example.com", "Pro", "antigravity")
 	if err != nil {
 		t.Fatalf("GetOrCreateAccount: %v", err)
 	}
@@ -407,7 +407,7 @@ func TestPinnedGroupPartialUpdate(t *testing.T) {
 func TestCreditRenewalDay(t *testing.T) {
 	s := openTestDB(t)
 
-	accountID, err := s.GetOrCreateAccount("renewal@example.com", "Pro")
+	accountID, err := s.GetOrCreateAccount("renewal@example.com", "Pro", "antigravity")
 	if err != nil {
 		t.Fatalf("GetOrCreateAccount: %v", err)
 	}
@@ -593,7 +593,7 @@ func TestHeatmapData(t *testing.T) {
 	}
 
 	// Insert snapshots across all 3 providers
-	accountID, _ := s.GetOrCreateAccount("heatmap@example.com", "Pro")
+	accountID, _ := s.GetOrCreateAccount("heatmap@example.com", "Pro", "antigravity")
 
 	// Antigravity snapshot (today)
 	snap := &client.Snapshot{
@@ -641,6 +641,78 @@ func TestHeatmapData(t *testing.T) {
 	}
 	if day.Count != 4 {
 		t.Errorf("expected total count 4, got %d", day.Count)
+	}
+}
+
+func TestUnifiedAccountModel(t *testing.T) {
+	s := openTestDB(t)
+
+	// Same email, different providers — should create separate accounts
+	agID, err := s.GetOrCreateAccount("user@example.com", "Pro", "antigravity")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount antigravity: %v", err)
+	}
+
+	codexID, err := s.GetOrCreateAccount("user@example.com", "Plus", "codex")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount codex: %v", err)
+	}
+
+	cursorID, err := s.GetOrCreateAccount("user@example.com", "Pro", "cursor")
+	if err != nil {
+		t.Fatalf("GetOrCreateAccount cursor: %v", err)
+	}
+
+	// All three IDs must be different
+	if agID == codexID || agID == cursorID || codexID == cursorID {
+		t.Errorf("expected different account IDs, got ag=%d codex=%d cursor=%d", agID, codexID, cursorID)
+	}
+
+	// Should have 3 accounts total
+	count := s.AccountCount()
+	if count != 3 {
+		t.Errorf("expected 3 accounts, got %d", count)
+	}
+
+	// Metadata should be independent per provider
+	if err := s.UpdateAccountMeta(agID, "AG note", "work", "", 0); err != nil {
+		t.Fatalf("UpdateAccountMeta ag: %v", err)
+	}
+	if err := s.UpdateAccountMeta(codexID, "Codex note", "dev", "", 0); err != nil {
+		t.Fatalf("UpdateAccountMeta codex: %v", err)
+	}
+
+	agNotes, agTags, _, _, _ := s.AccountMeta(agID)
+	cxNotes, cxTags, _, _, _ := s.AccountMeta(codexID)
+
+	if agNotes != "AG note" || agTags != "work" {
+		t.Errorf("AG meta wrong: notes=%q tags=%q", agNotes, agTags)
+	}
+	if cxNotes != "Codex note" || cxTags != "dev" {
+		t.Errorf("Codex meta wrong: notes=%q tags=%q", cxNotes, cxTags)
+	}
+
+	// Upsert same provider should NOT create new account
+	agID2, _ := s.GetOrCreateAccount("user@example.com", "Ultra", "antigravity")
+	if agID2 != agID {
+		t.Errorf("upsert should return same ID: got %d, want %d", agID2, agID)
+	}
+
+	// AllAccounts should include provider field
+	accounts, err := s.AllAccounts()
+	if err != nil {
+		t.Fatalf("AllAccounts: %v", err)
+	}
+	if len(accounts) != 3 {
+		t.Fatalf("expected 3 accounts in AllAccounts, got %d", len(accounts))
+	}
+
+	providers := map[string]bool{}
+	for _, a := range accounts {
+		providers[a.Provider] = true
+	}
+	if !providers["antigravity"] || !providers["codex"] || !providers["cursor"] {
+		t.Errorf("expected all 3 providers, got %v", providers)
 	}
 }
 

@@ -32,8 +32,8 @@ func TestProcessMultiAccountNoContamination(t *testing.T) {
 	resetTime := now.Add(5 * time.Hour)
 
 	// Create two accounts
-	accountA, _ := s.GetOrCreateAccount("a@test.com", "Pro")
-	accountB, _ := s.GetOrCreateAccount("b@test.com", "Free")
+	accountA, _ := s.GetOrCreateAccount("a@test.com", "Pro", "antigravity")
+	accountB, _ := s.GetOrCreateAccount("b@test.com", "Free", "antigravity")
 
 	// Process Account A with modelX at 0.8 remaining
 	snapA := &client.Snapshot{
@@ -99,8 +99,8 @@ func TestProcessConcurrentSafe(t *testing.T) {
 	now := time.Now().UTC()
 	resetTime := now.Add(5 * time.Hour)
 
-	accountA, _ := s.GetOrCreateAccount("a@test.com", "Pro")
-	accountB, _ := s.GetOrCreateAccount("b@test.com", "Free")
+	accountA, _ := s.GetOrCreateAccount("a@test.com", "Pro", "antigravity")
+	accountB, _ := s.GetOrCreateAccount("b@test.com", "Free", "antigravity")
 
 	var wg sync.WaitGroup
 	wg.Add(2)

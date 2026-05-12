@@ -2,23 +2,28 @@ package store
 
 import "fmt"
 
-// GetOrCreateAccount returns the account ID for the given email,
+// GetOrCreateAccount returns the account ID for the given email and provider,
 // creating a new account if one doesn't exist.
-func (s *Store) GetOrCreateAccount(email, planName string) (int64, error) {
+// Provider must be one of: "antigravity", "codex", "claude", "cursor".
+func (s *Store) GetOrCreateAccount(email, planName, provider string) (int64, error) {
+	if provider == "" {
+		provider = "antigravity"
+	}
+
 	// Upsert: insert or update plan_name and updated_at on conflict
 	_, err := s.db.Exec(`
-		INSERT INTO accounts (email, plan_name)
-		VALUES (?, ?)
-		ON CONFLICT(email) DO UPDATE SET
+		INSERT INTO accounts (email, plan_name, provider)
+		VALUES (?, ?, ?)
+		ON CONFLICT(email, provider) DO UPDATE SET
 			plan_name = excluded.plan_name,
 			updated_at = datetime('now')
-	`, email, planName)
+	`, email, planName, provider)
 	if err != nil {
 		return 0, fmt.Errorf("store: upsert account: %w", err)
 	}
 
 	var id int64
-	err = s.db.QueryRow("SELECT id FROM accounts WHERE email = ?", email).Scan(&id)
+	err = s.db.QueryRow("SELECT id FROM accounts WHERE email = ? AND provider = ?", email, provider).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("store: get account id: %w", err)
 	}
@@ -33,11 +38,12 @@ func (s *Store) AccountCount() int {
 	return count
 }
 
-// Account represents a tracked email account.
+// Account represents a tracked account (any provider).
 type Account struct {
 	ID               int64  `json:"id"`
 	Email            string `json:"email"`
 	PlanName         string `json:"planName"`
+	Provider         string `json:"provider"`
 	Notes            string `json:"notes"`
 	Tags             string `json:"tags"`             // comma-separated: "work,primary"
 	PinnedGroup      string `json:"pinnedGroup"`      // for F3: pinned quota group key
@@ -48,7 +54,7 @@ type Account struct {
 
 // AllAccounts returns all tracked accounts.
 func (s *Store) AllAccounts() ([]*Account, error) {
-	rows, err := s.db.Query(`SELECT id, email, plan_name, COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), COALESCE(credit_renewal_day,0), created_at, updated_at FROM accounts ORDER BY email`)
+	rows, err := s.db.Query(`SELECT id, email, plan_name, COALESCE(provider,'antigravity'), COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), COALESCE(credit_renewal_day,0), created_at, updated_at FROM accounts ORDER BY provider, email`)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +63,7 @@ func (s *Store) AllAccounts() ([]*Account, error) {
 	var accounts []*Account
 	for rows.Next() {
 		a := &Account{}
-		if err := rows.Scan(&a.ID, &a.Email, &a.PlanName, &a.Notes, &a.Tags, &a.PinnedGroup, &a.CreditRenewalDay, &a.CreatedAt, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Email, &a.PlanName, &a.Provider, &a.Notes, &a.Tags, &a.PinnedGroup, &a.CreditRenewalDay, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			continue
 		}
 		accounts = append(accounts, a)
@@ -83,7 +89,7 @@ func (s *Store) UpdateAccountMeta(accountID int64, notes, tags, pinnedGroup stri
 	return err
 }
 
-// DeleteAccount removes an account and all its associated data (snapshots, cycles, sessions, codex snapshots).
+// DeleteAccount removes an account and all its associated data (snapshots, cycles, sessions, codex/cursor snapshots).
 // Returns the total number of deleted rows across all tables.
 func (s *Store) DeleteAccount(accountID int64) (int64, error) {
 	var totalDeleted int64
@@ -96,6 +102,7 @@ func (s *Store) DeleteAccount(accountID int64) (int64, error) {
 		{"DELETE FROM snapshots WHERE account_id = ?", "snapshots"},
 		{"DELETE FROM antigravity_reset_cycles WHERE account_id = ?", "reset_cycles"},
 		{"DELETE FROM codex_snapshots WHERE account_id = ?", "codex_snapshots"},
+		{"DELETE FROM cursor_snapshots WHERE account_id = ?", "cursor_snapshots"},
 		{"DELETE FROM accounts WHERE id = ?", "accounts"},
 	}
 

@@ -446,6 +446,105 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v12: Unified Account Model ──────────────────────────────────
+	// Adds 'provider' column to accounts and migrates UNIQUE(email)
+	// to UNIQUE(email, provider) so Codex/Claude/Cursor can each have
+	// their own account row while sharing the metadata infrastructure
+	// (tags, notes, pinned groups, tag-based filtering).
+	// Also creates cursor_snapshots table for F15a.
+	if s.getUserVersion() < 12 {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return fmt.Errorf("store: v12 begin tx: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// 1. Recreate accounts table with UNIQUE(email, provider) instead of UNIQUE(email)
+		if _, err = tx.Exec(`
+			CREATE TABLE IF NOT EXISTS accounts_new (
+				id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+				email              TEXT    NOT NULL,
+				plan_name          TEXT    DEFAULT '',
+				provider           TEXT    NOT NULL DEFAULT 'antigravity',
+				notes              TEXT    DEFAULT '',
+				tags               TEXT    DEFAULT '',
+				pinned_group       TEXT    DEFAULT '',
+				credit_renewal_day INTEGER DEFAULT 0,
+				created_at         DATETIME DEFAULT (datetime('now')),
+				updated_at         DATETIME DEFAULT (datetime('now')),
+				UNIQUE(email, provider)
+			);
+		`); err != nil {
+			return fmt.Errorf("store: v12 create accounts_new: %w", err)
+		}
+
+		// 2. Copy existing rows (all existing accounts are antigravity provider)
+		if _, err = tx.Exec(`
+			INSERT INTO accounts_new (id, email, plan_name, provider, notes, tags, pinned_group, credit_renewal_day, created_at, updated_at)
+			SELECT id, email, plan_name, 'antigravity', COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''), COALESCE(credit_renewal_day,0), created_at, updated_at
+			FROM accounts
+		`); err != nil {
+			return fmt.Errorf("store: v12 copy accounts: %w", err)
+		}
+
+		// 3. Drop old table, rename new
+		if _, err = tx.Exec(`DROP TABLE accounts`); err != nil {
+			return fmt.Errorf("store: v12 drop accounts: %w", err)
+		}
+		if _, err = tx.Exec(`ALTER TABLE accounts_new RENAME TO accounts`); err != nil {
+			return fmt.Errorf("store: v12 rename accounts: %w", err)
+		}
+
+		// 4. Create cursor_snapshots table (F15a)
+		if _, err = tx.Exec(`
+			CREATE TABLE IF NOT EXISTS cursor_snapshots (
+				id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+				account_id      INTEGER  DEFAULT 0,
+				email           TEXT     DEFAULT '',
+				premium_used    INTEGER  DEFAULT 0,
+				premium_limit   INTEGER  DEFAULT 0,
+				usage_pct       REAL     DEFAULT 0,
+				plan_type       TEXT     DEFAULT '',
+				start_of_month  TEXT     DEFAULT '',
+				models_json     TEXT     DEFAULT '{}',
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				capture_method  TEXT     DEFAULT 'manual',
+				capture_source  TEXT     DEFAULT 'ui',
+				FOREIGN KEY (account_id) REFERENCES accounts(id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_cursor_snapshots_time
+				ON cursor_snapshots(captured_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_cursor_snapshots_account
+				ON cursor_snapshots(account_id, captured_at DESC);
+		`); err != nil {
+			return fmt.Errorf("store: v12 create cursor_snapshots: %w", err)
+		}
+
+		// 5. Seed Cursor config keys and data source
+		if _, err = tx.Exec(`
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('cursor_capture',       'false', 'bool',   'capture', 'Cursor Capture',       'Enable Cursor quota tracking via session token API'),
+				('cursor_session_token', '',      'string', 'capture', 'Cursor Session Token',  'Manual override: paste WorkosCursorSessionToken from browser DevTools');
+
+			INSERT OR IGNORE INTO data_sources (id, name, source_type, enabled, config_json) VALUES
+				('cursor', 'Cursor', 'session_token_api', 0, '{}');
+		`); err != nil {
+			return fmt.Errorf("store: v12 seed cursor config: %w", err)
+		}
+
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("store: v12 commit: %w", err)
+		}
+
+		if err := s.setUserVersion(12); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

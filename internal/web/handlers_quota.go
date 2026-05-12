@@ -87,7 +87,7 @@ func (s *Server) handleSnap(w http.ResponseWriter, r *http.Request) {
 	snap.CaptureSource = "ui"
 	snap.SourceID = "antigravity"
 
-	accountID, err := s.store.GetOrCreateAccount(snap.Email, snap.PlanName)
+	accountID, err := s.store.GetOrCreateAccount(snap.Email, snap.PlanName, "antigravity")
 	if err != nil {
 		jsonError(w, "database error", http.StatusInternalServerError)
 		return

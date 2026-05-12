@@ -114,7 +114,7 @@ func cmdSnap(logger *slog.Logger, dbPath string) {
 	}
 	defer db.Close()
 
-	accountID, err := db.GetOrCreateAccount(snap.Email, snap.PlanName)
+	accountID, err := db.GetOrCreateAccount(snap.Email, snap.PlanName, "antigravity")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating account: %v\n", err)
 		os.Exit(1)
@@ -447,7 +447,7 @@ func cmdDemo(logger *slog.Logger, dbPath string) {
 
 	totalSnaps := 0
 	for _, acc := range accounts {
-		accID, _ := db.GetOrCreateAccount(acc.email, acc.plan)
+		accID, _ := db.GetOrCreateAccount(acc.email, acc.plan, "antigravity")
 
 		// Generate 12 snapshots spanning the last 24 hours
 		for i := 11; i >= 0; i-- {

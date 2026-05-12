@@ -29,6 +29,7 @@ type importEnvelope struct {
 type importAccount struct {
 	Email    string `json:"email"`
 	PlanName string `json:"plan_name"`
+	Provider string `json:"provider"`
 }
 
 type importSubscription struct {
@@ -80,17 +81,23 @@ func (s *Store) ImportJSON(data []byte) (*ImportResult, error) {
 			continue
 		}
 
-		// Check if exists
+		// Default provider to antigravity for legacy imports
+		provider := acct.Provider
+		if provider == "" {
+			provider = "antigravity"
+		}
+
+		// Check if exists (dedup by email + provider)
 		var existingID int64
-		err := s.db.QueryRow(`SELECT id FROM accounts WHERE email = ?`, acct.Email).Scan(&existingID)
+		err := s.db.QueryRow(`SELECT id FROM accounts WHERE email = ? AND provider = ?`, acct.Email, provider).Scan(&existingID)
 		if err == nil {
 			emailToID[acct.Email] = existingID
 			result.AccountsSkipped++
 			continue
 		}
 
-		res, err := s.db.Exec(`INSERT INTO accounts (email, plan_name) VALUES (?, ?)`,
-			acct.Email, acct.PlanName)
+		res, err := s.db.Exec(`INSERT INTO accounts (email, plan_name, provider) VALUES (?, ?, ?)`,
+			acct.Email, acct.PlanName, provider)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("account insert %q: %v", acct.Email, err))
 			continue
