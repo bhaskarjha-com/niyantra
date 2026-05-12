@@ -4,6 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    "ignoreDeprecations": "6.0",
     "noEmit": true,
     "isolatedModules": true,
     "esModuleInterop": true,

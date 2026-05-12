@@ -1,8 +1,9 @@
 // Niyantra Dashboard — Data Sources
-import { esc, formatTimeAgo } from '../core/utils.js';
+// @ts-nocheck
+import { esc, formatTimeAgo } from '../core/utils';
 
 
-export function loadDataSources() {
+export function loadDataSources(): void {
   fetch('/api/mode').then(function(r) { return r.json(); })
   .then(function(data) {
     var container = document.getElementById('data-sources-list');

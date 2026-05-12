@@ -1,16 +1,17 @@
 // Niyantra Dashboard — Overview Tab Renderer
-import { serverConfig, latestQuotaData } from '../core/state.js';
-import { esc, formatTimeAgo, formatDurationSec } from '../core/utils.js';
-import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api.js';
-import { getBudget, openBudgetModal } from './budget.js';
-import { renderServerInsights, loadAdvisorCard } from './insights.js';
-import { loadCostKPI } from './cost.js';
-import { renderRenewalCalendar } from './calendar.js';
-import { formatResetTime } from '../quotas/render.js';
-import { renderClaudeCodeCard, loadClaudeCardData } from '../advanced/claude.js';
-import { renderSessionsTimeline } from '../advanced/codex.js';
+// @ts-nocheck
+import { serverConfig, latestQuotaData } from '../core/state';
+import { esc, formatTimeAgo, formatDurationSec } from '../core/utils';
+import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api';
+import { getBudget, openBudgetModal } from './budget';
+import { renderServerInsights, loadAdvisorCard } from './insights';
+import { loadCostKPI } from './cost';
+import { renderRenewalCalendar } from './calendar';
+import { formatResetTime } from '../quotas/render';
+import { renderClaudeCodeCard, loadClaudeCardData } from '../advanced/claude';
+import { renderSessionsTimeline } from '../advanced/codex';
 
-export function loadOverview() {
+export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
   Promise.all([fetchOverview(), fetchSubscriptions('', ''), fetchUsage()]).then(function(results) {
     var data = results[0];

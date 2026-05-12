@@ -1,8 +1,9 @@
 // Niyantra Dashboard — Insights & Advisor
-import { latestQuotaData } from '../core/state.js';
-import { esc } from '../core/utils.js';
+// @ts-nocheck
+import { latestQuotaData } from '../core/state';
+import { esc } from '../core/utils';
 
-export function generateInsights(stats, renewals, subs) {
+export function generateInsights(stats: any, renewals: any, subs: any): any[] {
   var chips = [];
 
   // Total subscriptions
@@ -61,7 +62,7 @@ export function generateInsights(stats, renewals, subs) {
   return chips;
 }
 
-export function renderInsightChips(chips) {
+export function renderInsightChips(chips: any[]): string {
   if (chips.length === 0) return '';
   var html = '<div class="overview-card full-width"><h3>Insights</h3><div class="insight-chips">';
   for (var i = 0; i < chips.length; i++) {
@@ -77,7 +78,7 @@ export function renderInsightChips(chips) {
 //  Phase 10: SERVER-COMPUTED INSIGHTS
 // ════════════════════════════════════════════
 
-export function renderServerInsights(insights) {
+export function renderServerInsights(insights: any[]): string {
   if (!insights || insights.length === 0) return '';
 
   var html = '<div class="insight-panel"><h3>🧠 Intelligence Insights</h3><div class="insight-list">';
@@ -110,7 +111,7 @@ export function renderServerInsights(insights) {
 // O1: Dynamic Switch Advisor — model-group aware
 export var advisorGroupPref = localStorage.getItem('niyantra_advisor_group') || 'claude_gpt';
 
-export function loadAdvisorCard() {
+export function loadAdvisorCard(): void {
   var container = document.getElementById('advisor-card-container');
   if (!container) return;
 
@@ -123,7 +124,7 @@ export function loadAdvisorCard() {
   renderAdvisorWithGroup(container, advisorGroupPref);
 }
 
-export function renderAdvisorWithGroup(container, groupKey) {
+export function renderAdvisorWithGroup(container: HTMLElement, groupKey: string): void {
   var accounts = latestQuotaData.accounts;
 
   // Build ranked list based on selected group's remaining %
@@ -224,7 +225,7 @@ export function renderAdvisorWithGroup(container, groupKey) {
   var sel = document.getElementById('advisor-group-filter');
   if (sel) {
     sel.addEventListener('change', function() {
-      advisorGroupPref = sel.value;
+      advisorGroupPref = (sel as HTMLSelectElement).value;
       localStorage.setItem('niyantra_advisor_group', advisorGroupPref);
       renderAdvisorWithGroup(container, advisorGroupPref);
     });

@@ -1,8 +1,9 @@
 // Niyantra Dashboard — Activity Log
-import { esc } from '../core/utils.js';
+// @ts-nocheck
+import { esc } from '../core/utils';
 
 
-export function loadActivityLog() {
+export function loadActivityLog(): void {
   var filter = document.getElementById('activity-filter').value;
   var url = '/api/activity?limit=50';
   if (filter) url += '&type=' + filter;

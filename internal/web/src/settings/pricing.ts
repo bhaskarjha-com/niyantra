@@ -1,10 +1,11 @@
 // Niyantra Dashboard — Model Pricing Config
-import { esc, showToast } from '../core/utils.js';
+// @ts-nocheck
+import { esc, showToast } from '../core/utils';
 
 
-export var pricingDataCache = null;
+export var pricingDataCache: any[] | null = null;
 
-export function loadModelPricing() {
+export function loadModelPricing(): void {
   fetch('/api/config/pricing').then(function(res) { return res.json(); })
   .then(function(data) {
     pricingDataCache = data.pricing || [];
@@ -83,7 +84,7 @@ export function savePricingFromTable() {
   .catch(function() { showToast('❌ Failed to save pricing', 'error'); });
 }
 
-export function addPricingRow() {
+export function addPricingRow(): void {
   if (!pricingDataCache) pricingDataCache = [];
 
   var newModel = {
@@ -148,7 +149,7 @@ export function deletePricingRow(idx) {
   showToast('🗑️ Removed ' + name, 'success');
 }
 
-export function resetPricingDefaults() {
+export function resetPricingDefaults(): void {
   if (!confirm('Reset all model pricing to current market defaults? This will overwrite your custom prices.')) return;
 
   // Fetch defaults from API by deleting the config key and re-fetching

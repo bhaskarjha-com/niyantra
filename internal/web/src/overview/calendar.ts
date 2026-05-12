@@ -1,11 +1,12 @@
 // Niyantra Dashboard — Renewal Calendar
-import { esc } from '../core/utils.js';
+// @ts-nocheck
+import { esc } from '../core/utils';
 //  Phase 10: RENEWAL CALENDAR
 // ════════════════════════════════════════════
 
 export var calendarViewDate = new Date();
 
-export function renderRenewalCalendar(renewals, subs) {
+export function renderRenewalCalendar(renewals: any[], subs: any[]): void {
   var container = document.getElementById('renewal-calendar-container');
   if (!container) return;
 
@@ -129,7 +130,7 @@ export function renderRenewalCalendar(renewals, subs) {
   container.innerHTML = html;
 }
 
-export function calendarNav(delta) {
+export function calendarNav(delta: number): void {
   calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
   // Re-render with cached data
   var el = document.getElementById('renewal-calendar-container');

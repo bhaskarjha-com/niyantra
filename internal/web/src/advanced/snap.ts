@@ -1,8 +1,9 @@
 // Niyantra Dashboard — Snap Handler
-import { snapInProgress, setSnapInProgress } from '../core/state.js';
-import { showToast, updateTimestamp } from '../core/utils.js';
-import { triggerSnap } from '../core/api.js';
-import { renderAccounts } from '../quotas/render.js';
+// @ts-nocheck
+import { snapInProgress, setSnapInProgress } from '../core/state';
+import { showToast, updateTimestamp } from '../core/utils';
+import { triggerSnap } from '../core/api';
+import { renderAccounts } from '../quotas/render';
 
 
 
@@ -10,7 +11,7 @@ import { renderAccounts } from '../quotas/render.js';
 // H3: Split-button snap — source-aware snapping
 var snapDefault = localStorage.getItem('niyantra_snap_default') || 'antigravity';
 
-export function initSnapDropdown() {
+export function initSnapDropdown(): void {
   var caret = document.getElementById('snap-caret');
   var dropdown = document.getElementById('snap-dropdown');
   if (!caret || !dropdown) return;
@@ -58,7 +59,7 @@ export function updateSnapDropdownIndicators() {
   });
 }
 
-export function handleSnap() {
+export function handleSnap(): void {
   snapSource(snapDefault);
 }
 

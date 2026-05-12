@@ -1,11 +1,12 @@
 // Niyantra Dashboard — Quota History Chart
-var Chart = window.Chart;
+// @ts-nocheck
+var Chart = (window as any).Chart;
 
 
-export var historyChart = null;
+export var historyChart: any = null;
 
 // M2: Update chart colors in-place on theme toggle (avoids destroy+rebuild flash)
-export function updateChartTheme(theme) {
+export function updateChartTheme(theme: string): void {
   if (!historyChart) return;
   var isDark = theme !== 'light';
   var gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
@@ -21,7 +22,7 @@ export function updateChartTheme(theme) {
   historyChart.update('none'); // 'none' = no animation, instant repaint
 }
 
-export function loadHistoryChart() {
+export function loadHistoryChart(): void {
   if (typeof Chart === 'undefined') return; // CDN not loaded (offline)
 
   var accountId = parseInt(document.getElementById('chart-account').value) || 0;
@@ -37,7 +38,7 @@ export function loadHistoryChart() {
   });
 }
 
-export function renderHistoryChart(snapshots) {
+export function renderHistoryChart(snapshots: any[]): void {
   var container = document.querySelector('.chart-container');
   if (!container || typeof Chart === 'undefined') return;
 
@@ -199,7 +200,7 @@ export function renderHistoryChart(snapshots) {
   });
 }
 
-export function populateChartAccountSelect(data) {
+export function populateChartAccountSelect(data: any): void {
   var sel = document.getElementById('chart-account');
   if (!sel || !data.accounts) return;
   // Keep "All Accounts" option, remove others

@@ -1,4 +1,5 @@
 // Niyantra Dashboard — Quota Grid Rendering
+// @ts-nocheck
 // Sort, filter, tag strip, and account grid rendering.
 
 import {
@@ -7,10 +8,11 @@ import {
   quotaSortState, latestQuotaData, setLatestQuotaData,
   activeTagFilter, setActiveTagFilter,
   usageDataCache,
-} from '../core/state.js';
-import { esc, formatSeconds, formatCredits, formatTimeAgo } from '../core/utils.js';
-import { renderPinnedBadge, renderAccountTags, renderAccountNote, renderCreditRenewal } from './features.js';
-export function getGroupPct(acc, groupKey) {
+} from '../core/state';
+import { esc, formatSeconds, formatCredits, formatTimeAgo } from '../core/utils';
+import type { StatusResponse, AccountReadiness } from '../types/api';
+import { renderPinnedBadge, renderAccountTags, renderAccountNote, renderCreditRenewal } from './features';
+export function getGroupPct(acc: any, groupKey: string): number {
   if (!acc.groups) return -1;
   for (var i = 0; i < acc.groups.length; i++) {
     if (acc.groups[i].groupKey === groupKey) return acc.groups[i].remainingPercent;
@@ -18,12 +20,12 @@ export function getGroupPct(acc, groupKey) {
   return -1;
 }
 
-export function getAICredits(acc) {
+export function getAICredits(acc: any): number {
   if (acc.aiCredits && acc.aiCredits.length > 0) return acc.aiCredits[0].creditAmount;
   return -1;
 }
 
-export function allExhausted(acc) {
+export function allExhausted(acc: any): boolean {
   var grps = acc.groups || [];
   if (grps.length === 0) return false;
   for (var i = 0; i < grps.length; i++) {
@@ -33,7 +35,7 @@ export function allExhausted(acc) {
 }
 
 // Bug 6: Determine status of Codex/Claude snapshot for filtering
-export function getCodexClaudeStatus(snap) {
+export function getCodexClaudeStatus(snap: any): string {
   var fiveUsed = snap.fiveHourPct || 0;
   var sevenUsed = snap.sevenDayPct || 0;
   var fiveRem = Math.max(0, 100 - fiveUsed);
@@ -43,7 +45,7 @@ export function getCodexClaudeStatus(snap) {
   return 'ready';
 }
 
-export function sortAccountsArray(accounts) {
+export function sortAccountsArray(accounts: any[]): any[] {
   var col = quotaSortState.column;
   var dir = quotaSortState.direction;
   return accounts.slice().sort(function(a, b) {
@@ -69,11 +71,11 @@ export function sortAccountsArray(accounts) {
   });
 }
 
-export function filterAccountsArray(accounts) {
+export function filterAccountsArray(accounts: any[]): any[] {
   var searchInput = document.getElementById('quota-search');
   var statusFilter = document.getElementById('quota-filter-status');
-  var query = searchInput ? searchInput.value.toLowerCase() : '';
-  var status = statusFilter ? statusFilter.value : 'all';
+  var query = searchInput ? (searchInput as HTMLInputElement).value.toLowerCase() : '';
+  var status = statusFilter ? (statusFilter as HTMLSelectElement).value : 'all';
 
   return accounts.filter(function(acc) {
     var matchesSearch = !query ||
@@ -96,12 +98,12 @@ export function filterAccountsArray(accounts) {
   });
 }
 
-export function updateSortHeaders() {
+export function updateSortHeaders(): void {
   document.querySelectorAll('.grid-header .sortable').forEach(function(el) {
     el.classList.remove('sort-active');
     var span = el.querySelector('.sort-indicator');
     if (span) span.textContent = '';
-    if (el.dataset.sort === quotaSortState.column) {
+    if ((el as HTMLElement).dataset.sort === quotaSortState.column) {
       el.classList.add('sort-active');
       if (span) span.textContent = quotaSortState.direction === 'asc' ? '▾' : '▴';
     }
@@ -112,7 +114,7 @@ export function updateSortHeaders() {
 //  F4: TAG-BASED FILTERING
 // ════════════════════════════════════════════
 
-export function getUniqueTagsFromData(data) {
+export function getUniqueTagsFromData(data: any): Record<string, number> {
   var tagCounts = {};
   var accounts = data.accounts || [];
   for (var i = 0; i < accounts.length; i++) {
@@ -127,7 +129,7 @@ export function getUniqueTagsFromData(data) {
   return tagCounts;
 }
 
-export function renderTagFilterStrip(data) {
+export function renderTagFilterStrip(data: any): void {
   var strip = document.getElementById('tag-filter-strip');
   if (!strip) return;
 
@@ -168,8 +170,8 @@ export function renderTagFilterStrip(data) {
   strip.innerHTML = html;
 }
 
-export function handleTagFilterClick(e) {
-  var chip = e.target.closest('.tag-filter-chip');
+export function handleTagFilterClick(e: Event): void {
+  var chip = (e.target as HTMLElement).closest('.tag-filter-chip');
   if (!chip) return;
 
   var tag = chip.getAttribute('data-tag-filter');
@@ -182,7 +184,7 @@ export function handleTagFilterClick(e) {
   }
 }
 
-export function renderAccounts(data) {
+export function renderAccounts(data: any): void {
   setLatestQuotaData(data);
   var grid = document.getElementById('account-grid');
   var countBadge = document.getElementById('account-count');
@@ -197,7 +199,7 @@ export function renderAccounts(data) {
   if (acctCount > 0) parts.push(acctCount + ' Antigravity');
   if (data.codexSnapshot) parts.push('1 Codex');
   if (data.claudeSnapshot) parts.push('1 Claude');
-  countBadge.textContent = parts.join(' · ') || '0 accounts';
+  if (countBadge) countBadge.textContent = parts.join(' · ') || '0 accounts';
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
   if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot) {
@@ -210,7 +212,7 @@ export function renderAccounts(data) {
   }
 
   var providerFilter = document.getElementById('quota-filter-provider');
-  var pf = providerFilter ? providerFilter.value : 'all';
+  var pf = providerFilter ? (providerFilter as HTMLSelectElement).value : 'all';
   var html = '';
   if (acctCount > 0 && (pf === 'all' || pf === 'antigravity')) {
   var filtered = filterAccountsArray(data.accounts);
@@ -409,7 +411,7 @@ export function renderAccounts(data) {
               }
               if (um.projectedExhaustion) {
                 var exhaust = new Date(um.projectedExhaustion);
-                var minsLeft = Math.round((exhaust - Date.now()) / 60000);
+                var minsLeft = Math.round((exhaust.getTime() - Date.now()) / 60000);
                 if (minsLeft > 0) {
                   intellBadges += '<span class="exhaust-badge" title="Projected exhaustion time">⚠ ' + (minsLeft > 60 ? Math.round(minsLeft/60) + 'h' : minsLeft + 'm') + '</span>';
                 }
@@ -477,7 +479,7 @@ export function renderAccounts(data) {
 
   // Bug 6 fix: Apply status filter to Codex/Claude sections too
   var sf = document.getElementById('quota-filter-status');
-  var statusVal = sf ? sf.value : 'all';
+  var statusVal = sf ? (sf as HTMLSelectElement).value : 'all';
   if (data.codexSnapshot && (pf === 'all' || pf === 'codex')) {
     var cxStatus = getCodexClaudeStatus(data.codexSnapshot);
     if (statusVal === 'all' || cxStatus === statusVal) {
@@ -516,14 +518,14 @@ export function renderAccounts(data) {
   // Wire up provider section collapse (state already baked into HTML)
   grid.querySelectorAll('.provider-header[data-toggle-provider]').forEach(function(hdr) {
     hdr.addEventListener('click', function() {
-      var targetId = hdr.dataset.toggleProvider;
-      var body = document.getElementById(targetId);
-      var chev = document.getElementById('pchev-' + targetId);
+      var targetId = (hdr as HTMLElement).dataset.toggleProvider;
+      var body = document.getElementById(targetId!);
+      var chev = document.getElementById('pchev-' + targetId!);
       if (!body) return;
       var collapsed = body.classList.toggle('collapsed');
       if (chev) chev.textContent = collapsed ? '▸' : '▾';
       if (collapsed) {
-        collapsedProviders.add(targetId);
+        collapsedProviders.add(targetId!);
       } else {
         collapsedProviders.delete(targetId);
       }
@@ -531,7 +533,7 @@ export function renderAccounts(data) {
   });
 }
 
-export function renderCodexProviderSection(cs) {
+export function renderCodexProviderSection(cs: any): string {
   var fiveUsed = cs.fiveHourPct || 0;
   var fiveRem = Math.max(0, 100 - fiveUsed);
   var fiveCls = fiveRem > 50 ? 'good' : fiveRem > 20 ? 'ok' : fiveRem > 0 ? 'warning' : 'exhausted';
@@ -573,7 +575,7 @@ export function renderCodexProviderSection(cs) {
     '</div></div></div></div>';
 }
 
-export function renderClaudeProviderSection(cl) {
+export function renderClaudeProviderSection(cl: any): string {
   var clFive = cl.fiveHourPct || 0;
   var clFiveRem = Math.max(0, 100 - clFive);
   var clFiveCls = clFiveRem > 50 ? 'good' : clFiveRem > 20 ? 'ok' : clFiveRem > 0 ? 'warning' : 'exhausted';
@@ -609,11 +611,11 @@ export function renderClaudeProviderSection(cl) {
 
 
 
-export function formatResetTime(isoString) {
+export function formatResetTime(isoString: string | null): string {
   if (!isoString) return '';
   var reset = new Date(isoString);
   var now = new Date();
-  var diffSec = (reset - now) / 1000;
+  var diffSec = (reset.getTime() - now.getTime()) / 1000;
   if (diffSec <= 0) return 'now';
   return formatSeconds(diffSec);
 }

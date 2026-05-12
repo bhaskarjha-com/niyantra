@@ -1,11 +1,12 @@
 // Niyantra Dashboard — Command Palette
-import { esc } from '../core/utils.js';
-import { switchToTab } from '../core/theme.js';
-import { handleSnap } from './snap.js';
-import { handleCodexSnap } from './codex.js';
-import { openModal } from '../subscriptions.js';
-import { openBudgetModal } from '../overview/budget.js';
-import { updateChartTheme } from '../charts/history.js';
+// @ts-nocheck
+import { esc } from '../core/utils';
+import { switchToTab } from '../core/theme';
+import { handleSnap } from './snap';
+import { handleCodexSnap } from './codex';
+import { openModal } from '../subscriptions';
+import { openBudgetModal } from '../overview/budget';
+import { updateChartTheme } from '../charts/history';
 
 
 export var PALETTE_COMMANDS = [
@@ -46,7 +47,7 @@ export var PALETTE_COMMANDS = [
 export var paletteSelectedIndex = 0;
 export var paletteFilteredCommands = PALETTE_COMMANDS;
 
-export function initCommandPalette() {
+export function initCommandPalette(): void {
   var overlay = document.getElementById('command-palette-overlay');
   var search = document.getElementById('command-palette-search');
   if (!overlay || !search) return;
@@ -85,7 +86,7 @@ export function initCommandPalette() {
   });
 }
 
-export function toggleCommandPalette() {
+export function toggleCommandPalette(): void {
   var overlay = document.getElementById('command-palette-overlay');
   if (overlay.hidden) {
     openCommandPalette();

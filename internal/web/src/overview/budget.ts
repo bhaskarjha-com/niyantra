@@ -1,23 +1,24 @@
 // Niyantra Dashboard — Budget Threshold
-import { serverConfig } from '../core/state.js';
-import { showToast } from '../core/utils.js';
+// @ts-nocheck
+import { serverConfig } from '../core/state';
+import { showToast } from '../core/utils';
 
 
 
-export function getBudget() {
+export function getBudget(): number {
   return parseFloat(serverConfig['budget_monthly'] || '0');
 }
 
-export function setBudget(amount) {
+export function setBudget(amount: number): void {
   serverConfig['budget_monthly'] = amount.toString();
   updateConfig('budget_monthly', amount.toString());
 }
 
-export function getCurrency() {
+export function getCurrency(): string {
   return serverConfig['currency'] || 'USD';
 }
 
-export function updateConfig(key, value) {
+export function updateConfig(key: string, value: string): Promise<any> {
   return fetch('/api/config', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -30,7 +31,7 @@ export function updateConfig(key, value) {
   }).catch(function(err) { console.error('Config update failed:', err); });
 }
 
-export function loadConfig() {
+export function loadConfig(): Promise<void> {
   return fetch('/api/config').then(function(r) { return r.json(); })
   .then(function(data) {
     if (data.config) {
@@ -40,14 +41,14 @@ export function loadConfig() {
   });
 }
 
-export function initBudget() {
+export function initBudget(): void {
   document.getElementById('budget-close').addEventListener('click', closeBudget);
   document.getElementById('budget-cancel').addEventListener('click', closeBudget);
   document.getElementById('budget-overlay').addEventListener('click', function(e) {
-    if (e.target.id === 'budget-overlay') closeBudget();
+    if ((e.target as HTMLElement).id === 'budget-overlay') closeBudget();
   });
   document.getElementById('budget-save').addEventListener('click', function() {
-    var val = parseFloat(document.getElementById('f-budget').value) || 0;
+    var val = parseFloat((document.getElementById('f-budget') as HTMLInputElement).value) || 0;
     setBudget(val);
     closeBudget();
     showToast('✅ Budget set to $' + val.toFixed(0) + '/mo', 'success');
@@ -57,16 +58,16 @@ export function initBudget() {
   });
 }
 
-export function openBudgetModal() {
-  document.getElementById('f-budget').value = getBudget() || '';
-  document.getElementById('budget-overlay').hidden = false;
+export function openBudgetModal(): void {
+  (document.getElementById('f-budget') as HTMLInputElement).value = String(getBudget() || '');
+  document.getElementById('budget-overlay')!.hidden = false;
 }
 
-export function closeBudget() {
-  document.getElementById('budget-overlay').hidden = true;
+export function closeBudget(): void {
+  document.getElementById('budget-overlay')!.hidden = true;
 }
 
-export function renderBudgetAlert(totalMonthly) {
+export function renderBudgetAlert(totalMonthly: number): string {
   var budget = getBudget();
   if (budget <= 0) return '';
 

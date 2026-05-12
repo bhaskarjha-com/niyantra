@@ -1,9 +1,10 @@
 // Niyantra Dashboard — Claude Code Bridge
-import { esc, formatTimeAgo } from '../core/utils.js';
-import { formatResetTime } from '../quotas/render.js';
+// @ts-nocheck
+import { esc, formatTimeAgo } from '../core/utils';
+import { formatResetTime } from '../quotas/render';
 
 
-export function loadClaudeBridgeStatus() {
+export function loadClaudeBridgeStatus(): void {
   fetch('/api/claude/status').then(function(r) { return r.json(); })
   .then(function(data) {
     var statusEl = document.getElementById('claude-bridge-status');
@@ -36,14 +37,14 @@ export function loadClaudeBridgeStatus() {
   }).catch(function() {});
 }
 
-export function renderClaudeCodeCard() {
+export function renderClaudeCodeCard(): string {
   return '<div class="claude-card" id="claude-code-card">' +
     '<h3>🔗 Claude Code</h3>' +
     '<div id="claude-card-body"><div class="empty-hint">Loading...</div></div>' +
     '</div>';
 }
 
-export function loadClaudeCardData() {
+export function loadClaudeCardData(): void {
   fetch('/api/claude/status').then(function(r) { return r.json(); })
   .then(function(data) {
     var body = document.getElementById('claude-card-body');
@@ -91,7 +92,7 @@ export function loadClaudeCardData() {
   }).catch(function() {});
 }
 
-export function meterColor(pct) {
+export function meterColor(pct: number): string {
   if (pct >= 80) return 'var(--red)';
   if (pct >= 50) return 'var(--amber)';
   return 'var(--green)';

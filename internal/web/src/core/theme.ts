@@ -1,17 +1,21 @@
 // Niyantra Dashboard — Theme & Navigation
 // Dark mode toggle, tab switching, and navigation helpers.
 
-export function initTheme() {
-  var saved = localStorage.getItem('niyantra-theme');
+import type { ThemeMode } from '../types/api';
+
+export function initTheme(): void {
+  var saved = localStorage.getItem('niyantra-theme') as ThemeMode | null;
   if (saved) {
     document.documentElement.setAttribute('data-theme', saved);
   } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
     document.documentElement.setAttribute('data-theme', 'light');
   }
 
-  document.getElementById('theme-btn').addEventListener('click', function() {
-    var current = document.documentElement.getAttribute('data-theme');
-    var next = current === 'light' ? 'dark' : 'light';
+  var themeBtn = document.getElementById('theme-btn');
+  if (!themeBtn) return;
+  themeBtn.addEventListener('click', function() {
+    var current = document.documentElement.getAttribute('data-theme') as ThemeMode;
+    var next: ThemeMode = current === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('niyantra-theme', next);
     // M2: Update chart colors in-place to avoid flash
@@ -21,17 +25,17 @@ export function initTheme() {
   });
 }
 
-export function initTabs() {
+export function initTabs(): void {
   var btns = document.querySelectorAll('.tab-btn');
   btns.forEach(function(btn) {
     btn.addEventListener('click', function() {
-      var tab = btn.getAttribute('data-tab');
-      switchToTab(tab);
+      var tab = (btn as HTMLElement).getAttribute('data-tab');
+      if (tab) switchToTab(tab);
     });
   });
 }
 
-export function switchToTab(tabName) {
+export function switchToTab(tabName: string): void {
   var btns = document.querySelectorAll('.tab-btn');
   btns.forEach(function(b) { b.classList.remove('active'); });
   var target = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');

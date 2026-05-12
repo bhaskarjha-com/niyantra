@@ -1,21 +1,23 @@
 // Niyantra Dashboard — Quota Features
+// @ts-nocheck
 // Pinned model, credit renewal, account tags & notes.
 
-import { GROUP_NAMES } from '../core/state.js';
-import { esc, showToast } from '../core/utils.js';
-import { fetchStatus } from '../core/api.js';
+import { GROUP_NAMES } from '../core/state';
+import type { AccountReadiness } from '../types/api';
+import { esc, showToast } from '../core/utils';
+import { fetchStatus } from '../core/api';
 
 // Forward reference — set by render.js to avoid circular import
-var _renderAccounts = null;
-export function setRenderAccounts(fn) { _renderAccounts = fn; }
+var _renderAccounts: ((data: any) => void) | null = null;
+export function setRenderAccounts(fn: (data: any) => void): void { _renderAccounts = fn; }
 
-function refreshGrid() {
+function refreshGrid(): void {
   if (_renderAccounts) fetchStatus().then(_renderAccounts);
 }
 
 // ── Pinned/Favorite Model ──
 
-export function renderPinnedBadge(groupData, pinnedKey) {
+export function renderPinnedBadge(groupData: any, pinnedKey: string): string {
   if (!groupData) return '';
   var pct = Math.round(groupData.remainingPercent);
   var cls = 'good';
@@ -26,14 +28,14 @@ export function renderPinnedBadge(groupData, pinnedKey) {
     '★ ' + esc(groupData.displayName || GROUP_NAMES[pinnedKey] || pinnedKey) + ': ' + pct + '%</span>';
 }
 
-export function pinGroup(accountId, groupKey) {
+export function pinGroup(accountId: number | string, groupKey: string): void {
   updateAccountMeta(accountId, { pinnedGroup: groupKey }).then(function() {
     showToast('⭐ Pinned ' + (GROUP_NAMES[groupKey] || groupKey), 'success');
     refreshGrid();
   });
 }
 
-export function unpinGroup(accountId) {
+export function unpinGroup(accountId: number | string): void {
   updateAccountMeta(accountId, { pinnedGroup: '' }).then(function() {
     showToast('☆ Unpinned — will show first group', 'info');
     refreshGrid();
@@ -42,7 +44,7 @@ export function unpinGroup(accountId) {
 
 // ── Credit Renewal Day ──
 
-export function daysUntilRenewal(day) {
+export function daysUntilRenewal(day: number): number {
   if (!day || day < 1 || day > 31) return -1;
   var now = new Date();
   var y = now.getFullYear();
@@ -50,11 +52,11 @@ export function daysUntilRenewal(day) {
   var today = now.getDate();
   var targetMonth = today < day ? m : m + 1;
   var target = new Date(y, targetMonth, day);
-  var diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  var diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
   return diff < 0 ? 0 : diff;
 }
 
-export function renderCreditRenewal(accountId, renewalDay) {
+export function renderCreditRenewal(accountId: number, renewalDay: number): string {
   if (!renewalDay || renewalDay < 1) {
     return '<span class="credit-renewal-set" data-renewal-edit="' + accountId + '" title="Set credit renewal day">↻ set</span>';
   }
@@ -63,7 +65,7 @@ export function renderCreditRenewal(accountId, renewalDay) {
   return '<span class="credit-renewal" data-renewal-edit="' + accountId + '" data-renewal-day="' + renewalDay + '" title="Credits renew on day ' + renewalDay + ' (↻ ' + label + ')">↻ ' + label + '</span>';
 }
 
-export function openRenewalPicker(el) {
+export function openRenewalPicker(el: HTMLElement): void {
   var existing = document.querySelector('.renewal-picker');
   if (existing) existing.remove();
 
@@ -110,7 +112,7 @@ export function openRenewalPicker(el) {
 
 var TAG_PRESETS = ['work', 'personal', 'primary', 'backup', 'shared', 'test', 'dev'];
 
-export function renderAccountTags(acc) {
+export function renderAccountTags(acc: any): string {
   var tags = (acc.tags || '').split(',').filter(function(t) { return t.trim(); });
   var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
   for (var i = 0; i < tags.length; i++) {
@@ -124,14 +126,14 @@ export function renderAccountTags(acc) {
   return html;
 }
 
-export function renderAccountNote(acc) {
+export function renderAccountNote(acc: any): string {
   if (acc.notes) {
     return '<span class="account-note" data-note-edit="' + acc.accountId + '" data-current-note="' + esc(acc.notes) + '" title="' + esc(acc.notes) + ' — click to edit">📝 ' + esc(acc.notes) + '</span>';
   }
   return '<span class="account-note-empty" data-note-edit="' + acc.accountId + '" data-current-note="">+ note</span>';
 }
 
-export function updateAccountMeta(accountId, patch) {
+export function updateAccountMeta(accountId: number | string, patch: Record<string, any>): Promise<any> {
   return fetch('/api/accounts/' + accountId + '/meta', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -139,7 +141,7 @@ export function updateAccountMeta(accountId, patch) {
   }).then(function(r) { return r.json(); });
 }
 
-export function addTagToAccount(accountId, newTag) {
+export function addTagToAccount(accountId: number | string, newTag: string): void {
   newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (!newTag) return;
   var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
@@ -157,7 +159,7 @@ export function addTagToAccount(accountId, newTag) {
   });
 }
 
-export function removeTagFromAccount(accountId, tag) {
+export function removeTagFromAccount(accountId: number | string, tag: string): void {
   var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
   var tags = [];
   if (container) {
@@ -172,7 +174,7 @@ export function removeTagFromAccount(accountId, tag) {
   });
 }
 
-export function openTagPicker(btn) {
+export function openTagPicker(btn: HTMLElement): void {
   closeTagPicker();
   var accountId = btn.getAttribute('data-tag-add');
   var meta = btn.closest('.account-meta');
@@ -219,18 +221,18 @@ export function openTagPicker(btn) {
   setTimeout(function() { document.addEventListener('click', closeTagPickerOnOutside); }, 10);
 }
 
-export function closeTagPicker() {
+export function closeTagPicker(): void {
   var picker = document.getElementById('active-tag-picker');
   if (picker) picker.remove();
   document.removeEventListener('click', closeTagPickerOnOutside);
 }
 
-function closeTagPickerOnOutside(e) {
+function closeTagPickerOnOutside(e: Event): void {
   var picker = document.getElementById('active-tag-picker');
-  if (picker && !picker.contains(e.target)) { closeTagPicker(); }
+  if (picker && !picker.contains(e.target as Node)) { closeTagPicker(); }
 }
 
-export function openNoteEditor(el) {
+export function openNoteEditor(el: HTMLElement): void {
   var accountId = el.getAttribute('data-note-edit');
   var currentNote = el.getAttribute('data-current-note') || '';
   var editor = document.createElement('span');
@@ -256,11 +258,11 @@ export function openNoteEditor(el) {
 }
 
 // Wire F1 interactions via delegation on the grid
-export function initAccountMetaHandlers() {
+export function initAccountMetaHandlers(): void {
   var grid = document.getElementById('account-grid');
   if (!grid) return;
   grid.addEventListener('click', function(e) {
-    var removeBtn = e.target.closest('[data-remove-tag]');
+    var removeBtn = (e.target as HTMLElement).closest('[data-remove-tag]');
     if (removeBtn) {
       e.stopPropagation(); e.preventDefault();
       removeTagFromAccount(removeBtn.getAttribute('data-account-id'), removeBtn.getAttribute('data-remove-tag'));

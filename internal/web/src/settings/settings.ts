@@ -1,21 +1,22 @@
 // Niyantra Dashboard — Settings Panel
-import { serverConfig, presetsData } from '../core/state.js';
-import { showToast, formatTimeAgo } from '../core/utils.js';
-import { fetchStatus } from '../core/api.js';
-import { renderAccounts } from '../quotas/render.js';
-import { updateConfig, loadConfig, setBudget, getBudget } from '../overview/budget.js';
-import { loadOverview } from '../overview/overview.js';
-import { loadMode } from './mode.js';
-import { loadDataSources } from './data.js';
-import { loadActivityLog } from './activity.js';
-import { loadModelPricing, addPricingRow, resetPricingDefaults } from './pricing.js';
-import { loadClaudeBridgeStatus } from '../advanced/claude.js';
-import { loadCodexSettingsStatus } from '../advanced/codex.js';
-import { loadSubscriptions } from '../subscriptions.js';
-import { updateChartTheme } from '../charts/history.js';
+// @ts-nocheck
+import { serverConfig, presetsData } from '../core/state';
+import { showToast, formatTimeAgo } from '../core/utils';
+import { fetchStatus } from '../core/api';
+import { renderAccounts } from '../quotas/render';
+import { updateConfig, loadConfig, setBudget, getBudget } from '../overview/budget';
+import { loadOverview } from '../overview/overview';
+import { loadMode } from './mode';
+import { loadDataSources } from './data';
+import { loadActivityLog } from './activity';
+import { loadModelPricing, addPricingRow, resetPricingDefaults } from './pricing';
+import { loadClaudeBridgeStatus } from '../advanced/claude';
+import { loadCodexSettingsStatus } from '../advanced/codex';
+import { loadSubscriptions } from '../subscriptions';
+import { updateChartTheme } from '../charts/history';
 
 
-export function initSettings() {
+export function initSettings(): void {
   var themeEl = document.getElementById('s-theme');
 
   // Theme stays in localStorage (visual-only)

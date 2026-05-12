@@ -1,4 +1,5 @@
 // Niyantra Dashboard — Entry Point
+// @ts-nocheck
 // All core functionality is imported from modules.
 
 import {
@@ -10,51 +11,51 @@ import {
   quotaSortState, latestQuotaData, setLatestQuotaData,
   serverConfig, setServerConfig,
   snapInProgress, setSnapInProgress,
-} from './core/state.js';
+} from './core/state';
 
 import {
   formatSeconds, formatCredits, formatNumber, currencySymbol,
   esc, showToast, updateTimestamp, refreshTimestampDisplay,
   formatTimeAgo, formatPollInterval, formatDurationSec,
-} from './core/utils.js';
+} from './core/utils';
 
 import {
   fetchStatus, triggerSnap,
   fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription,
   fetchOverview, fetchPresets, fetchUsage,
-} from './core/api.js';
+} from './core/api';
 
-import { initTheme, initTabs, switchToTab } from './core/theme.js';
+import { initTheme, initTabs, switchToTab } from './core/theme';
 
 import {
   renderAccounts, filterAccountsArray, sortAccountsArray,
   updateSortHeaders, renderTagFilterStrip, handleTagFilterClick,
   getCodexClaudeStatus, formatResetTime, allExhausted,
-} from './quotas/render.js';
-import { setupToggle, initQuotas } from './quotas/expand.js';
+} from './quotas/render';
+import { setupToggle, initQuotas } from './quotas/expand';
 import {
   renderPinnedBadge, renderAccountTags, renderAccountNote,
   renderCreditRenewal, updateAccountMeta, initAccountMetaHandlers,
   setRenderAccounts,
-} from './quotas/features.js';
+} from './quotas/features';
 
-import { loadSubscriptions, initModal, initSearch } from './subscriptions.js';
+import { loadSubscriptions, initModal, initSearch } from './subscriptions';
 
-import { getBudget, setBudget, getCurrency, updateConfig, loadConfig, initBudget, openBudgetModal, closeBudget, renderBudgetAlert } from './overview/budget.js';
-import { loadOverview } from './overview/overview.js';
-import { calendarNav } from './overview/calendar.js';
+import { getBudget, setBudget, getCurrency, updateConfig, loadConfig, initBudget, openBudgetModal, closeBudget, renderBudgetAlert } from './overview/budget';
+import { loadOverview } from './overview/overview';
+import { calendarNav } from './overview/calendar';
 
-import { initSnapDropdown, handleSnap } from './advanced/snap.js';
-import { updateChartTheme, loadHistoryChart, populateChartAccountSelect } from './charts/history.js';
-import { initSettings } from './settings/settings.js';
-import { loadMode } from './settings/mode.js';
-import { loadDataSources } from './settings/data.js';
-import { loadActivityLog } from './settings/activity.js';
-import { loadModelPricing } from './settings/pricing.js';
-import { initKeyboardShortcuts } from './advanced/keyboard.js';
-import { initCommandPalette } from './advanced/palette.js';
-import { loadSystemAlerts, dismissAlert } from './advanced/alerts.js';
-import { handleCodexSnap } from './advanced/codex.js';
+import { initSnapDropdown, handleSnap } from './advanced/snap';
+import { updateChartTheme, loadHistoryChart, populateChartAccountSelect } from './charts/history';
+import { initSettings } from './settings/settings';
+import { loadMode } from './settings/mode';
+import { loadDataSources } from './settings/data';
+import { loadActivityLog } from './settings/activity';
+import { loadModelPricing } from './settings/pricing';
+import { initKeyboardShortcuts } from './advanced/keyboard';
+import { initCommandPalette } from './advanced/palette';
+import { loadSystemAlerts, dismissAlert } from './advanced/alerts';
+import { handleCodexSnap } from './advanced/codex';
 
 // ════════════════════════════════════════════
 //  INIT
@@ -76,14 +77,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Tab-change event: domain modules react to tab activation
   document.addEventListener('niyantra:tab-change', function(e) {
-    var tab = e.detail.tab;
+    var tab = (e as CustomEvent).detail.tab;
     if (tab === 'overview') loadOverview();
     if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
   });
 
   // Theme-change event: update chart colors
   document.addEventListener('niyantra:theme-change', function(e) {
-    updateChartTheme(e.detail.theme);
+    updateChartTheme((e as CustomEvent).detail.theme);
   });
 
   // Chart refresh: triggered by quota expand module after data changes

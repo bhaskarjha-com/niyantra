@@ -1,9 +1,10 @@
 // Niyantra Dashboard — System Alerts
-import { esc, showToast } from '../core/utils.js';
-import { switchToTab } from '../core/theme.js';
+// @ts-nocheck
+import { esc, showToast } from '../core/utils';
+import { switchToTab } from '../core/theme';
 
 
-export function loadSystemAlerts() {
+export function loadSystemAlerts(): void {
   fetch('/api/alerts').then(function(r) { return r.json(); })
   .then(function(data) {
     var container = document.getElementById('alert-banner-container');
@@ -35,7 +36,7 @@ export function loadSystemAlerts() {
   }).catch(function() {});
 }
 
-export function dismissAlert(id) {
+export function dismissAlert(id: string | number): void {
   fetch('/api/alerts/dismiss', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

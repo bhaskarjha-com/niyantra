@@ -1,10 +1,11 @@
 // Niyantra Dashboard — Codex & Sessions
-import { esc, showToast, formatTimeAgo, formatDurationSec } from '../core/utils.js';
-import { formatResetTime } from '../quotas/render.js';
+// @ts-nocheck
+import { esc, showToast, formatTimeAgo, formatDurationSec } from '../core/utils';
+import { formatResetTime } from '../quotas/render';
 
 
 // ── Codex Settings Status ──
-export function loadCodexSettingsStatus() {
+export function loadCodexSettingsStatus(): void {
   var statusEl = document.getElementById('codex-status-settings');
   if (!statusEl) return;
 
@@ -35,7 +36,7 @@ export function loadCodexSettingsStatus() {
 }
 
 // ── Codex Manual Snap ──
-export function handleCodexSnap() {
+export function handleCodexSnap(): void {
   showToast('🤖 Capturing Codex snapshot...', 'info');
   fetch('/api/codex/snap', { method: 'POST' })
   .then(function(r) { return r.json(); })
@@ -52,7 +53,7 @@ export function handleCodexSnap() {
 }
 
 // ── Codex Status Card (for Overview tab) ──
-export function renderCodexCard(container) {
+export function renderCodexCard(container: HTMLElement): void {
   fetch('/api/codex/status').then(function(r) { return r.json(); })
   .then(function(data) {
     if (!data.installed && !data.snapshot) return; // Don't show card if no Codex at all
@@ -126,7 +127,7 @@ export function renderCodexCard(container) {
 }
 
 // ── Sessions Timeline (for Overview tab) ──
-export function renderSessionsTimeline(container) {
+export function renderSessionsTimeline(container: HTMLElement): void {
   fetch('/api/sessions?limit=10').then(function(r) { return r.json(); })
   .then(function(data) {
     if (!data.sessions || data.sessions.length === 0) return;

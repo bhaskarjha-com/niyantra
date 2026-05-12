@@ -1,12 +1,13 @@
 // Niyantra Dashboard — Keyboard Shortcuts
-import { switchToTab } from '../core/theme.js';
-import { closeModal, openModal, closeDelete } from '../subscriptions.js';
-import { closeBudget } from '../overview/budget.js';
-import { handleSnap } from './snap.js';
-import { toggleCommandPalette } from './palette.js';
+// @ts-nocheck
+import { switchToTab } from '../core/theme';
+import { closeModal, openModal, closeDelete } from '../subscriptions';
+import { closeBudget } from '../overview/budget';
+import { handleSnap } from './snap';
+import { toggleCommandPalette } from './palette';
 
 
-export function initKeyboardShortcuts() {
+export function initKeyboardShortcuts(): void {
   document.addEventListener('keydown', function(e) {
     // Skip if user is typing in an input/textarea/select
     var tag = document.activeElement.tagName;

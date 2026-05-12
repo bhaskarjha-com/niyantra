@@ -1,11 +1,13 @@
 // Niyantra Dashboard — Subscriptions Module
+// @ts-nocheck
 // Render, modal, search for subscription management.
 
-import { presetsData } from './core/state.js';
-import { esc, showToast, currencySymbol, formatDurationSec } from './core/utils.js';
-import { fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription } from './core/api.js';
+import { presetsData } from './core/state';
+import type { Subscription } from './types/api';
+import { esc, showToast, currencySymbol, formatDurationSec } from './core/utils';
+import { fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription } from './core/api';
 
-export function loadSubscriptions() {
+export function loadSubscriptions(): void {
   var status = document.getElementById('filter-status').value;
   var category = document.getElementById('filter-category').value;
 
@@ -286,7 +288,7 @@ export function renderSubCard(sub) {
 //  MODAL — Add/Edit Subscription
 // ════════════════════════════════════════════
 
-export function initModal() {
+export function initModal(): void {
   var overlay = document.getElementById('modal-overlay');
   var closeBtn = document.getElementById('modal-close');
   var cancelBtn = document.getElementById('modal-cancel');
@@ -343,7 +345,7 @@ export function initModal() {
   document.getElementById('filter-category').addEventListener('change', loadSubscriptions);
 }
 
-export function openModal(sub) {
+export function openModal(sub?: any): void {
   var overlay = document.getElementById('modal-overlay');
   var title = document.getElementById('modal-title');
 
@@ -386,7 +388,7 @@ export function openModal(sub) {
   document.getElementById('f-platform').focus();
 }
 
-export function closeModal() {
+export function closeModal(): void {
   document.getElementById('modal-overlay').hidden = true;
 }
 
@@ -484,7 +486,7 @@ export function openDeleteConfirm(id, name) {
   };
 }
 
-export function closeDelete() {
+export function closeDelete(): void {
   document.getElementById('delete-overlay').hidden = true;
   pendingDeleteId = null;
 }
@@ -493,7 +495,7 @@ export function closeDelete() {
 //  SEARCH — Subscriptions
 // ════════════════════════════════════════════
 
-export function initSearch() {
+export function initSearch(): void {
   var searchEl = document.getElementById('search-subs');
   if (!searchEl) return;
 

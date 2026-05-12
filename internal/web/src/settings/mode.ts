@@ -1,13 +1,14 @@
 // Niyantra Dashboard — Mode Badge
-import { presetsData } from '../core/state.js';
-import { formatTimeAgo, formatPollInterval } from '../core/utils.js';
-import { loadSystemAlerts } from '../advanced/alerts.js';
-import { loadActivityLog } from './activity.js';
+// @ts-nocheck
+import { presetsData } from '../core/state';
+import { formatTimeAgo, formatPollInterval } from '../core/utils';
+import { loadSystemAlerts } from '../advanced/alerts';
+import { loadActivityLog } from './activity';
 
 
 export var modeRefreshTimer = null;
 
-export function loadMode() {
+export function loadMode(): void {
   fetch('/api/mode').then(function(r) { return r.json(); })
   .then(function(data) {
     var badge = document.getElementById('mode-badge');

@@ -1,7 +1,8 @@
 // Niyantra Dashboard — Estimated Cost KPI
-import { esc } from '../core/utils.js';
+// @ts-nocheck
+import { esc } from '../core/utils';
 
-export function loadCostKPI() {
+export function loadCostKPI(): void {
   var container = document.getElementById('cost-kpi-container');
   if (!container) return;
 

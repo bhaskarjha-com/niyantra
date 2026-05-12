@@ -1,7 +1,7 @@
-// GENERATED FILE - do not edit. Source: internal/web/src/
+// GENERATED FILE — do not edit. Source: internal/web/src/
 "use strict";
 (() => {
-  // internal/web/src/core/state.js
+  // internal/web/src/core/state.ts
   var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];
   var GROUP_LABELS = ["Claude + GPT", "Gemini Pro", "Gemini Flash"];
   var GROUP_COLORS = { claude_gpt: "#D97757", gemini_pro: "#10B981", gemini_flash: "#3B82F6" };
@@ -31,7 +31,7 @@
     snapInProgress = val;
   }
 
-  // internal/web/src/core/utils.js
+  // internal/web/src/core/utils.ts
   function formatSeconds(seconds) {
     seconds = Math.floor(seconds);
     if (seconds <= 0) return "now";
@@ -77,7 +77,7 @@
   function refreshTimestampDisplay() {
     var el = document.getElementById("last-updated");
     if (!el || !lastUpdateTime) return;
-    var sec = Math.floor((/* @__PURE__ */ new Date() - lastUpdateTime) / 1e3);
+    var sec = Math.floor(((/* @__PURE__ */ new Date()).getTime() - lastUpdateTime.getTime()) / 1e3);
     var label;
     if (sec < 10) label = "just now";
     else if (sec < 60) label = sec + "s ago";
@@ -90,7 +90,7 @@
     if (!isoStr) return "never";
     var d = new Date(isoStr);
     var now = /* @__PURE__ */ new Date();
-    var sec = Math.floor((now - d) / 1e3);
+    var sec = Math.floor((now.getTime() - d.getTime()) / 1e3);
     if (sec < 60) return "just now";
     if (sec < 3600) return Math.floor(sec / 60) + "m ago";
     if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
@@ -108,7 +108,7 @@
     return m + "m";
   }
 
-  // internal/web/src/core/api.js
+  // internal/web/src/core/api.ts
   function fetchStatus() {
     return fetch("/api/status").then(function(res) {
       if (!res.ok) throw new Error("Failed to fetch status");
@@ -185,7 +185,7 @@
     });
   }
 
-  // internal/web/src/core/theme.js
+  // internal/web/src/core/theme.ts
   function initTheme() {
     var saved = localStorage.getItem("niyantra-theme");
     if (saved) {
@@ -193,7 +193,9 @@
     } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
       document.documentElement.setAttribute("data-theme", "light");
     }
-    document.getElementById("theme-btn").addEventListener("click", function() {
+    var themeBtn = document.getElementById("theme-btn");
+    if (!themeBtn) return;
+    themeBtn.addEventListener("click", function() {
       var current = document.documentElement.getAttribute("data-theme");
       var next = current === "light" ? "dark" : "light";
       document.documentElement.setAttribute("data-theme", next);
@@ -206,7 +208,7 @@
     btns.forEach(function(btn) {
       btn.addEventListener("click", function() {
         var tab = btn.getAttribute("data-tab");
-        switchToTab(tab);
+        if (tab) switchToTab(tab);
       });
     });
   }
@@ -225,7 +227,7 @@
     document.dispatchEvent(new CustomEvent("niyantra:tab-change", { detail: { tab: tabName } }));
   }
 
-  // internal/web/src/quotas/features.js
+  // internal/web/src/quotas/features.ts
   var _renderAccounts = null;
   function setRenderAccounts(fn) {
     _renderAccounts = fn;
@@ -262,7 +264,7 @@
     var today = now.getDate();
     var targetMonth = today < day ? m : m + 1;
     var target = new Date(y, targetMonth, day);
-    var diff = Math.ceil((target - now) / (1e3 * 60 * 60 * 24));
+    var diff = Math.ceil((target.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
     return diff < 0 ? 0 : diff;
   }
   function renderCreditRenewal(accountId, renewalDay) {
@@ -518,7 +520,7 @@
     });
   }
 
-  // internal/web/src/quotas/render.js
+  // internal/web/src/quotas/render.ts
   function getGroupPct(acc, groupKey) {
     if (!acc.groups) return -1;
     for (var i = 0; i < acc.groups.length; i++) {
@@ -668,7 +670,7 @@
     if (acctCount > 0) parts.push(acctCount + " Antigravity");
     if (data.codexSnapshot) parts.push("1 Codex");
     if (data.claudeSnapshot) parts.push("1 Claude");
-    countBadge.textContent = parts.join(" \xB7 ") || "0 accounts";
+    if (countBadge) countBadge.textContent = parts.join(" \xB7 ") || "0 accounts";
     if (snapCount) snapCount.textContent = data.snapshotCount ? data.snapshotCount + " snapshots" : "";
     if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot) {
       grid.innerHTML = '<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><p>No accounts tracked yet</p><p class="empty-hint">Click <strong>Snap Now</strong> to capture your first snapshot</p></div>';
@@ -836,7 +838,7 @@
                     }
                     if (um.projectedExhaustion) {
                       var exhaust = new Date(um.projectedExhaustion);
-                      var minsLeft = Math.round((exhaust - Date.now()) / 6e4);
+                      var minsLeft = Math.round((exhaust.getTime() - Date.now()) / 6e4);
                       if (minsLeft > 0) {
                         intellBadges += '<span class="exhaust-badge" title="Projected exhaustion time">\u26A0 ' + (minsLeft > 60 ? Math.round(minsLeft / 60) + "h" : minsLeft + "m") + "</span>";
                       }
@@ -937,12 +939,12 @@
     if (!isoString) return "";
     var reset = new Date(isoString);
     var now = /* @__PURE__ */ new Date();
-    var diffSec = (reset - now) / 1e3;
+    var diffSec = (reset.getTime() - now.getTime()) / 1e3;
     if (diffSec <= 0) return "now";
     return formatSeconds(diffSec);
   }
 
-  // internal/web/src/quotas/expand.js
+  // internal/web/src/quotas/expand.ts
   function setupToggle() {
     var grid = document.getElementById("account-grid");
     if (!grid) return;
@@ -1137,7 +1139,7 @@
     }
   }
 
-  // internal/web/src/subscriptions.js
+  // internal/web/src/subscriptions.ts
   function loadSubscriptions() {
     var status = document.getElementById("filter-status").value;
     var category = document.getElementById("filter-category").value;
@@ -1521,7 +1523,7 @@
     });
   }
 
-  // internal/web/src/overview/budget.js
+  // internal/web/src/overview/budget.ts
   function getBudget() {
     return parseFloat(serverConfig["budget_monthly"] || "0");
   }
@@ -1574,14 +1576,14 @@
     });
   }
   function openBudgetModal() {
-    document.getElementById("f-budget").value = getBudget() || "";
+    document.getElementById("f-budget").value = String(getBudget() || "");
     document.getElementById("budget-overlay").hidden = false;
   }
   function closeBudget() {
     document.getElementById("budget-overlay").hidden = true;
   }
 
-  // internal/web/src/overview/insights.js
+  // internal/web/src/overview/insights.ts
   function renderServerInsights(insights) {
     if (!insights || insights.length === 0) return "";
     var html = '<div class="insight-panel"><h3>\u{1F9E0} Intelligence Insights</h3><div class="insight-list">';
@@ -1703,7 +1705,7 @@
     }
   }
 
-  // internal/web/src/overview/cost.js
+  // internal/web/src/overview/cost.ts
   function loadCostKPI() {
     var container = document.getElementById("cost-kpi-container");
     if (!container) return;
@@ -1746,7 +1748,7 @@
     });
   }
 
-  // internal/web/src/overview/calendar.js
+  // internal/web/src/overview/calendar.ts
   var calendarViewDate = /* @__PURE__ */ new Date();
   function renderRenewalCalendar(renewals, subs) {
     var container = document.getElementById("renewal-calendar-container");
@@ -1857,7 +1859,7 @@
     }
   }
 
-  // internal/web/src/advanced/claude.js
+  // internal/web/src/advanced/claude.ts
   function loadClaudeBridgeStatus() {
     fetch("/api/claude/status").then(function(r) {
       return r.json();
@@ -1924,7 +1926,7 @@
     return "var(--green)";
   }
 
-  // internal/web/src/advanced/codex.js
+  // internal/web/src/advanced/codex.ts
   function loadCodexSettingsStatus() {
     var statusEl = document.getElementById("codex-status-settings");
     if (!statusEl) return;
@@ -2006,7 +2008,7 @@
     });
   }
 
-  // internal/web/src/overview/overview.js
+  // internal/web/src/overview/overview.ts
   function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
       var data = results[0];
@@ -2118,7 +2120,7 @@
     renderSessionsTimeline(el);
   }
 
-  // internal/web/src/advanced/snap.js
+  // internal/web/src/advanced/snap.ts
   var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
   function initSnapDropdown() {
     var caret = document.getElementById("snap-caret");
@@ -2225,7 +2227,7 @@
     });
   }
 
-  // internal/web/src/charts/history.js
+  // internal/web/src/charts/history.ts
   var Chart = window.Chart;
   var historyChart = null;
   function updateChartTheme(theme) {
@@ -2414,7 +2416,7 @@
     }
   }
 
-  // internal/web/src/advanced/alerts.js
+  // internal/web/src/advanced/alerts.ts
   function loadSystemAlerts() {
     fetch("/api/alerts").then(function(r) {
       return r.json();
@@ -2453,7 +2455,7 @@
     });
   }
 
-  // internal/web/src/settings/activity.js
+  // internal/web/src/settings/activity.ts
   function loadActivityLog() {
     var filter = document.getElementById("activity-filter").value;
     var url = "/api/activity?limit=50";
@@ -2510,7 +2512,7 @@
     }
   }
 
-  // internal/web/src/settings/mode.js
+  // internal/web/src/settings/mode.ts
   var modeRefreshTimer = null;
   function loadMode() {
     fetch("/api/mode").then(function(r) {
@@ -2568,7 +2570,7 @@
     });
   }
 
-  // internal/web/src/settings/data.js
+  // internal/web/src/settings/data.ts
   function loadDataSources() {
     fetch("/api/mode").then(function(r) {
       return r.json();
@@ -2591,7 +2593,7 @@
     });
   }
 
-  // internal/web/src/settings/pricing.js
+  // internal/web/src/settings/pricing.ts
   var pricingDataCache = null;
   function loadModelPricing() {
     fetch("/api/config/pricing").then(function(res) {
@@ -2737,7 +2739,7 @@
     });
   }
 
-  // internal/web/src/settings/settings.js
+  // internal/web/src/settings/settings.ts
   function initSettings() {
     var themeEl = document.getElementById("s-theme");
     var savedTheme = localStorage.getItem("niyantra-theme") || "dark";
@@ -2927,7 +2929,7 @@
     }
   }
 
-  // internal/web/src/advanced/palette.js
+  // internal/web/src/advanced/palette.ts
   var PALETTE_COMMANDS = [
     { name: "Snap Now", key: "S", icon: "\u{1F4F8}", action: function() {
       handleSnap();
@@ -3074,7 +3076,7 @@
     if (selected) selected.scrollIntoView({ block: "nearest" });
   }
 
-  // internal/web/src/advanced/keyboard.js
+  // internal/web/src/advanced/keyboard.ts
   function initKeyboardShortcuts() {
     document.addEventListener("keydown", function(e) {
       var tag = document.activeElement.tagName;
@@ -3136,7 +3138,7 @@
     });
   }
 
-  // internal/web/src/main.js
+  // internal/web/src/main.ts
   document.addEventListener("DOMContentLoaded", function() {
     initTheme();
     initTabs();
