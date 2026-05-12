@@ -44,11 +44,6 @@
     if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
     return Math.round(n).toString();
   }
-  function formatNumber(n) {
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
-    return n.toString();
-  }
   function currencySymbol(code) {
     var map = { USD: "$", EUR: "\u20AC", GBP: "\xA3", INR: "\u20B9", CAD: "C$", AUD: "A$" };
     return map[code] || code + " ";
@@ -1140,7 +1135,7 @@
     }
   }
 
-  // internal/web/src/main.js
+  // internal/web/src/subscriptions.js
   function loadSubscriptions() {
     var status = document.getElementById("filter-status").value;
     var category = document.getElementById("filter-category").value;
@@ -1326,15 +1321,15 @@
     var cancelBtn = document.getElementById("modal-cancel");
     var saveBtn = document.getElementById("modal-save");
     document.getElementById("add-sub-btn").addEventListener("click", function() {
-      openModal();
+      openModal2();
     });
     document.getElementById("add-sub-btn-2").addEventListener("click", function() {
-      openModal();
+      openModal2();
     });
-    closeBtn.addEventListener("click", closeModal);
-    cancelBtn.addEventListener("click", closeModal);
+    closeBtn.addEventListener("click", closeModal2);
+    cancelBtn.addEventListener("click", closeModal2);
     overlay.addEventListener("click", function(e) {
-      if (e.target === overlay) closeModal();
+      if (e.target === overlay) closeModal2();
     });
     saveBtn.addEventListener("click", handleSave);
     document.getElementById("f-platform").addEventListener("input", function() {
@@ -1360,15 +1355,15 @@
         openDeleteConfirm(deleteId, deleteName);
       }
     });
-    document.getElementById("delete-close").addEventListener("click", closeDelete);
-    document.getElementById("delete-cancel").addEventListener("click", closeDelete);
+    document.getElementById("delete-close").addEventListener("click", closeDelete2);
+    document.getElementById("delete-cancel").addEventListener("click", closeDelete2);
     document.getElementById("delete-overlay").addEventListener("click", function(e) {
-      if (e.target.id === "delete-overlay") closeDelete();
+      if (e.target.id === "delete-overlay") closeDelete2();
     });
     document.getElementById("filter-status").addEventListener("change", loadSubscriptions);
     document.getElementById("filter-category").addEventListener("change", loadSubscriptions);
   }
-  function openModal(sub) {
+  function openModal2(sub) {
     var overlay = document.getElementById("modal-overlay");
     var title = document.getElementById("modal-title");
     if (sub) {
@@ -1414,7 +1409,7 @@
     overlay.hidden = false;
     document.getElementById("f-platform").focus();
   }
-  function closeModal() {
+  function closeModal2() {
     document.getElementById("modal-overlay").hidden = true;
   }
   function fillFromPreset(preset) {
@@ -1433,7 +1428,7 @@
     fetch("/api/subscriptions/" + id).then(function(res) {
       return res.json();
     }).then(function(sub) {
-      openModal(sub);
+      openModal2(sub);
     }).catch(function(err) {
       showToast("\u274C " + err.message, "error");
     });
@@ -1471,7 +1466,7 @@
     var promise = id ? updateSubscription(parseInt(id), sub) : createSubscription(sub);
     promise.then(function(data) {
       showToast("\u2705 " + (id ? "Updated" : "Created") + ": " + sub.platform, "success");
-      closeModal();
+      closeModal2();
       loadSubscriptions();
     }).catch(function(err) {
       showToast("\u274C " + err.message, "error");
@@ -1488,17 +1483,43 @@
     document.getElementById("delete-confirm").onclick = function() {
       deleteSubscription(pendingDeleteId).then(function() {
         showToast("\u2705 Deleted: " + name, "success");
-        closeDelete();
+        closeDelete2();
         loadSubscriptions();
       }).catch(function(err) {
         showToast("\u274C " + err.message, "error");
       });
     };
   }
-  function closeDelete() {
+  function closeDelete2() {
     document.getElementById("delete-overlay").hidden = true;
     pendingDeleteId = null;
   }
+  function initSearch() {
+    var searchEl = document.getElementById("search-subs");
+    if (!searchEl) return;
+    searchEl.addEventListener("input", function() {
+      var query = searchEl.value.toLowerCase().trim();
+      var cards = document.querySelectorAll(".sub-card");
+      var labels = document.querySelectorAll(".sub-category-label");
+      cards.forEach(function(card) {
+        var text = card.textContent.toLowerCase();
+        card.style.display = text.indexOf(query) >= 0 ? "" : "none";
+      });
+      labels.forEach(function(label) {
+        var next = label.nextElementSibling;
+        var anyVisible = false;
+        while (next && !next.classList.contains("sub-category-label")) {
+          if (next.classList.contains("sub-card") && next.style.display !== "none") {
+            anyVisible = true;
+          }
+          next = next.nextElementSibling;
+        }
+        label.style.display = anyVisible ? "" : "none";
+      });
+    });
+  }
+
+  // internal/web/src/main.js
   var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
   function initSnapDropdown() {
     var caret = document.getElementById("snap-caret");
@@ -2461,30 +2482,6 @@
       showToast("\u21BB Pricing reset to defaults", "success");
     }).catch(function() {
       showToast("\u274C Failed to reset pricing", "error");
-    });
-  }
-  function initSearch() {
-    var searchEl = document.getElementById("search-subs");
-    if (!searchEl) return;
-    searchEl.addEventListener("input", function() {
-      var query = searchEl.value.toLowerCase().trim();
-      var cards = document.querySelectorAll(".sub-card");
-      var labels = document.querySelectorAll(".sub-category-label");
-      cards.forEach(function(card) {
-        var text = card.textContent.toLowerCase();
-        card.style.display = text.indexOf(query) >= 0 ? "" : "none";
-      });
-      labels.forEach(function(label) {
-        var next = label.nextElementSibling;
-        var anyVisible = false;
-        while (next && !next.classList.contains("sub-category-label")) {
-          if (next.classList.contains("sub-card") && next.style.display !== "none") {
-            anyVisible = true;
-          }
-          next = next.nextElementSibling;
-        }
-        label.style.display = anyVisible ? "" : "none";
-      });
     });
   }
   function initKeyboardShortcuts() {
