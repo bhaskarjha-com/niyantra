@@ -38,6 +38,7 @@
                         <div class="snap-option" data-source="antigravity">◉ Antigravity</div>
                         <div class="snap-option" data-source="codex">○ Codex / ChatGPT</div>
                         <div class="snap-option" data-source="cursor">○ Cursor</div>
+                        <div class="snap-option" data-source="gemini">○ Gemini CLI</div>
                         <div class="snap-divider"></div>
                         <div class="snap-option" data-source="all">⚡ Snap All Sources</div>
                     </div>
@@ -78,6 +79,7 @@
                             <option value="codex">Codex / ChatGPT</option>
                             <option value="claude">Claude Code</option>
                             <option value="cursor">Cursor</option>
+                            <option value="gemini">Gemini CLI</option>
                         </select>
                     </div>
                 </div>
@@ -244,6 +246,23 @@
                             </div>
                         </div>
                         <div id="cursor-status-settings" class="polling-status" style="display:none"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>✨ Gemini CLI</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Enable Gemini Capture</strong>
+                                <span>Track Gemini CLI quotas via OAuth API (~/.gemini/oauth_creds.json)</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-gemini-capture">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="gemini-status-settings" class="polling-status" style="display:none"></div>
                     </div>
 
                     <div class="settings-section">

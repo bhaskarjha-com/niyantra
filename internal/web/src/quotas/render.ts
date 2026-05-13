@@ -199,10 +199,11 @@ export function renderAccounts(data: any): void {
   if (data.codexSnapshot) parts.push('1 Codex');
   if (data.claudeSnapshot) parts.push('1 Claude');
   if (data.cursorSnapshot) parts.push('1 Cursor');
+  if (data.geminiSnapshot) parts.push('1 Gemini');
   if (countBadge) countBadge.textContent = parts.join(' · ') || '0 accounts';
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
-  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot) {
+  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot && !data.geminiSnapshot) {
     grid.innerHTML = '<div class="empty-state">' +
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>' +
       '<p>No accounts tracked yet</p>' +
@@ -498,6 +499,12 @@ export function renderAccounts(data: any): void {
       html += renderCursorProviderSection(data.cursorSnapshot);
     }
   }
+  if (data.geminiSnapshot && (pf === 'all' || pf === 'gemini')) {
+    var gmStatus = getGeminiStatus(data.geminiSnapshot);
+    if (statusVal === 'all' || gmStatus === statusVal) {
+      html += renderGeminiProviderSection(data.geminiSnapshot);
+    }
+  }
 
   // V3: Empty states when a specific provider is selected but has no data
   if (pf === 'antigravity' && acctCount === 0) {
@@ -523,6 +530,12 @@ export function renderAccounts(data: any): void {
       '<span class="provider-empty-icon">🖱️</span>' +
       '<p>No Cursor data yet</p>' +
       '<p class="empty-hint">Enable Cursor capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
+  }
+  if (pf === 'gemini' && !data.geminiSnapshot) {
+    html += '<div class="provider-empty-state" data-provider="gemini">' +
+      '<span class="provider-empty-icon">✦</span>' +
+      '<p>No Gemini CLI data yet</p>' +
+      '<p class="empty-hint">Enable Gemini capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
   }
 
   grid.innerHTML = html;
@@ -697,6 +710,72 @@ export function renderCursorProviderSection(cs: any): string {
     '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + usedStr + ' / ' + limitStr + '</span>' +
     '<div class="quota-minibar"><div class="quota-minibar-fill ' + cls + '" style="width:' + remaining + '%"></div></div></div>' +
     '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + remaining.toFixed(0) + '% left</span></div>' +
+    '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
+    '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
+    '</div>' + modelRows + '</div></div></div>';
+}
+
+export function getGeminiStatus(snap: any): string {
+  var overallPct = snap.overallPct || 0;
+  var rem = Math.max(0, 100 - overallPct);
+  if (rem === 0) return 'empty';
+  if (overallPct >= 80) return 'low';
+  return 'ready';
+}
+
+export function renderGeminiProviderSection(gs: any): string {
+  var overallPct = gs.overallPct || 0;
+  var remaining = Math.max(0, 100 - overallPct);
+  var cls = remaining > 50 ? 'good' : remaining > 20 ? 'ok' : remaining > 0 ? 'warning' : 'exhausted';
+  var capturedAgo = gs.capturedAt ? formatTimeAgo(gs.capturedAt) : 'unknown';
+  var dotCls = overallPct >= 80 ? 'dot-low' : 'dot-ready';
+  var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  var displayName = gs.email || 'Gemini CLI';
+  var gmCollapseClass = collapsedProviders.has('section-gemini') ? ' collapsed' : '';
+  var gmChevron = collapsedProviders.has('section-gemini') ? '\u25b8' : '\u25be';
+
+  // Build per-model breakdown rows from modelsJson
+  var modelRows = '';
+  if (gs.modelsJson && gs.modelsJson !== '[]') {
+    try {
+      var models = typeof gs.modelsJson === 'string' ? JSON.parse(gs.modelsJson) : gs.modelsJson;
+      if (Array.isArray(models) && models.length > 0) {
+        modelRows = '<div class="cursor-model-breakdown">';
+        for (var mi = 0; mi < models.length; mi++) {
+          var m = models[mi];
+          var mUsedPct = m.usedPct || 0;
+          var mRemPct = Math.max(0, 100 - mUsedPct);
+          var mCls = mRemPct > 50 ? 'good' : mRemPct > 20 ? 'ok' : mRemPct > 0 ? 'warning' : 'exhausted';
+          var mResetStr = m.resetTime ? formatResetTime(m.resetTime) : '';
+          var tierLabel = (m.tier || m.modelId || 'unknown');
+          modelRows += '<div class="cursor-model-row">' +
+            '<span class="cursor-model-name">' + esc(m.modelId || tierLabel) + '</span>' +
+            '<div class="quota-minibar"><div class="quota-minibar-fill ' + mCls + '" style="width:' + mRemPct + '%"></div></div>' +
+            '<span class="cursor-model-usage">' + mRemPct.toFixed(0) + '% left</span>' +
+            (mResetStr ? '<span class="quota-reset">\u21bb ' + mResetStr + '</span>' : '') +
+            '</div>';
+        }
+        modelRows += '</div>';
+      }
+    } catch(e) { /* graceful degradation */ }
+  }
+
+  return '<div class="provider-section" data-provider="gemini">' +
+    '<div class="provider-header" data-toggle-provider="section-gemini">' +
+    '<div class="provider-header-left">' +
+    '<span class="provider-chevron" id="pchev-section-gemini">' + gmChevron + '</span>' +
+    '<span class="provider-name">\u2728 Gemini CLI</span>' +
+    '<span class="provider-count">1 account</span>' +
+    '</div></div>' +
+    '<div class="provider-body' + gmCollapseClass + '" id="section-gemini">' +
+    '<div class="grid-header grid-gemini">' +
+    '<div>Account</div><div>Tier</div><div>Usage</div><div>Last Snap</div><div>Status</div>' +
+    '</div>' +
+    '<div class="account-card"><div class="account-row grid-gemini">' +
+    '<div class="account-info"><div class="account-email">' + esc(displayName) + '</div></div>' +
+    '<div>' + (gs.tier ? '<span class="plan-badge">' + esc(gs.tier) + '</span>' : String.fromCharCode(8212)) + '</div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + remaining.toFixed(0) + '% left</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + cls + '" style="width:' + remaining + '%"></div></div></div>' +
     '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
     '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
     '</div>' + modelRows + '</div></div></div>';

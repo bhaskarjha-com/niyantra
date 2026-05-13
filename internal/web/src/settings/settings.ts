@@ -186,6 +186,19 @@ export function initSettings(): void {
       });
     }
 
+    // ── F15b: Gemini CLI Capture Toggle ──
+    var geminiCaptureEl = document.getElementById('s-gemini-capture');
+    if (geminiCaptureEl) {
+      (geminiCaptureEl as HTMLInputElement).checked = cfg['gemini_capture'] === 'true';
+      geminiCaptureEl.addEventListener('change', function() {
+        var val = (geminiCaptureEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('gemini_capture', val).then(function() {
+          showToast((geminiCaptureEl as HTMLInputElement).checked ? '\u2728 Gemini capture enabled' : '\u2728 Gemini capture disabled', 'success');
+          loadDataSources();
+        });
+      });
+    }
+
     // ── Phase 11: JSON Import ──
     var importBtn = document.getElementById('import-json-btn');
     var importFile = document.getElementById('import-file');

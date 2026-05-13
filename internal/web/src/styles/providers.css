@@ -21,7 +21,9 @@
 }
 
 .grid-codex.grid-header,
-.grid-claude.grid-header {
+.grid-claude.grid-header,
+.grid-cursor.grid-header,
+.grid-gemini.grid-header {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -30,6 +32,24 @@
   padding-top: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
+}
+
+/* Cursor grid: Account | Plan | Premium Used | Usage | Last Snap | Status */
+.grid-cursor {
+  display: grid;
+  grid-template-columns: 2fr 80px 120px 100px 100px 80px;
+  align-items: center;
+  gap: 0 8px;
+  padding: 0 16px;
+}
+
+/* Gemini grid: Account | Tier | Usage | Last Snap | Status */
+.grid-gemini {
+  display: grid;
+  grid-template-columns: 2fr 80px 120px 100px 80px;
+  align-items: center;
+  gap: 0 8px;
+  padding: 0 16px;
 }
 
 
@@ -57,6 +77,8 @@
 .provider-section[data-provider="antigravity"] { border-left: 3px solid var(--provider-antigravity); }
 .provider-section[data-provider="codex"] { border-left: 3px solid var(--provider-codex); }
 .provider-section[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
+.provider-section[data-provider="cursor"] { border-left: 3px solid var(--provider-cursor); }
+.provider-section[data-provider="gemini"] { border-left: 3px solid var(--provider-gemini); }
 
 .provider-empty-state {
   text-align: center;
@@ -70,6 +92,8 @@
 .provider-empty-state[data-provider="antigravity"] { border-left: 3px solid var(--provider-antigravity); }
 .provider-empty-state[data-provider="codex"] { border-left: 3px solid var(--provider-codex); }
 .provider-empty-state[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
+.provider-empty-state[data-provider="cursor"] { border-left: 3px solid var(--provider-cursor); }
+.provider-empty-state[data-provider="gemini"] { border-left: 3px solid var(--provider-gemini); }
 
 .provider-empty-icon {
   font-size: 36px;

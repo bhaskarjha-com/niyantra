@@ -122,6 +122,7 @@ type HeatmapDay struct {
 	Claude      int    `json:"claude"`      // Claude Code snapshots
 	Codex       int    `json:"codex"`       // Codex snapshots
 	Cursor      int    `json:"cursor"`      // Cursor snapshots
+	Gemini      int    `json:"gemini"`      // Gemini CLI snapshots
 }
 
 // HeatmapData returns daily snapshot counts across all providers for the last N days.
@@ -139,22 +140,26 @@ func (s *Store) HeatmapData(days int) ([]HeatmapDay, error) {
 			SUM(ag) as antigravity,
 			SUM(cl) as claude,
 			SUM(cx) as codex,
-			SUM(cr) as cursor_cnt
+			SUM(cr) as cursor_cnt,
+			SUM(gm) as gemini_cnt
 		FROM (
-			SELECT date(captured_at) as day, 1 as ag, 0 as cl, 0 as cx, 0 as cr
+			SELECT date(captured_at) as day, 1 as ag, 0 as cl, 0 as cx, 0 as cr, 0 as gm
 			FROM snapshots WHERE captured_at >= datetime('now', ?)
 			UNION ALL
-			SELECT date(captured_at) as day, 0 as ag, 1 as cl, 0 as cx, 0 as cr
+			SELECT date(captured_at) as day, 0 as ag, 1 as cl, 0 as cx, 0 as cr, 0 as gm
 			FROM claude_snapshots WHERE captured_at >= datetime('now', ?)
 			UNION ALL
-			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 1 as cx, 0 as cr
+			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 1 as cx, 0 as cr, 0 as gm
 			FROM codex_snapshots WHERE captured_at >= datetime('now', ?)
 			UNION ALL
-			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 0 as cx, 1 as cr
+			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 0 as cx, 1 as cr, 0 as gm
 			FROM cursor_snapshots WHERE captured_at >= datetime('now', ?)
+			UNION ALL
+			SELECT date(captured_at) as day, 0 as ag, 0 as cl, 0 as cx, 0 as cr, 1 as gm
+			FROM gemini_snapshots WHERE captured_at >= datetime('now', ?)
 		)
 		GROUP BY day
-		ORDER BY day ASC`, cutoff, cutoff, cutoff, cutoff)
+		ORDER BY day ASC`, cutoff, cutoff, cutoff, cutoff, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("store: heatmap query: %w", err)
 	}
@@ -163,10 +168,10 @@ func (s *Store) HeatmapData(days int) ([]HeatmapDay, error) {
 	var result []HeatmapDay
 	for rows.Next() {
 		var d HeatmapDay
-		if err := rows.Scan(&d.Date, &d.Antigravity, &d.Claude, &d.Codex, &d.Cursor); err != nil {
+		if err := rows.Scan(&d.Date, &d.Antigravity, &d.Claude, &d.Codex, &d.Cursor, &d.Gemini); err != nil {
 			return nil, fmt.Errorf("store: scan heatmap row: %w", err)
 		}
-		d.Count = d.Antigravity + d.Claude + d.Codex + d.Cursor
+		d.Count = d.Antigravity + d.Claude + d.Codex + d.Cursor + d.Gemini
 		result = append(result, d)
 	}
 	return result, rows.Err()
@@ -211,6 +216,15 @@ func (s *Store) DeleteSnapshotsOlderThan(days int) (int64, error) {
 	if err == nil {
 		d4, _ := result4.RowsAffected()
 		deleted += d4
+	}
+
+	// Also clean up old Gemini snapshots
+	result5, err := s.db.Exec(
+		`DELETE FROM gemini_snapshots WHERE captured_at < datetime('now', ?)`, cutoff,
+	)
+	if err == nil {
+		d5, _ := result5.RowsAffected()
+		deleted += d5
 	}
 
 	return deleted, nil

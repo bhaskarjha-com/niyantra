@@ -189,6 +189,10 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("GET /api/cursor/status", s.handleCursorStatus)
 	mux.HandleFunc("POST /api/cursor/snap", s.handleCursorSnap)
 
+	// Phase 14 routes: Gemini CLI provider (F15b)
+	mux.HandleFunc("GET /api/gemini/status", s.handleGeminiStatus)
+	mux.HandleFunc("POST /api/gemini/snap", s.handleGeminiSnap)
+
 	// Phase 13 routes
 	mux.HandleFunc("GET /api/config/pricing", s.handleModelPricingGet)
 	mux.HandleFunc("PUT /api/config/pricing", s.handleModelPricingPut)

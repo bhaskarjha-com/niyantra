@@ -57,6 +57,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		result["cursorSnapshot"] = cursorSnap
 	}
 
+	// F15b: Include Gemini CLI snapshot if available
+	geminiSnap, _ := s.store.LatestGeminiSnapshot()
+	if geminiSnap != nil {
+		result["geminiSnapshot"] = geminiSnap
+	}
+
 	// F7: Compute per-account forecasts using sliding-window rates
 	forecastsByAccount := s.computeAccountForecasts(snapshots)
 	if forecastsByAccount != nil {

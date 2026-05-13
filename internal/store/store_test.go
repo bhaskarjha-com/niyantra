@@ -22,10 +22,10 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 12
+	// Verify schema version is 13
 	v := s.getUserVersion()
-	if v != 12 {
-		t.Errorf("expected schema version 12, got %d", v)
+	if v != 13 {
+		t.Errorf("expected schema version 13, got %d", v)
 	}
 
 	// Insert a snapshot and query it back
@@ -631,6 +631,16 @@ func TestHeatmapData(t *testing.T) {
 	}
 	_, _ = s.InsertCursorSnapshot(cursorSnap)
 
+	// Gemini snapshot (today)
+	geminiSnap := &GeminiSnapshot{
+		Tier:          "standard",
+		OverallPct:    25.0,
+		ModelsJSON:    `[{"modelId":"gemini-2.5-flash","remainingFraction":0.75}]`,
+		CaptureMethod: "auto",
+		CaptureSource: "server",
+	}
+	_, _ = s.InsertGeminiSnapshot(geminiSnap)
+
 	// Query heatmap
 	days, err = s.HeatmapData(365)
 	if err != nil {
@@ -653,8 +663,11 @@ func TestHeatmapData(t *testing.T) {
 	if day.Cursor != 1 {
 		t.Errorf("expected 1 Cursor snapshot, got %d", day.Cursor)
 	}
-	if day.Count != 5 {
-		t.Errorf("expected total count 5, got %d", day.Count)
+	if day.Gemini != 1 {
+		t.Errorf("expected 1 Gemini snapshot, got %d", day.Gemini)
+	}
+	if day.Count != 6 {
+		t.Errorf("expected total count 6, got %d", day.Count)
 	}
 }
 

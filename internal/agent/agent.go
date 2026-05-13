@@ -39,6 +39,9 @@ type PollingAgent struct {
 	// Cursor state
 	cursorAuthFails int
 
+	// Gemini state
+	geminiAuthFails int
+
 	// Backoff state for consecutive failures
 	mu           sync.Mutex
 	failCount    int
@@ -148,6 +151,9 @@ func (a *PollingAgent) poll(ctx context.Context) {
 
 	// Cursor polling: if cursor_capture is enabled
 	a.pollCursor(ctx)
+
+	// Gemini CLI polling: if gemini_capture is enabled
+	a.pollGemini(ctx)
 
 	// Data retention cleanup: delete snapshots older than retention_days
 	a.cleanupOldSnapshots()

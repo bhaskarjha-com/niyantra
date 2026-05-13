@@ -107,6 +107,18 @@ export function snapSource(source: string): void {
     );
   }
 
+  if (source === 'gemini' || source === 'all') {
+    promises.push(
+      fetch('/api/gemini/snap', { method: 'POST' }).then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.error) return { source: 'Gemini', error: d.error };
+        var label = 'Gemini · ' + (d.modelCount || 0) + ' models';
+        return { source: 'Gemini', data: d, label: label };
+      })
+      .catch(function() { return { source: 'Gemini', error: 'capture failed' }; })
+    );
+  }
+
   if (promises.length === 0) {
     (btn as HTMLButtonElement).innerHTML = orig;
     (btn as HTMLButtonElement).disabled = false;

@@ -545,6 +545,63 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v13: Gemini CLI snapshots (F15b) ────────────────────────────
+	if s.getUserVersion() < 13 {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return fmt.Errorf("store: v13 begin tx: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// 1. Create gemini_snapshots table
+		if _, err = tx.Exec(`
+			CREATE TABLE IF NOT EXISTS gemini_snapshots (
+				id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+				account_id      INTEGER  DEFAULT 0,
+				email           TEXT     DEFAULT '',
+				tier            TEXT     DEFAULT '',
+				overall_pct     REAL     DEFAULT 0,
+				models_json     TEXT     DEFAULT '[]',
+				project_id      TEXT     DEFAULT '',
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				capture_method  TEXT     DEFAULT 'manual',
+				capture_source  TEXT     DEFAULT 'ui',
+				FOREIGN KEY (account_id) REFERENCES accounts(id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_gemini_snapshots_time
+				ON gemini_snapshots(captured_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_gemini_snapshots_account
+				ON gemini_snapshots(account_id, captured_at DESC);
+		`); err != nil {
+			return fmt.Errorf("store: v13 create gemini_snapshots: %w", err)
+		}
+
+		// 2. Seed Gemini config keys and data source
+		if _, err = tx.Exec(`
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('gemini_capture',       'false', 'bool',   'capture', 'Gemini CLI Capture',      'Enable Gemini CLI quota tracking via OAuth API'),
+				('gemini_client_id',     '',      'string', 'capture', 'Gemini OAuth Client ID',   'OAuth Client ID for token refresh (auto-detected from Gemini CLI installation)'),
+				('gemini_client_secret', '',      'string', 'capture', 'Gemini OAuth Client Secret','OAuth Client Secret for token refresh (auto-detected from Gemini CLI installation)');
+
+			INSERT OR IGNORE INTO data_sources (id, name, source_type, enabled, config_json) VALUES
+				('gemini', 'Gemini CLI', 'oauth_api', 0, '{}');
+		`); err != nil {
+			return fmt.Errorf("store: v13 seed gemini config: %w", err)
+		}
+
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("store: v13 commit: %w", err)
+		}
+
+		if err := s.setUserVersion(13); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
