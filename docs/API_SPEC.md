@@ -628,7 +628,7 @@ Returns estimated dollar costs for all tracked accounts based on quota fraction 
 
 ### `GET /api/history/heatmap` (Phase 14: F6)
 
-Returns daily snapshot counts across all providers (Antigravity, Claude Code, Codex) for rendering a GitHub-style contribution calendar.
+Returns daily snapshot counts across all providers (Antigravity, Claude Code, Codex, Cursor, Gemini CLI) for rendering a GitHub-style contribution calendar.
 
 **Query Parameters:**
 
@@ -641,8 +641,8 @@ Returns daily snapshot counts across all providers (Antigravity, Claude Code, Co
 ```json
 {
   "days": [
-    { "date": "2026-05-12", "count": 5, "antigravity": 3, "claude": 1, "codex": 1 },
-    { "date": "2026-05-11", "count": 12, "antigravity": 8, "claude": 2, "codex": 2 }
+    { "date": "2026-05-12", "count": 6, "antigravity": 3, "claude": 1, "codex": 1, "cursor": 0, "gemini": 1 },
+    { "date": "2026-05-11", "count": 14, "antigravity": 8, "claude": 2, "codex": 2, "cursor": 1, "gemini": 1 }
   ],
   "maxCount": 12,
   "totalSnapshots": 847,
@@ -662,13 +662,15 @@ Returns daily snapshot counts across all providers (Antigravity, Claude Code, Co
 | `days[].antigravity` | int | Antigravity snapshot count |
 | `days[].claude` | int | Claude Code snapshot count |
 | `days[].codex` | int | Codex snapshot count |
+| `days[].cursor` | int | Cursor snapshot count |
+| `days[].gemini` | int | Gemini CLI snapshot count |
 | `maxCount` | int | Highest single-day count (used for intensity scaling) |
 | `totalSnapshots` | int | Sum of all snapshot counts in the range |
 | `activeDays` | int | Number of days with at least 1 snapshot |
 | `streak` | int | Current consecutive-day activity streak |
 | `longestStreak` | int | Longest consecutive-day activity streak ever |
 
-> **Data Source:** UNION ALL query across `snapshots`, `claude_snapshots`, and `codex_snapshots` tables, grouped by `date(captured_at)`.
+> **Data Source:** UNION ALL query across `snapshots`, `claude_snapshots`, `codex_snapshots`, `cursor_snapshots`, and `gemini_snapshots` tables, grouped by `date(captured_at)`.
 
 ---
 
@@ -807,6 +809,80 @@ Triggers a manual Cursor usage snapshot.
 **Error Responses:**
 - `400` — Cursor not detected (no token or userId found)
 - `502` — Cursor API error (all 3 endpoints failed, or unauthorized)
+
+---
+
+### `GET /api/gemini/status` (Phase 14: F15b)
+
+Returns Gemini CLI detection state, credential info, and latest usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "installed": true,
+  "captureEnabled": false,
+  "email": "user@gmail.com",
+  "source": "auto",
+  "expired": false,
+  "hasRefreshToken": true,
+  "snapshot": {
+    "id": 5,
+    "accountId": 12,
+    "email": "user@gmail.com",
+    "tier": "standard",
+    "overallPct": 25.0,
+    "modelsJson": "[{\"modelId\":\"gemini-2.5-flash\",\"remainingFraction\":0.75,\"usedPct\":25.0,\"resetTime\":\"2026-05-14T00:00:00Z\",\"tier\":\"flash\"}]",
+    "projectId": "project-123",
+    "capturedAt": "2026-05-13T08:00:00Z",
+    "captureMethod": "auto",
+    "captureSource": "server"
+  }
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `installed` | bool | Whether `~/.gemini/oauth_creds.json` was found |
+| `captureEnabled` | bool | Whether auto-polling is enabled (`gemini_capture` config) |
+| `email` | string | Email from Google userinfo (may be empty) |
+| `source` | string | `"auto"` (detected from oauth_creds.json) |
+| `expired` | bool | Whether the access token has expired |
+| `hasRefreshToken` | bool | Whether a refresh token is available for auto-renewal |
+| `snapshot.tier` | string | Google tier: `standard`, `enterprise`, `unknown` |
+| `snapshot.overallPct` | float | Weighted average usage across all model buckets (0-100) |
+| `snapshot.modelsJson` | string | JSON array of per-model quota buckets |
+| `snapshot.projectId` | string | `cloudaicompanionProject` from loadCodeAssist |
+
+> **Credential Detection:** Auto-reads `access_token`, `refresh_token`, `expiry_date` from `~/.gemini/oauth_creds.json`. Token auto-refresh via `https://oauth2.googleapis.com/token` using CLIENT_ID/SECRET from Gemini CLI npm package or `gemini_client_id`/`gemini_client_secret` config keys.
+
+> **API Flow:** Two endpoints polled sequentially:
+> 1. `POST cloudcode-pa.googleapis.com/v1internal:loadCodeAssist` → tier + project ID
+> 2. `POST cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` → per-model `{modelId, remainingFraction, resetTime}` buckets
+
+---
+
+### `POST /api/gemini/snap` (Phase 14: F15b)
+
+Triggers a manual Gemini CLI usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "message": "Gemini CLI snapshot captured",
+  "snapshotId": 5,
+  "tier": "standard",
+  "overallUsedPct": 25.0,
+  "modelCount": 3
+}
+```
+
+**Error Responses:**
+- `400` — Gemini CLI not detected (`~/.gemini/oauth_creds.json` not found)
+- `502` — Gemini API error (token expired, unauthorized, or network failure)
 
 ---
 
