@@ -733,6 +733,83 @@ Returns deep token usage analytics from Claude Code's local JSONL session files 
 
 ---
 
+### `GET /api/cursor/status` (Phase 14: F15a)
+
+Returns Cursor IDE detection state, credential info, and latest usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "installed": true,
+  "captureEnabled": false,
+  "email": "user@example.com",
+  "userId": "user_abc123def456ghi789",
+  "source": "auto",
+  "snapshot": {
+    "billingModel": "usd_credit",
+    "planTier": "pro",
+    "requestsUsed": 0,
+    "requestsMax": 0,
+    "usedCents": 1250,
+    "limitCents": 50000,
+    "usagePct": 2.5,
+    "autoPct": 1.8,
+    "apiPct": 0.7,
+    "cycleStart": "1715558400000",
+    "cycleEnd": "1718236800000",
+    "capturedAt": "2026-05-13T08:00:00Z"
+  }
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `installed` | bool | Whether Cursor credentials were detected locally |
+| `captureEnabled` | bool | Whether auto-polling is enabled (`cursor_capture` config) |
+| `email` | string | Email from Cursor's cached auth (may be empty) |
+| `userId` | string | `user_xxx` ID from sentry/scope_v3.json |
+| `source` | string | `"auto"` (detected from state.vscdb) or `"manual"` (config token) |
+| `snapshot.billingModel` | string | `"request_count"` (legacy) or `"usd_credit"` (new) |
+| `snapshot.planTier` | string | `free`, `pro`, `pro_plus`, `ultra`, `team`, or `unknown` |
+| `snapshot.usedCents` | int | USD cents consumed this cycle (credit billing only) |
+| `snapshot.limitCents` | int | USD cents limit per cycle (credit billing only) |
+| `snapshot.requestsUsed` | int | Requests used (legacy billing only) |
+| `snapshot.requestsMax` | int | Max requests per cycle (legacy billing only) |
+| `snapshot.usagePct` | float | Overall usage percentage (0-100) |
+
+> **Credential Detection:** Auto-reads `accessToken` from `state.vscdb` (SQLite) + `userId` from `sentry/scope_v3.json`. Falls back to `cursor_session_token` config key. Three endpoints polled: `cursor.com/api/usage` (Cookie), `api2.cursor.sh/GetCurrentPeriodUsage` (Bearer), `cursor.com/api/auth/stripe` (Cookie).
+
+---
+
+### `POST /api/cursor/snap` (Phase 14: F15a)
+
+Triggers a manual Cursor usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "message": "Cursor snapshot captured",
+  "snapshotId": 7,
+  "billingModel": "usd_credit",
+  "planTier": "pro",
+  "usagePct": 2.5,
+  "requestsUsed": 0,
+  "requestsMax": 0,
+  "usedCents": 1250,
+  "limitCents": 50000
+}
+```
+
+**Error Responses:**
+- `400` — Cursor not detected (no token or userId found)
+- `502` — Cursor API error (all 3 endpoints failed, or unauthorized)
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:
