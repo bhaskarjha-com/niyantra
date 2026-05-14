@@ -1409,3 +1409,112 @@ Updates the full pricing configuration. Replaces all existing entries.
 **Storage:** Model pricing is stored as a JSON blob in the `config` table under the key `model_pricing`. No schema migration is required — it uses the existing config key-value infrastructure with `INSERT OR IGNORE ... ON CONFLICT` upsert.
 
 **Prerequisite for:** F8 (Estimated Cost Tracking) — pricing data will be used to compute cost from quota deltas.
+
+---
+
+### `GET /api/token-usage` (Phase 15: F13)
+
+Returns unified token usage analytics aggregating Claude Code JSONL sessions (full per-turn granularity) with estimated data from snapshot providers.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `days` | `int` | 30 | Number of days to analyze (max 365) |
+| `provider` | `string` | `all` | Filter: `all`, `claude`, `antigravity`, `codex`, `cursor`, `gemini` |
+
+**Response:** `200 OK`
+
+```json
+{
+  "totals": {
+    "totalTokens": 1250000,
+    "inputTokens": 800000,
+    "outputTokens": 450000,
+    "cacheTokens": 350000,
+    "estCostUSD": 12.50,
+    "sessions": 47
+  },
+  "kpis": {
+    "daysActive": 14,
+    "avgTokensPerDay": 89285,
+    "cacheHitRate": 0.65,
+    "topModel": "claude-sonnet-4",
+    "peakDay": "2026-05-10"
+  },
+  "byModel": [
+    { "model": "claude-sonnet-4", "tokens": 900000, "costUSD": 8.50, "pct": 72 }
+  ],
+  "daily": [
+    { "date": "2026-05-12", "tokens": 120000, "costUSD": 1.20 }
+  ],
+  "period": { "start": "2026-04-14", "end": "2026-05-14", "days": 30 }
+}
+```
+
+> **Data Source:** Primary: Claude Code JSONL (`~/.claude/projects/*/sessions/*.jsonl`). Secondary: estimated data from `token_usage` table (schema v14) for all other providers.
+
+---
+
+### `GET /api/git-costs` (Phase 15: F16)
+
+Correlates git commits with actual AI token consumption from Claude Code sessions. For each commit, finds overlapping Claude sessions within a ±30 min time window and reports real per-commit cost.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `repo` | `string` | CWD | Path to git repository |
+| `days` | `int` | 30 | Number of days to analyze (max 365) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "commits": [
+    {
+      "hash": "abc1234def5678...",
+      "shortHash": "abc1234",
+      "date": "2026-05-14T10:30:00+05:30",
+      "dateStr": "2026-05-14",
+      "message": "feat: add authentication",
+      "author": "user",
+      "branch": "main",
+      "inputTokens": 30000,
+      "outputTokens": 15000,
+      "cacheTokens": 20000,
+      "totalTokens": 45000,
+      "costUSD": 0.85,
+      "sessions": 2,
+      "turns": 12
+    }
+  ],
+  "branches": [
+    { "name": "feat/token-usage", "commits": 3, "totalTokens": 150000, "costUSD": 3.50, "avgPerCommit": 1.17 }
+  ],
+  "totals": {
+    "commitCount": 42,
+    "totalTokens": 500000,
+    "costUSD": 12.34,
+    "avgPerCommit": 0.29,
+    "topBranch": "feat/token-usage"
+  },
+  "period": { "start": "2026-04-14", "end": "2026-05-14", "days": 30 },
+  "repoPath": "D:\\dev\\pro\\niyantra"
+}
+```
+
+**Field Reference — Commit Cost:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hash` | string | Full commit SHA |
+| `shortHash` | string | 7-char abbreviated SHA |
+| `totalTokens` | int | Input + output tokens consumed during this commit's time window |
+| `costUSD` | float | Estimated cost from F5 model pricing |
+| `sessions` | int | Number of distinct Claude Code sessions correlated |
+| `turns` | int | Number of AI assistant turns in the time window |
+
+> **Algorithm:** Runs `git log --all --no-merges --format` to extract commits, then for each commit timestamp finds Claude Code JSONL session records in `[commit_time - 30min, commit_time]`. Cost computed via `store.GetModelPrice()` with fuzzy prefix matching. No database writes — pure computation.
+
+> **Unique Feature:** No competitor does cost correlation with actual token data. `semcod/costs` estimates from diff size; Niyantra uses real Claude Code session telemetry.
