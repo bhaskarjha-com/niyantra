@@ -578,6 +578,28 @@ func TestGetModelPrice(t *testing.T) {
 	if p != nil {
 		t.Error("expected nil for nonexistent model")
 	}
+
+	// Fuzzy prefix match: Claude Code JSONL uses "claude-sonnet-4" but
+	// pricing config has "claude-sonnet-4.6" — should match via prefix
+	p = s.GetModelPrice("claude-sonnet-4")
+	if p == nil {
+		t.Fatal("expected fuzzy match for claude-sonnet-4 → claude-sonnet-4.6")
+	}
+	if p.ModelID != "claude-sonnet-4.6" {
+		t.Errorf("expected match to claude-sonnet-4.6, got %s", p.ModelID)
+	}
+	if p.InputPer1M != 3.00 {
+		t.Errorf("expected input 3.00 for sonnet, got %f", p.InputPer1M)
+	}
+
+	// Fuzzy prefix match: opus variant
+	p = s.GetModelPrice("claude-opus-4")
+	if p == nil {
+		t.Fatal("expected fuzzy match for claude-opus-4 → claude-opus-4.6")
+	}
+	if p.ModelID != "claude-opus-4.6" {
+		t.Errorf("expected match to claude-opus-4.6, got %s", p.ModelID)
+	}
 }
 
 func TestHeatmapData(t *testing.T) {

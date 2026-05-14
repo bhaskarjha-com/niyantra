@@ -67,17 +67,48 @@ func (s *Store) SetModelPricing(prices []ModelPrice) error {
 }
 
 // GetModelPrice returns the pricing for a specific model by ID, or nil if not found.
+// Uses exact match first, then falls back to prefix matching to handle
+// version suffix differences (e.g. "claude-sonnet-4" → "claude-sonnet-4.6").
 func (s *Store) GetModelPrice(modelID string) *ModelPrice {
 	prices, err := s.GetModelPricing()
 	if err != nil {
 		return nil
 	}
+
+	// 1. Exact match
 	for i := range prices {
 		if prices[i].ModelID == modelID {
 			return &prices[i]
 		}
 	}
-	return nil
+
+	// 2. Prefix match: find the pricing entry whose ModelID starts with
+	//    the queried modelID (or vice versa). Longest match wins.
+	//    This handles "claude-sonnet-4" matching "claude-sonnet-4.6".
+	var bestMatch *ModelPrice
+	bestLen := 0
+	for i := range prices {
+		pid := prices[i].ModelID
+		if len(pid) > len(modelID) {
+			// pricing ID is longer: check if it starts with the query
+			if len(modelID) > bestLen && startsWith(pid, modelID) {
+				bestMatch = &prices[i]
+				bestLen = len(modelID)
+			}
+		} else {
+			// query is longer: check if query starts with the pricing ID
+			if len(pid) > bestLen && startsWith(modelID, pid) {
+				bestMatch = &prices[i]
+				bestLen = len(pid)
+			}
+		}
+	}
+	return bestMatch
+}
+
+// startsWith checks if s starts with prefix.
+func startsWith(s, prefix string) bool {
+	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
 
 // GetQuotaCeilings returns the configured quota ceilings JSON string.
