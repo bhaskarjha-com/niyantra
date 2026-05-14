@@ -22,10 +22,10 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 13
+	// Verify schema version is 14
 	v := s.getUserVersion()
-	if v != 13 {
-		t.Errorf("expected schema version 13, got %d", v)
+	if v != 14 {
+		t.Errorf("expected schema version 14, got %d", v)
 	}
 
 	// Insert a snapshot and query it back
@@ -743,3 +743,206 @@ func TestUnifiedAccountModel(t *testing.T) {
 	}
 }
 
+func TestTokenUsageCRUD(t *testing.T) {
+	s := openTestDB(t)
+
+	// Insert a token usage row
+	row := &TokenUsageRow{
+		Date:          "2026-05-14",
+		Provider:      "claude",
+		Model:         "claude-sonnet-4.6",
+		InputTokens:   100000,
+		OutputTokens:  50000,
+		CacheRead:     20000,
+		CacheCreate:   5000,
+		EstimatedCost: 1.50,
+		TurnCount:     42,
+		SessionCount:  3,
+		Source:        "parsed",
+	}
+
+	if err := s.InsertTokenUsage(row); err != nil {
+		t.Fatalf("InsertTokenUsage: %v", err)
+	}
+
+	// Query back
+	rows, err := s.QueryTokenUsage("2026-05-01", "claude")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if rows[0].InputTokens != 100000 {
+		t.Errorf("expected input tokens 100000, got %d", rows[0].InputTokens)
+	}
+	if rows[0].OutputTokens != 50000 {
+		t.Errorf("expected output tokens 50000, got %d", rows[0].OutputTokens)
+	}
+	if rows[0].EstimatedCost != 1.50 {
+		t.Errorf("expected cost 1.50, got %f", rows[0].EstimatedCost)
+	}
+	if rows[0].Source != "parsed" {
+		t.Errorf("expected source 'parsed', got %q", rows[0].Source)
+	}
+}
+
+func TestTokenUsageUpsert(t *testing.T) {
+	s := openTestDB(t)
+
+	// Insert initial row
+	row := &TokenUsageRow{
+		Date:          "2026-05-14",
+		Provider:      "claude",
+		Model:         "claude-sonnet-4.6",
+		InputTokens:   100000,
+		OutputTokens:  50000,
+		EstimatedCost: 1.50,
+		TurnCount:     42,
+		Source:        "parsed",
+	}
+	if err := s.InsertTokenUsage(row); err != nil {
+		t.Fatalf("InsertTokenUsage first: %v", err)
+	}
+
+	// Upsert with updated values (same date+provider+model key)
+	row.InputTokens = 200000
+	row.OutputTokens = 100000
+	row.EstimatedCost = 3.00
+	row.TurnCount = 84
+	if err := s.InsertTokenUsage(row); err != nil {
+		t.Fatalf("InsertTokenUsage upsert: %v", err)
+	}
+
+	// Should still be 1 row, with updated values
+	rows, err := s.QueryTokenUsage("2026-05-01", "claude")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row after upsert, got %d", len(rows))
+	}
+	if rows[0].InputTokens != 200000 {
+		t.Errorf("expected input 200000 after upsert, got %d", rows[0].InputTokens)
+	}
+	if rows[0].EstimatedCost != 3.00 {
+		t.Errorf("expected cost 3.00 after upsert, got %f", rows[0].EstimatedCost)
+	}
+}
+
+func TestTokenUsageProviderFilter(t *testing.T) {
+	s := openTestDB(t)
+
+	// Insert rows for multiple providers
+	providers := []string{"claude", "antigravity", "codex"}
+	for _, p := range providers {
+		if err := s.InsertTokenUsage(&TokenUsageRow{
+			Date:          "2026-05-14",
+			Provider:      p,
+			Model:         p + "-model",
+			InputTokens:   10000,
+			OutputTokens:  5000,
+			EstimatedCost: 0.50,
+			Source:        "parsed",
+		}); err != nil {
+			t.Fatalf("InsertTokenUsage(%s): %v", p, err)
+		}
+	}
+
+	// Query all providers
+	allRows, err := s.QueryTokenUsage("2026-05-01", "all")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage(all): %v", err)
+	}
+	if len(allRows) != 3 {
+		t.Fatalf("expected 3 rows for 'all', got %d", len(allRows))
+	}
+
+	// Query specific provider
+	claudeRows, err := s.QueryTokenUsage("2026-05-01", "claude")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage(claude): %v", err)
+	}
+	if len(claudeRows) != 1 {
+		t.Fatalf("expected 1 row for 'claude', got %d", len(claudeRows))
+	}
+	if claudeRows[0].Provider != "claude" {
+		t.Errorf("expected provider 'claude', got %q", claudeRows[0].Provider)
+	}
+
+	// Query empty provider (should return all)
+	emptyRows, err := s.QueryTokenUsage("2026-05-01", "")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage(''): %v", err)
+	}
+	if len(emptyRows) != 3 {
+		t.Fatalf("expected 3 rows for empty provider, got %d", len(emptyRows))
+	}
+}
+
+func TestTokenUsageDateFilter(t *testing.T) {
+	s := openTestDB(t)
+
+	// Insert rows across multiple dates
+	dates := []string{"2026-05-01", "2026-05-07", "2026-05-14"}
+	for _, d := range dates {
+		if err := s.InsertTokenUsage(&TokenUsageRow{
+			Date:          d,
+			Provider:      "claude",
+			Model:         "model-a",
+			InputTokens:   10000,
+			EstimatedCost: 0.50,
+			Source:        "parsed",
+		}); err != nil {
+			t.Fatalf("InsertTokenUsage(%s): %v", d, err)
+		}
+	}
+
+	// Filter: only rows after May 5
+	rows, err := s.QueryTokenUsage("2026-05-05", "all")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows after May 5, got %d", len(rows))
+	}
+}
+
+func TestTokenUsageRetention(t *testing.T) {
+	s := openTestDB(t)
+
+	// Insert old and recent rows
+	if err := s.InsertTokenUsage(&TokenUsageRow{
+		Date: "2025-01-01", Provider: "claude", Model: "old-model",
+		InputTokens: 1000, Source: "parsed",
+	}); err != nil {
+		t.Fatalf("InsertTokenUsage old: %v", err)
+	}
+	if err := s.InsertTokenUsage(&TokenUsageRow{
+		Date: "2026-05-14", Provider: "claude", Model: "new-model",
+		InputTokens: 2000, Source: "parsed",
+	}); err != nil {
+		t.Fatalf("InsertTokenUsage new: %v", err)
+	}
+
+	// Delete rows before 2026-01-01
+	deleted, err := s.DeleteTokenUsageBefore("2026-01-01")
+	if err != nil {
+		t.Fatalf("DeleteTokenUsageBefore: %v", err)
+	}
+	if deleted != 1 {
+		t.Errorf("expected 1 deleted, got %d", deleted)
+	}
+
+	// Should have 1 remaining row
+	rows, err := s.QueryTokenUsage("2025-01-01", "all")
+	if err != nil {
+		t.Fatalf("QueryTokenUsage after delete: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row after delete, got %d", len(rows))
+	}
+	if rows[0].Date != "2026-05-14" {
+		t.Errorf("expected remaining row date '2026-05-14', got %q", rows[0].Date)
+	}
+}

@@ -2,9 +2,10 @@
 // that exposes Niyantra's quota intelligence to AI coding agents.
 //
 // The server communicates over stdio (JSON-RPC 2.0) and provides
-// 9 tools for querying quota status, model availability, usage
+// 10 tools for querying quota status, model availability, usage
 // intelligence, budget forecasts, model recommendations, spending
-// analysis, switch advice, Codex status, and quota time-to-exhaustion.
+// analysis, switch advice, Codex status, quota time-to-exhaustion,
+// and token usage analytics.
 package mcpserver
 
 import (
@@ -22,6 +23,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/forecast"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
+	"github.com/bhaskarjha-com/niyantra/internal/tokenusage"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -96,6 +98,11 @@ func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string
 		Name:        "quota_forecast",
 		Description: "Get time-to-exhaustion (TTX) forecasts for all tracked quota groups across all providers. Uses sliding-window rate calculations from recent snapshot history (last 60 min) for accurate burn rate predictions. Returns per-group TTX estimates with severity levels (safe/caution/warning/critical) and confidence indicators. Covers Antigravity model groups, Claude Code, and Codex providers.",
 	}, m.handleQuotaForecast)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "token_usage_stats",
+		Description: "Get unified token usage analytics across all AI coding providers. Returns total token counts (input/output/cache), estimated costs, per-model breakdowns, daily trends, and KPIs (cache hit rate, avg tokens/day, peak day). Supports time range filtering (default 30 days). Primary data source is Claude Code JSONL sessions with full per-turn granularity.",
+	}, m.handleTokenUsageStats)
 
 	return m
 }
@@ -949,5 +956,128 @@ func (m *MCPServer) computeGroupCost(groupKey string, burnRate, remaining float6
 		ceiling, ctPricing, assigner,
 	)
 	return &est
+}
+
+// ── Phase 15: Token Usage Analytics (F13) ────────────────────────
+
+// TokenUsageInput is the input for token_usage_stats.
+type TokenUsageInput struct {
+	Days     int    `json:"days" jsonschema:"number of days to analyze (default 30, max 365)"`
+	Provider string `json:"provider" jsonschema:"provider filter: 'all' (default), 'claude', 'antigravity', 'codex', 'cursor', 'gemini'"`
+}
+
+// TokenUsageOutput is the output of token_usage_stats.
+type TokenUsageOutput struct {
+	TotalTokens   int64                      `json:"totalTokens"`
+	EstimatedCost float64                    `json:"estimatedCostUSD"`
+	InputTokens   int64                      `json:"inputTokens"`
+	OutputTokens  int64                      `json:"outputTokens"`
+	CacheTokens   int64                      `json:"cacheTokens"`
+	Sessions      int                        `json:"sessions"`
+	DaysActive    int                        `json:"daysActive"`
+	AvgPerDay     int64                      `json:"avgTokensPerDay"`
+	CacheHitRate  float64                    `json:"cacheHitRate"`
+	TopModel      string                     `json:"topModel"`
+	PeakDay       string                     `json:"peakDay"`
+	Models        []tokenusage.ModelBreakdown `json:"topModels"`
+	Period        tokenusage.Period          `json:"period"`
+	Message       string                     `json:"message"`
+}
+
+func (m *MCPServer) handleTokenUsageStats(_ context.Context, _ *mcp.CallToolRequest, input TokenUsageInput) (*mcp.CallToolResult, TokenUsageOutput, error) {
+	days := input.Days
+	if days <= 0 {
+		days = 30
+	}
+	if days > 365 {
+		days = 365
+	}
+
+	provider := input.Provider
+	if provider == "" {
+		provider = "all"
+	}
+
+	priceFn := func(modelID string) (float64, float64, float64, bool) {
+		p := m.store.GetModelPrice(modelID)
+		if p == nil {
+			return 0, 0, 0, false
+		}
+		return p.InputPer1M, p.OutputPer1M, p.CachePer1M, true
+	}
+
+	var summary *tokenusage.Summary
+	var err error
+
+	if provider == "all" || provider == "claude" {
+		claudeSummary, cerr := tokenusage.AggregateFromClaude(days, priceFn)
+		if cerr != nil {
+			m.logger.Warn("MCP token_usage: Claude aggregation failed", "error", cerr)
+		}
+		if provider == "claude" {
+			summary = claudeSummary
+		} else {
+			storeSummary, _ := tokenusage.AggregateFromStore(m.store, days, "all")
+			summary = tokenusage.Merge(claudeSummary, storeSummary)
+		}
+	} else {
+		summary, err = tokenusage.AggregateFromStore(m.store, days, provider)
+		if err != nil {
+			return nil, TokenUsageOutput{Message: "Failed to aggregate token usage"}, nil
+		}
+	}
+
+	if summary == nil {
+		return nil, TokenUsageOutput{
+			Message: "No token usage data available. Ensure Claude Code has been used or other providers have been tracked.",
+		}, nil
+	}
+
+	// Limit top models to 5 for concise MCP output
+	topModels := summary.ByModel
+	if len(topModels) > 5 {
+		topModels = topModels[:5]
+	}
+
+	out := TokenUsageOutput{
+		TotalTokens:   summary.Totals.TotalTokens,
+		EstimatedCost: summary.Totals.EstCostUSD,
+		InputTokens:   summary.Totals.InputTokens,
+		OutputTokens:  summary.Totals.OutputTokens,
+		CacheTokens:   summary.Totals.CacheTokens,
+		Sessions:      summary.Totals.Sessions,
+		DaysActive:    summary.KPIs.DaysActive,
+		AvgPerDay:     summary.KPIs.AvgTokensPerDay,
+		CacheHitRate:  summary.KPIs.CacheHitRate,
+		TopModel:      summary.KPIs.TopModel,
+		PeakDay:       summary.KPIs.PeakDay,
+		Models:        topModels,
+		Period:        summary.Period,
+	}
+
+	if summary.Totals.TotalTokens > 0 {
+		out.Message = fmt.Sprintf("%d days active, %s tokens total, ~$%.2f estimated cost. Top model: %s. Cache hit rate: %.0f%%.",
+			summary.KPIs.DaysActive,
+			formatTokenCount(summary.Totals.TotalTokens),
+			summary.Totals.EstCostUSD,
+			summary.KPIs.TopModel,
+			summary.KPIs.CacheHitRate*100,
+		)
+	} else {
+		out.Message = "No token usage data found for the specified period."
+	}
+
+	return nil, out, nil
+}
+
+// formatTokenCount formats large token counts with K/M suffixes.
+func formatTokenCount(tokens int64) string {
+	if tokens >= 1_000_000 {
+		return fmt.Sprintf("%.1fM", float64(tokens)/1_000_000)
+	}
+	if tokens >= 1_000 {
+		return fmt.Sprintf("%.1fK", float64(tokens)/1_000)
+	}
+	return fmt.Sprintf("%d", tokens)
 }
 

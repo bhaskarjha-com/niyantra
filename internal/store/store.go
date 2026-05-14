@@ -602,6 +602,48 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v14: F13 Token Usage Analytics ────────────────────────────
+	if version < 14 {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return fmt.Errorf("store: v14 begin: %w", err)
+		}
+		defer tx.Rollback()
+
+		if _, err := tx.Exec(`
+			CREATE TABLE IF NOT EXISTS token_usage (
+				id              INTEGER PRIMARY KEY AUTOINCREMENT,
+				date            TEXT    NOT NULL,
+				provider        TEXT    NOT NULL,
+				model           TEXT    DEFAULT '',
+				input_tokens    INTEGER DEFAULT 0,
+				output_tokens   INTEGER DEFAULT 0,
+				cache_read      INTEGER DEFAULT 0,
+				cache_create    INTEGER DEFAULT 0,
+				estimated_cost  REAL    DEFAULT 0,
+				turn_count      INTEGER DEFAULT 0,
+				session_count   INTEGER DEFAULT 0,
+				source          TEXT    DEFAULT 'parsed',
+				UNIQUE(date, provider, model)
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_token_usage_date
+				ON token_usage(date);
+			CREATE INDEX IF NOT EXISTS idx_token_usage_provider
+				ON token_usage(provider);
+		`); err != nil {
+			return fmt.Errorf("store: v14 create token_usage: %w", err)
+		}
+
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("store: v14 commit: %w", err)
+		}
+
+		if err := s.setUserVersion(14); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

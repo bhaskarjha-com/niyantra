@@ -1,5 +1,5 @@
 "use strict";
-var Niyantra = (() => {
+var App = (() => {
   // internal/web/src/core/state.ts
   var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];
   var GROUP_LABELS = ["Claude + GPT", "Gemini Pro", "Gemini Flash"];
@@ -2252,6 +2252,135 @@ var Niyantra = (() => {
     });
   }
 
+  // internal/web/src/overview/tokenAnalytics.ts
+  function loadTokenAnalytics() {
+    var container = document.getElementById("token-analytics-container");
+    if (!container) return;
+    var rangeSelector = document.getElementById("token-range-selector");
+    var days = 30;
+    if (rangeSelector) {
+      days = parseInt(rangeSelector.value) || 30;
+    }
+    fetch("/api/token-usage?days=" + days).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      renderTokenAnalytics(container, data, days);
+    }).catch(function(err) {
+      console.error("Token analytics fetch failed:", err);
+      container.innerHTML = '<div class="token-analytics-empty">Failed to load token analytics</div>';
+    });
+  }
+  function renderTokenAnalytics(container, data, days) {
+    if (!data || !data.totals || data.totals.totalTokens === 0) {
+      container.innerHTML = '<div class="overview-card full-width token-analytics-card"><h3>\u{1F525} Token Usage Analytics</h3><div class="token-analytics-empty"><p>No token usage data available yet.</p><p style="font-size:12px;color:var(--text-secondary)">Use Claude Code to generate token usage data. Session files are parsed from <code>~/.claude/projects/</code>.</p></div></div>';
+      return;
+    }
+    var totals = data.totals;
+    var kpis = data.kpis || {};
+    var models = data.byModel || [];
+    var dailyData = data.byDay || [];
+    var rangeOptions = [
+      { value: "7", label: "7d" },
+      { value: "30", label: "30d" },
+      { value: "90", label: "90d" },
+      { value: "365", label: "1y" }
+    ];
+    var rangeHTML = '<div class="token-range-bar">';
+    for (var i = 0; i < rangeOptions.length; i++) {
+      var opt = rangeOptions[i];
+      var activeClass = String(days) === opt.value ? " token-range-active" : "";
+      rangeHTML += '<button class="token-range-btn' + activeClass + '" data-days="' + opt.value + '">' + opt.label + "</button>";
+    }
+    rangeHTML += "</div>";
+    var kpiHTML = '<div class="token-kpi-row">';
+    kpiHTML += buildKpiCard("Total Tokens", formatTokens2(totals.totalTokens), "\u{1F4CA}");
+    kpiHTML += buildKpiCard("Est. Cost", "$" + (totals.estimatedCostUSD || 0).toFixed(2), "\u{1F4B0}");
+    kpiHTML += buildKpiCard("Active Days", String(kpis.daysActive || 0), "\u{1F4C5}");
+    kpiHTML += buildKpiCard("Avg/Day", formatTokens2(kpis.avgTokensPerDay || 0), "\u{1F4C8}");
+    kpiHTML += buildKpiCard("Cache Rate", Math.round((kpis.cacheHitRate || 0) * 100) + "%", "\u26A1");
+    kpiHTML += "</div>";
+    var chipsHTML = '<div class="token-breakdown-chips">';
+    chipsHTML += '<span class="token-chip token-chip-input">Input: ' + formatTokens2(totals.inputTokens) + "</span>";
+    chipsHTML += '<span class="token-chip token-chip-output">Output: ' + formatTokens2(totals.outputTokens) + "</span>";
+    chipsHTML += '<span class="token-chip token-chip-cache">Cache: ' + formatTokens2(totals.cacheTokens) + "</span>";
+    if (totals.sessions > 0) {
+      chipsHTML += '<span class="token-chip token-chip-sessions">Sessions: ' + totals.sessions + "</span>";
+    }
+    chipsHTML += "</div>";
+    var modelHTML = "";
+    if (models.length > 0) {
+      modelHTML = '<div class="token-section">';
+      modelHTML += "<h4>Model Distribution</h4>";
+      modelHTML += '<div class="token-model-bars">';
+      var colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
+      var topModels = models.slice(0, 7);
+      for (var mi = 0; mi < topModels.length; mi++) {
+        var model = topModels[mi];
+        var color = colors[mi % colors.length];
+        var pct = model.percentage || 0;
+        var costLabel = model.costUSD > 0 ? " \xB7 $" + model.costUSD.toFixed(2) : "";
+        modelHTML += '<div class="token-model-row"><div class="token-model-header"><span class="token-model-name" style="color:' + color + '">' + escapeHtml(model.model) + '</span><span class="token-model-stats">' + formatTokens2(model.totalTokens) + " (" + pct.toFixed(1) + "%)" + costLabel + '</span></div><div class="token-model-bar-track"><div class="token-model-bar-fill" style="width:' + pct + "%;background:" + color + '"></div></div></div>';
+      }
+      modelHTML += "</div></div>";
+    }
+    var chartHTML = "";
+    if (dailyData.length > 0) {
+      chartHTML = '<div class="token-section">';
+      chartHTML += "<h4>Daily Token Burn</h4>";
+      chartHTML += '<div class="token-daily-chart">';
+      var maxTokens = 0;
+      for (var di = 0; di < dailyData.length; di++) {
+        if (dailyData[di].totalTokens > maxTokens) maxTokens = dailyData[di].totalTokens;
+      }
+      var displayDays = dailyData;
+      if (displayDays.length > 60) {
+        displayDays = displayDays.slice(displayDays.length - 60);
+      }
+      for (var dj = 0; dj < displayDays.length; dj++) {
+        var day = displayDays[dj];
+        var barHeight = maxTokens > 0 ? Math.max(2, day.totalTokens / maxTokens * 100) : 2;
+        var inputPct = day.totalTokens > 0 ? day.inputTokens / day.totalTokens * barHeight : 0;
+        var outputPct = barHeight - inputPct;
+        var dayLabel = day.date.substring(5);
+        chartHTML += '<div class="token-bar-col" title="' + day.date + ": " + formatTokens2(day.totalTokens) + " tokens, $" + (day.costUSD || 0).toFixed(2) + '"><div class="token-bar-stack" style="height:' + barHeight + '%"><div class="token-bar-output" style="height:' + outputPct + '%"></div><div class="token-bar-input" style="height:' + inputPct + '%"></div></div><span class="token-bar-label">' + dayLabel + "</span></div>";
+      }
+      chartHTML += "</div>";
+      chartHTML += '<div class="token-chart-legend"><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-input-color)"></span>Input</span><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-output-color)"></span>Output</span></div>';
+      chartHTML += "</div>";
+    }
+    var peakHTML = "";
+    if (kpis.peakDay) {
+      peakHTML = '<div class="token-peak-badge">\u{1F525} Peak: ' + kpis.peakDay + " \u2014 " + formatTokens2(kpis.peakDayTokens) + " tokens</div>";
+    }
+    container.innerHTML = '<div class="overview-card full-width token-analytics-card"><div class="token-analytics-header"><h3>\u{1F525} Token Usage Analytics</h3>' + rangeHTML + "</div>" + kpiHTML + chipsHTML + peakHTML + modelHTML + chartHTML + "</div>";
+    var rangeBtns = container.querySelectorAll(".token-range-btn");
+    for (var bi = 0; bi < rangeBtns.length; bi++) {
+      rangeBtns[bi].addEventListener("click", function() {
+        var newDays = this.getAttribute("data-days") || "30";
+        var allBtns = container.querySelectorAll(".token-range-btn");
+        for (var k = 0; k < allBtns.length; k++) allBtns[k].classList.remove("token-range-active");
+        this.classList.add("token-range-active");
+        fetch("/api/token-usage?days=" + newDays).then(function(res) {
+          return res.json();
+        }).then(function(d) {
+          renderTokenAnalytics(container, d, parseInt(newDays));
+        });
+      });
+    }
+  }
+  function buildKpiCard(label, value, icon) {
+    return '<div class="token-kpi-card"><div class="token-kpi-icon">' + icon + '</div><div class="token-kpi-value">' + value + '</div><div class="token-kpi-label">' + label + "</div></div>";
+  }
+  function formatTokens2(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return String(n);
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
   // internal/web/src/overview/overview.ts
   function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
@@ -2349,8 +2478,9 @@ var Niyantra = (() => {
     }
     providerHTML += "</div></div>";
     var costKPIHTML = '<div id="cost-kpi-container"></div>';
+    var tokenAnalyticsHTML = '<div id="token-analytics-container" class="overview-card full-width"></div>';
     var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
-    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + tokenAnalyticsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
     if (serverConfig["claude_bridge"] === "true") {
       loadClaudeCardData();
     } else {
@@ -2361,6 +2491,7 @@ var Niyantra = (() => {
     loadAdvisorCard();
     loadCostKPI();
     loadHeatmap();
+    loadTokenAnalytics();
     if (renewals.length > 0) {
       renderRenewalCalendar(renewals, subs);
     }
@@ -3376,11 +3507,10 @@ var Niyantra = (() => {
   // internal/web/src/advanced/keyboard.ts
   function initKeyboardShortcuts() {
     document.addEventListener("keydown", function(e) {
-      var _a, _b;
-      var tag = (_a = document.activeElement) == null ? void 0 : _a.tagName;
+      var tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
         if (e.key === "Escape") {
-          (_b = document.activeElement) == null ? void 0 : _b.blur();
+          document.activeElement?.blur();
           closeModal();
           closeDelete();
           closeBudget();

@@ -10,6 +10,7 @@ import { renderRenewalCalendar } from './calendar';
 import { formatResetTime } from '../quotas/render';
 import { renderClaudeCodeCard, loadClaudeCardData, loadClaudeDeepUsage } from '../advanced/claude';
 import { renderSessionsTimeline } from '../advanced/codex';
+import { loadTokenAnalytics } from './tokenAnalytics';
 
 export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
@@ -177,11 +178,14 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   // F8: Estimated Cost KPI (async — fetched from /api/cost) ──
   var costKPIHTML = '<div id="cost-kpi-container"></div>';
 
+  // F13: Token Usage Analytics (async — fetched from /api/token-usage) ──
+  var tokenAnalyticsHTML = '<div id="token-analytics-container" class="overview-card full-width"></div>';
+
   // F6: Activity Heatmap (async — fetched from /api/history/heatmap) ──
   var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
 
-  // P1: Content order — advisor first (most actionable), then budget, cost KPI, provider health, spend, insights
-  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  // P1: Content order — advisor first (most actionable), then budget, cost KPI, token analytics, provider health, spend, insights
+  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + tokenAnalyticsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // Async load Claude Code bridge data (only if bridge enabled)
   if (serverConfig['claude_bridge'] === 'true') {
@@ -203,6 +207,9 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
 
   // F6: Async load activity heatmap
   loadHeatmap();
+
+  // F13: Async load token usage analytics
+  loadTokenAnalytics();
 
   // Render calendar with renewal data (only if container exists)
   if (renewals.length > 0) {

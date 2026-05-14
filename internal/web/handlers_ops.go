@@ -13,6 +13,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
+	"github.com/bhaskarjha-com/niyantra/internal/tokenusage"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
 
@@ -298,5 +299,72 @@ func (s *Server) handleClaudeUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, summary)
+}
+
+// ── Phase 15: Token Usage Analytics (F13) ────────────────────────
+
+// handleTokenUsage returns unified token usage analytics across all providers.
+// Combines Claude Code's granular JSONL data with estimated data from store.
+func (s *Server) handleTokenUsage(w http.ResponseWriter, r *http.Request) {
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 && v <= 365 {
+			days = v
+		}
+	}
+
+	provider := r.URL.Query().Get("provider")
+	if provider == "" {
+		provider = "all"
+	}
+
+	// Wire model pricing callback to F5 pricing config
+	priceFn := func(modelID string) (float64, float64, float64, bool) {
+		p := s.store.GetModelPrice(modelID)
+		if p == nil {
+			return 0, 0, 0, false
+		}
+		return p.InputPer1M, p.OutputPer1M, p.CachePer1M, true
+	}
+
+	var result *tokenusage.Summary
+
+	if provider == "all" || provider == "claude" {
+		// Claude Code: granular JSONL parsing (primary data source)
+		claudeSummary, err := tokenusage.AggregateFromClaude(days, priceFn)
+		if err != nil {
+			s.logger.Warn("Token usage: Claude aggregation failed", "error", err)
+			claudeSummary = nil
+		}
+
+		if provider == "claude" {
+			result = claudeSummary
+		} else {
+			// Merge Claude data with persisted store data from other providers
+			storeSummary, err := tokenusage.AggregateFromStore(s.store, days, "all")
+			if err != nil {
+				s.logger.Warn("Token usage: store aggregation failed", "error", err)
+			}
+			result = tokenusage.Merge(claudeSummary, storeSummary)
+		}
+	} else {
+		// Specific non-Claude provider: query store only
+		var err error
+		result, err = tokenusage.AggregateFromStore(s.store, days, provider)
+		if err != nil {
+			jsonError(w, fmt.Sprintf("failed to aggregate usage: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if result == nil {
+		result = &tokenusage.Summary{
+			ByModel: []tokenusage.ModelBreakdown{},
+			ByDay:   []tokenusage.DailyBreakdown{},
+			Period:  tokenusage.Period{Days: days},
+		}
+	}
+
+	writeJSON(w, result)
 }
 
