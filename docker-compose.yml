@@ -1,0 +1,49 @@
+services:
+  niyantra:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+    image: niyantra:latest
+    container_name: niyantra
+
+    # Port mapping: host:container
+    ports:
+      - "${NIYANTRA_PORT:-9222}:9222"
+
+    # Volume mount for persistent SQLite database
+    # Pre-create with: mkdir -p ./niyantra-data
+    volumes:
+      - ./niyantra-data:/data
+
+    # Environment variables for Docker context
+    environment:
+      NIYANTRA_DB: /data/niyantra.db
+      NIYANTRA_BIND: "0.0.0.0"
+
+    # Container health check against /healthz endpoint
+    healthcheck:
+      test: ["CMD", "/app/niyantra", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits (Niyantra is lightweight — ~18 MB binary, <30 MB RSS)
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
+    # Logging configuration — prevent unbounded disk usage
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

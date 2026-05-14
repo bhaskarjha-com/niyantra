@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION)"
 
-.PHONY: build run test vet lint vulncheck clean demo js js-prod js-watch css css-prod css-watch
+.PHONY: build run test vet lint vulncheck clean demo js js-prod js-watch css css-prod css-watch docker docker-shell docker-run
 
 ## Build the binary with version injection
 build:
@@ -68,3 +68,16 @@ css-prod:
 css-watch:
 	npx.cmd -y esbuild internal/web/src/styles/main.css --bundle \
 		--outfile=internal/web/static/style.css --watch
+
+## Build Docker image (distroless — production default, ~15 MB)
+docker:
+	docker build --build-arg VERSION=$(VERSION) -t niyantra:latest .
+
+## Build Docker image (Alpine — includes shell for debugging)
+docker-shell:
+	docker build --target runtime-shell --build-arg VERSION=$(VERSION) -t niyantra:shell .
+
+## Run Docker container with persistent data volume
+docker-run:
+	mkdir -p niyantra-data
+	docker run -p 9222:9222 -v ./niyantra-data:/data niyantra:latest

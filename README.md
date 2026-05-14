@@ -63,6 +63,25 @@ make build
 go build -o niyantra.exe ./cmd/niyantra
 ```
 
+### Docker
+
+```bash
+# Quick start with docker-compose
+git clone https://github.com/bhaskarjha-com/niyantra.git
+cd niyantra
+docker compose up -d
+# Dashboard at http://localhost:9222
+```
+
+Or run directly:
+
+```bash
+docker build -t niyantra:latest .
+docker run -p 9222:9222 -v ./niyantra-data:/data niyantra:latest
+```
+
+Two image variants: **distroless** (default, ~15 MB, no shell) and **alpine** (`--target runtime-shell`, includes shell for `docker exec`).
+
 ## Try It Now
 
 Don't have Antigravity running? No problem. The `demo` command seeds realistic sample data so you can explore immediately:
@@ -139,6 +158,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 | `niyantra demo` | Seed database with sample data |
 | `niyantra backup` | Create timestamped database backup |
 | `niyantra restore <file>` | Restore from backup |
+| `niyantra healthcheck` | Docker health probe (GET /healthz) |
 | `niyantra version` | Print version |
 
 **Flags:** `--port 9222` `--bind 127.0.0.1` `--db ~/.niyantra/niyantra.db` `--auth user:pass` `--debug`
@@ -181,7 +201,7 @@ Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much 
 | Activity audit trail | Full provenance on every data point | — | — | — |
 | Zero-daemon default | Manual mode, opt-in auto | Daemon by default | N/A | Daemon |
 | Account switching | ❌ (by design — safety) | ❌ | — | ✅ (⚠️ T&S risk) |
-| Docker support | Planned (Phase 14) | ✅ | ✅ | — |
+| Docker support | ✅ Distroless + Alpine | ✅ | ✅ | — |
 | License | MIT | MIT / GPL-3 | GPL-3 | MIT |
 
 > **Competitive position:** Niyantra scores **24/37 features** in our competitive analysis — leading all 28 tools evaluated across 8 market categories. The closest competitor (onWatch) scores 12/37. See [VISION.md](docs/VISION.md) for full market positioning.

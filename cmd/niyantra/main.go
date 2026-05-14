@@ -72,6 +72,8 @@ func main() {
 		cmdDemo(logger, *dbPath)
 	case "version":
 		fmt.Printf("niyantra %s\n", version)
+	case "healthcheck":
+		cmdHealthcheck(*port)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -590,6 +592,7 @@ Commands:
   demo       Seed database with sample data for evaluation
   backup     Create a database backup
   restore    Restore database from a backup file
+  healthcheck  Docker health probe (GET /healthz)
   version    Print version information
 
 Flags:
@@ -659,4 +662,25 @@ func envInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+// cmdHealthcheck performs a Docker health probe by hitting /healthz on localhost.
+// Used in distroless containers where curl/wget are unavailable.
+func cmdHealthcheck(port int) {
+	url := fmt.Sprintf("http://127.0.0.1:%d/healthz", port)
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "healthcheck failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "healthcheck failed: HTTP %d\n", resp.StatusCode)
+		os.Exit(1)
+	}
+
+	os.Exit(0)
 }
