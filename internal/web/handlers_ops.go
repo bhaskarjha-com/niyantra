@@ -11,6 +11,7 @@ import (
 
 	"github.com/bhaskarjha-com/niyantra/internal/advisor"
 	"github.com/bhaskarjha-com/niyantra/internal/claude"
+	"github.com/bhaskarjha-com/niyantra/internal/gitcorr"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tokenusage"
@@ -368,3 +369,44 @@ func (s *Server) handleTokenUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
+// ── Phase 15: Git Commit Correlation (F16) ───────────────────────
+
+// handleGitCosts correlates git commits with AI token consumption.
+func (s *Server) handleGitCosts(w http.ResponseWriter, r *http.Request) {
+	// Repo path: query param or auto-detect CWD
+	repoPath := r.URL.Query().Get("repo")
+	if repoPath == "" {
+		// Default to current working directory
+		var err error
+		repoPath, err = os.Getwd()
+		if err != nil {
+			jsonError(w, "unable to determine working directory", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v > 0 && v <= 365 {
+			days = v
+		}
+	}
+
+	// Wire model pricing callback
+	priceFn := func(modelID string) (float64, float64, float64, bool) {
+		p := s.store.GetModelPrice(modelID)
+		if p == nil {
+			return 0, 0, 0, false
+		}
+		return p.InputPer1M, p.OutputPer1M, p.CachePer1M, true
+	}
+
+	result, err := gitcorr.Analyze(repoPath, days, gitcorr.DefaultWindowMinutes, priceFn)
+	if err != nil {
+		s.logger.Warn("Git costs analysis failed", "error", err, "repo", repoPath)
+		jsonError(w, fmt.Sprintf("git analysis failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, result)
+}

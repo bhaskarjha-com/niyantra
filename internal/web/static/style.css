@@ -4545,3 +4545,294 @@ kbd {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   F16: Git Commit Correlation
+   ═══════════════════════════════════════════════════════════════════ */
+.git-costs-card {
+  padding: 20px 24px;
+}
+.git-costs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+.git-costs-header h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.git-repo-path {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  padding: 3px 10px;
+  border-radius: 6px;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* KPI Row */
+.git-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.git-kpi-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.git-kpi-card:hover {
+  border-color: var(--accent);
+}
+.git-kpi-icon {
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+.git-kpi-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+.git-kpi-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.git-no-ai-banner {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Section headers */
+.git-section {
+  margin-bottom: 18px;
+}
+.git-section h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-secondary);
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+/* Cost per Commit Chart */
+.git-commit-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 90px;
+  padding: 8px 0;
+  overflow-x: auto;
+}
+.git-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 16px;
+  max-width: 28px;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+.git-bar-col:hover .git-bar {
+  filter: brightness(1.3);
+}
+.git-bar {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.3s ease, filter 0.2s;
+}
+.git-bar-hash {
+  font-size: 8px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  opacity: 0.6;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  max-height: 35px;
+  overflow: hidden;
+}
+
+/* Branch Cost Table */
+.git-branch-table {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.git-branch-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  padding: 8px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.git-branch-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  padding: 8px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.git-branch-row:last-child {
+  border-bottom: none;
+}
+.git-branch-row:hover {
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.05);
+}
+.git-branch-name {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-branch-val {
+  color: var(--text-secondary);
+  text-align: right;
+}
+.git-branch-cost {
+  color: var(--accent);
+  font-weight: 700;
+  text-align: right;
+}
+
+/* Commits List */
+.git-commits-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.git-commit-item {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.git-commit-item:last-child {
+  border-bottom: none;
+}
+.git-commit-item:hover {
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.05);
+}
+.git-commit-hash {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.git-commit-msg {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-commit-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.git-cost-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.git-cost-zero {
+  color: var(--text-secondary);
+  background: var(--bg-input);
+}
+.git-token-badge {
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  white-space: nowrap;
+}
+
+.git-costs-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--text-secondary);
+}
+.git-costs-empty p {
+  margin: 4px 0;
+}
+.git-costs-empty code {
+  background: var(--bg-input);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .git-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .git-commit-item {
+    grid-template-columns: 55px 1fr;
+  }
+  .git-commit-meta {
+    display: none;
+  }
+  .git-branch-header,
+  .git-branch-row {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+  .git-branch-header span:nth-child(4),
+  .git-branch-header span:nth-child(5),
+  .git-branch-row span:nth-child(4),
+  .git-branch-row span:nth-child(5) {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .git-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .git-costs-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

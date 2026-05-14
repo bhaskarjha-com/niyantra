@@ -2381,6 +2381,107 @@ var App = (() => {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  // internal/web/src/overview/gitCosts.ts
+  function loadGitCosts() {
+    var container = document.getElementById("git-costs-container");
+    if (!container) return;
+    fetch("/api/git-costs?days=30").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      renderGitCosts(container, data);
+    }).catch(function(err) {
+      console.error("Git costs fetch failed:", err);
+      container.innerHTML = "";
+    });
+  }
+  function renderGitCosts(container, data) {
+    if (!data || !data.commits || data.commits.length === 0) {
+      container.innerHTML = '<div class="overview-card full-width git-costs-card"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><div class="git-costs-empty"><p>No git commit data available.</p><p style="font-size:12px;color:var(--text-secondary)">Ensure you are running Niyantra from within a git repository, or pass <code>?repo=/path</code> to the API.</p></div></div>';
+      return;
+    }
+    var totals = data.totals || {};
+    var commits = data.commits || [];
+    var branches = data.branches || [];
+    var hasAICosts = totals.totalTokens > 0;
+    var kpiHTML = '<div class="git-kpi-row">';
+    kpiHTML += buildKpi("Commits", String(totals.commitCount || 0), "\u{1F4DD}");
+    kpiHTML += buildKpi("AI Cost", "$" + (totals.costUSD || 0).toFixed(2), "\u{1F4B0}");
+    kpiHTML += buildKpi("Avg/Commit", "$" + (totals.avgPerCommit || 0).toFixed(2), "\u{1F4CA}");
+    kpiHTML += buildKpi("Top Branch", truncate(totals.topBranch || "\u2014", 18), "\u{1F33F}");
+    kpiHTML += "</div>";
+    if (!hasAICosts) {
+      kpiHTML += '<div class="git-no-ai-banner">No Claude Code session data found in the commit time windows. AI costs will appear when commits overlap with Claude Code usage.</div>';
+    }
+    var chartHTML = "";
+    if (commits.length > 0 && hasAICosts) {
+      chartHTML = '<div class="git-section">';
+      chartHTML += "<h4>Cost per Commit</h4>";
+      chartHTML += '<div class="git-commit-chart">';
+      var maxCost = 0;
+      for (var ci = 0; ci < commits.length; ci++) {
+        if (commits[ci].costUSD > maxCost) maxCost = commits[ci].costUSD;
+      }
+      var displayCommits = commits;
+      if (displayCommits.length > 40) {
+        displayCommits = displayCommits.slice(0, 40);
+      }
+      for (var di = 0; di < displayCommits.length; di++) {
+        var c = displayCommits[di];
+        var barH = maxCost > 0 ? Math.max(3, c.costUSD / maxCost * 100) : 3;
+        var barColor = c.costUSD > 0 ? "var(--accent)" : "var(--border)";
+        chartHTML += '<div class="git-bar-col" title="' + escapeAttr(c.shortHash) + ": " + escapeAttr(c.message) + "\n$" + c.costUSD.toFixed(2) + " \xB7 " + formatTokens3(c.totalTokens) + ' tokens"><div class="git-bar" style="height:' + barH + "%;background:" + barColor + '"></div><span class="git-bar-hash">' + c.shortHash + "</span></div>";
+      }
+      chartHTML += "</div></div>";
+    }
+    var branchHTML = "";
+    if (branches.length > 0 && hasAICosts) {
+      branchHTML = '<div class="git-section">';
+      branchHTML += "<h4>Branch Costs</h4>";
+      branchHTML += '<div class="git-branch-table">';
+      branchHTML += '<div class="git-branch-header"><span>Branch</span><span>Commits</span><span>Tokens</span><span>Cost</span><span>Avg</span></div>';
+      var displayBranches = branches.slice(0, 10);
+      for (var bi = 0; bi < displayBranches.length; bi++) {
+        var b = displayBranches[bi];
+        if (b.costUSD === 0 && b.totalTokens === 0) continue;
+        branchHTML += '<div class="git-branch-row"><span class="git-branch-name">' + escapeHtml2(truncate(b.name, 30)) + '</span><span class="git-branch-val">' + b.commits + '</span><span class="git-branch-val">' + formatTokens3(b.totalTokens) + '</span><span class="git-branch-cost">$' + b.costUSD.toFixed(2) + '</span><span class="git-branch-val">$' + b.avgPerCommit.toFixed(2) + "</span></div>";
+      }
+      branchHTML += "</div></div>";
+    }
+    var commitsHTML = '<div class="git-section">';
+    commitsHTML += "<h4>Recent Commits</h4>";
+    commitsHTML += '<div class="git-commits-list">';
+    var showCommits = commits.slice(0, 15);
+    for (var ri = 0; ri < showCommits.length; ri++) {
+      var rc = showCommits[ri];
+      var costBadge = rc.costUSD > 0 ? '<span class="git-cost-badge">$' + rc.costUSD.toFixed(2) + "</span>" : '<span class="git-cost-badge git-cost-zero">\u2014</span>';
+      var tokenBadge = rc.totalTokens > 0 ? '<span class="git-token-badge">' + formatTokens3(rc.totalTokens) + "</span>" : "";
+      commitsHTML += '<div class="git-commit-item"><span class="git-commit-hash">' + rc.shortHash + '</span><span class="git-commit-msg">' + escapeHtml2(rc.message) + '</span><div class="git-commit-meta">' + tokenBadge + costBadge + "</div></div>";
+    }
+    commitsHTML += "</div></div>";
+    container.innerHTML = '<div class="overview-card full-width git-costs-card"><div class="git-costs-header"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><span class="git-repo-path" title="' + escapeAttr(data.repoPath || "") + '">' + escapeHtml2(shortenPath(data.repoPath || "")) + "</span></div>" + kpiHTML + chartHTML + branchHTML + commitsHTML + "</div>";
+  }
+  function buildKpi(label, value, icon) {
+    return '<div class="git-kpi-card"><div class="git-kpi-icon">' + icon + '</div><div class="git-kpi-value">' + value + '</div><div class="git-kpi-label">' + label + "</div></div>";
+  }
+  function formatTokens3(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return String(n);
+  }
+  function truncate(s, max) {
+    return s.length > max ? s.substring(0, max - 1) + "\u2026" : s;
+  }
+  function shortenPath(p) {
+    var parts = p.replace(/\\/g, "/").split("/");
+    return parts.length > 2 ? "\u2026/" + parts.slice(-2).join("/") : p;
+  }
+  function escapeHtml2(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function escapeAttr(s) {
+    return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
   // internal/web/src/overview/overview.ts
   function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
@@ -2479,8 +2580,9 @@ var App = (() => {
     providerHTML += "</div></div>";
     var costKPIHTML = '<div id="cost-kpi-container"></div>';
     var tokenAnalyticsHTML = '<div id="token-analytics-container" class="overview-card full-width"></div>';
+    var gitCostsHTML = '<div id="git-costs-container" class="overview-card full-width"></div>';
     var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
-    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + tokenAnalyticsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+    el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
     if (serverConfig["claude_bridge"] === "true") {
       loadClaudeCardData();
     } else {
@@ -2492,6 +2594,7 @@ var App = (() => {
     loadCostKPI();
     loadHeatmap();
     loadTokenAnalytics();
+    loadGitCosts();
     if (renewals.length > 0) {
       renderRenewalCalendar(renewals, subs);
     }

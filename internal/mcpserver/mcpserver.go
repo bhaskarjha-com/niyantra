@@ -2,10 +2,10 @@
 // that exposes Niyantra's quota intelligence to AI coding agents.
 //
 // The server communicates over stdio (JSON-RPC 2.0) and provides
-// 10 tools for querying quota status, model availability, usage
+// 11 tools for querying quota status, model availability, usage
 // intelligence, budget forecasts, model recommendations, spending
 // analysis, switch advice, Codex status, quota time-to-exhaustion,
-// and token usage analytics.
+// token usage analytics, and git commit cost correlation.
 package mcpserver
 
 import (
@@ -21,6 +21,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
 	"github.com/bhaskarjha-com/niyantra/internal/costtrack"
 	"github.com/bhaskarjha-com/niyantra/internal/forecast"
+	"github.com/bhaskarjha-com/niyantra/internal/gitcorr"
 	"github.com/bhaskarjha-com/niyantra/internal/readiness"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tokenusage"
@@ -103,6 +104,11 @@ func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string
 		Name:        "token_usage_stats",
 		Description: "Get unified token usage analytics across all AI coding providers. Returns total token counts (input/output/cache), estimated costs, per-model breakdowns, daily trends, and KPIs (cache hit rate, avg tokens/day, peak day). Supports time range filtering (default 30 days). Primary data source is Claude Code JSONL sessions with full per-turn granularity.",
 	}, m.handleTokenUsageStats)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "git_commit_costs",
+		Description: "Correlate git commits with actual AI token consumption. For each recent commit, finds overlapping Claude Code sessions within a 30-minute window and reports real token usage and cost — not estimated from diffs. Returns per-commit costs, branch-level aggregation, and totals. Provide a repo path or defaults to the current working directory.",
+	}, m.handleGitCommitCosts)
 
 	return m
 }
@@ -1081,3 +1087,104 @@ func formatTokenCount(tokens int64) string {
 	return fmt.Sprintf("%d", tokens)
 }
 
+// ── Phase 15: Git Commit Costs (F16) ────────────────────────────
+
+type GitCostInput struct {
+	Repo string `json:"repo"`
+	Days int    `json:"days"`
+}
+
+type GitCostOutput struct {
+	Message      string             `json:"message"`
+	CommitCount  int                `json:"commitCount"`
+	TotalTokens  int64              `json:"totalTokens"`
+	TotalCost    float64            `json:"totalCost"`
+	AvgPerCommit float64            `json:"avgPerCommit"`
+	TopBranch    string             `json:"topBranch"`
+	TopCommits   []GitCommitSummary `json:"topCommits,omitempty"`
+	Branches     []gitcorr.BranchCost `json:"branches,omitempty"`
+}
+
+type GitCommitSummary struct {
+	Hash    string  `json:"hash"`
+	Message string  `json:"message"`
+	CostUSD float64 `json:"costUSD"`
+	Tokens  int64   `json:"tokens"`
+}
+
+func (m *MCPServer) handleGitCommitCosts(_ context.Context, _ *mcp.CallToolRequest, params GitCostInput) (*mcp.CallToolResult, GitCostOutput, error) {
+	repoPath := params.Repo
+	if repoPath == "" {
+		repoPath = "."
+	}
+	days := params.Days
+	if days <= 0 {
+		days = 30
+	}
+
+	priceFn := func(modelID string) (float64, float64, float64, bool) {
+		p := m.store.GetModelPrice(modelID)
+		if p == nil {
+			return 0, 0, 0, false
+		}
+		return p.InputPer1M, p.OutputPer1M, p.CachePer1M, true
+	}
+
+	result, err := gitcorr.Analyze(repoPath, days, gitcorr.DefaultWindowMinutes, priceFn)
+	if err != nil {
+		return nil, GitCostOutput{Message: fmt.Sprintf("Git analysis failed: %v", err)}, nil
+	}
+
+	if result == nil || len(result.Commits) == 0 {
+		return nil, GitCostOutput{
+			Message: "No git commits found in the specified repository and time range.",
+		}, nil
+	}
+
+	// Top 5 costliest commits
+	var topCommits []GitCommitSummary
+	for i, c := range result.Commits {
+		if i >= 5 {
+			break
+		}
+		if c.CostUSD > 0 {
+			topCommits = append(topCommits, GitCommitSummary{
+				Hash:    c.ShortHash,
+				Message: c.Message,
+				CostUSD: c.CostUSD,
+				Tokens:  c.TotalTokens,
+			})
+		}
+	}
+
+	// Top 5 branches
+	branches := result.Branches
+	if len(branches) > 5 {
+		branches = branches[:5]
+	}
+
+	out := GitCostOutput{
+		CommitCount:  result.Totals.CommitCount,
+		TotalTokens:  result.Totals.TotalTokens,
+		TotalCost:    result.Totals.CostUSD,
+		AvgPerCommit: result.Totals.AvgPerCommit,
+		TopBranch:    result.Totals.TopBranch,
+		TopCommits:   topCommits,
+		Branches:     branches,
+	}
+
+	if result.Totals.TotalTokens > 0 {
+		out.Message = fmt.Sprintf("%d commits analyzed, %s tokens consumed, ~$%.2f total AI cost. Avg $%.2f/commit. Top branch: %s.",
+			result.Totals.CommitCount,
+			formatTokenCount(result.Totals.TotalTokens),
+			result.Totals.CostUSD,
+			result.Totals.AvgPerCommit,
+			result.Totals.TopBranch,
+		)
+	} else {
+		out.Message = fmt.Sprintf("%d commits found but no overlapping Claude Code session data. Ensure Claude Code has been used for coding in this repository.",
+			result.Totals.CommitCount)
+	}
+
+	return nil, out, nil
+}

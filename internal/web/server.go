@@ -205,6 +205,9 @@ func (s *Server) ListenAndServe() error {
 	// Phase 15 routes: Token Usage Analytics (F13)
 	mux.HandleFunc("GET /api/token-usage", s.handleTokenUsage)
 
+	// Phase 15 routes: Git Commit Correlation (F16)
+	mux.HandleFunc("GET /api/git-costs", s.handleGitCosts)
+
 	// Data management routes
 	mux.HandleFunc("GET /api/accounts", s.handleAccounts)
 	mux.HandleFunc("GET /api/accounts/{id}", s.handleAccountGet)
