@@ -61,6 +61,8 @@ Config keys containing secrets are masked before API transmission. When returned
 | Key | Purpose |
 |-----|--------|
 | `copilot_pat` | GitHub Personal Access Token |
+| `cursor_session_token` | Cursor session authentication cookie |
+| `gemini_client_secret` | Gemini CLI OAuth client secret |
 | `smtp_pass` | SMTP authentication password |
 | `smtp_user` | SMTP authentication username |
 | `webhook_secret` | Webhook authentication secret (Telegram bot token, etc.) |

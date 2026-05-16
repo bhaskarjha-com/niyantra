@@ -215,3 +215,294 @@ func TestMCPBlocksCrossOrigin(t *testing.T) {
 	}
 }
 
+// TestMCPAllowsSameOrigin verifies that MCP allows requests from localhost.
+func TestMCPAllowsSameOrigin(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	called := false
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	req.Header.Set("Origin", "http://localhost:9222")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("MCP handler should be called for same-origin request")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for same-origin MCP, got %d", rec.Code)
+	}
+}
+
+// TestMCPAllowsNoOrigin verifies that MCP allows requests with no Origin header
+// (e.g., CLI tools, MCP SDK clients).
+func TestMCPAllowsNoOrigin(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	called := false
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	// No Origin header set
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("MCP handler should be called when no Origin header present")
+	}
+}
+
+// TestCORSWrongPort verifies that localhost with wrong port is blocked.
+func TestCORSWrongPort(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	req.Header.Set("Origin", "http://localhost:3000") // wrong port
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if cors := rec.Header().Get("Access-Control-Allow-Origin"); cors != "" {
+		t.Errorf("expected no CORS header for wrong port, got %q", cors)
+	}
+}
+
+// TestContentTypeEmptyAllowed verifies that DELETE with no body passes through.
+func TestContentTypeEmptyAllowed(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/accounts/1", nil)
+	// No Content-Type header
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for DELETE with no Content-Type, got %d", rec.Code)
+	}
+}
+
+// TestContentTypeMultipartRejected verifies that multipart uploads are rejected on API routes.
+func TestContentTypeMultipartRejected(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not be called for multipart content type")
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/import/json", strings.NewReader("data"))
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=--boundary")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("expected 415 for multipart POST to API, got %d", rec.Code)
+	}
+}
+
+// TestContentTypeNotEnforcedOnMCP verifies that the MCP endpoint bypasses
+// Content-Type enforcement (MCP SDK handles its own negotiation).
+func TestContentTypeNotEnforcedOnMCP(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	called := false
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+	req.Header.Set("Content-Type", "application/json") // MCP path, not /api/
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("MCP handler should be called regardless of Content-Type")
+	}
+}
+
+// TestBasicAuthBlocksUnauthenticated verifies that auth middleware returns 401
+// when credentials are not provided.
+func TestBasicAuthBlocksUnauthenticated(t *testing.T) {
+	srv := &Server{port: 9222, auth: "admin:s3cure-p4ss"}
+
+	handler := srv.basicAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not be called without credentials")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 without credentials, got %d", rec.Code)
+	}
+	if rec.Header().Get("WWW-Authenticate") == "" {
+		t.Error("expected WWW-Authenticate header on 401 response")
+	}
+}
+
+// TestBasicAuthAllowsValidCredentials verifies that correct credentials pass through.
+func TestBasicAuthAllowsValidCredentials(t *testing.T) {
+	srv := &Server{port: 9222, auth: "admin:s3cure-p4ss"}
+
+	called := false
+	handler := srv.basicAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	req.SetBasicAuth("admin", "s3cure-p4ss")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("handler should be called with valid credentials")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 with valid credentials, got %d", rec.Code)
+	}
+}
+
+// TestBasicAuthRejectsWrongPassword verifies that wrong password returns 401.
+func TestBasicAuthRejectsWrongPassword(t *testing.T) {
+	srv := &Server{port: 9222, auth: "admin:correct-password"}
+
+	handler := srv.basicAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("handler should not be called with wrong password")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	req.SetBasicAuth("admin", "wrong-password")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 with wrong password, got %d", rec.Code)
+	}
+}
+
+// TestBasicAuthAllowsHealthzWithoutAuth verifies that /healthz bypasses auth
+// (needed for Docker health probes and monitoring).
+func TestBasicAuthAllowsHealthzWithoutAuth(t *testing.T) {
+	srv := &Server{port: 9222, auth: "admin:s3cure-p4ss"}
+
+	called := false
+	handler := srv.basicAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	// No auth credentials
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("/healthz should bypass auth")
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for /healthz without auth, got %d", rec.Code)
+	}
+}
+
+// TestBasicAuthDisabledWithoutConfig verifies that the middleware passes through
+// when auth is not configured (empty string).
+func TestBasicAuthDisabledWithoutConfig(t *testing.T) {
+	srv := &Server{port: 9222, auth: ""}
+
+	called := false
+	handler := srv.basicAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !called {
+		t.Error("handler should be called when auth is not configured")
+	}
+}
+
+// TestCSPFullPolicy verifies the complete CSP directive set.
+func TestCSPFullPolicy(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	csp := rec.Header().Get("Content-Security-Policy")
+
+	requiredDirectives := []string{
+		"default-src 'self'",
+		"script-src 'self'",
+		"style-src 'self' 'unsafe-inline'",
+		"img-src 'self' data:",
+		"connect-src 'self'",
+		"font-src 'self'",
+		"object-src 'none'",
+		"frame-ancestors 'none'",
+		"base-uri 'self'",
+		"form-action 'self'",
+	}
+
+	for _, directive := range requiredDirectives {
+		if !strings.Contains(csp, directive) {
+			t.Errorf("CSP missing directive: %q\nFull CSP: %s", directive, csp)
+		}
+	}
+}
+
+// TestSecurityHeadersOnHealthz verifies headers are set even on /healthz.
+func TestSecurityHeadersOnHealthz(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Header().Get("X-Frame-Options") != "DENY" {
+		t.Error("X-Frame-Options should be set on /healthz too")
+	}
+	if rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Error("X-Content-Type-Options should be set on /healthz too")
+	}
+}

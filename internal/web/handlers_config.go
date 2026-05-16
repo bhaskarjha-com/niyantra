@@ -15,11 +15,13 @@ import (
 // sensitiveConfigKeys contains config keys whose values must never be
 // exposed via the API or logged to the activity log.
 var sensitiveConfigKeys = map[string]bool{
-	"copilot_pat":           true,
-	"smtp_pass":             true,
-	"smtp_user":             true,
-	"webhook_secret":        true,
-	"webpush_vapid_private": true,
+	"copilot_pat":            true,
+	"cursor_session_token":   true,
+	"gemini_client_secret":   true,
+	"smtp_pass":              true,
+	"smtp_user":              true,
+	"webhook_secret":         true,
+	"webpush_vapid_private":  true,
 }
 
 // isSensitiveKey returns true if a config key contains a secret value
