@@ -9,7 +9,7 @@ import (
 
 // Engine tracks notification state and prevents spam.
 // Fires at most one notification per model per reset cycle.
-// Supports dual-channel delivery: OS-native + SMTP email (F11).
+// Supports tri-channel delivery: OS-native + SMTP email (F11) + Webhook (F22).
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
@@ -17,6 +17,7 @@ type Engine struct {
 	guard     map[string]bool // model → has been notified this cycle
 	logger    *slog.Logger
 	smtp      SMTPConfig      // F11: SMTP email delivery settings
+	webhook   WebhookConfig   // F22: Webhook delivery settings
 
 	onNotify func(model string, remainingPct float64) // callback when notification fires
 }
@@ -61,6 +62,24 @@ func (e *Engine) SMTPEnabled() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.smtp.IsConfigured()
+}
+
+// ConfigureWebhook updates the webhook delivery settings (F22).
+func (e *Engine) ConfigureWebhook(cfg WebhookConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.webhook = cfg
+	e.logger.Info("Webhook notification channel configured",
+		"enabled", cfg.Enabled,
+		"type", cfg.Type,
+		"url_set", cfg.URL != "")
+}
+
+// WebhookEnabled returns whether webhook delivery is active.
+func (e *Engine) WebhookEnabled() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.webhook.IsConfigured()
 }
 
 // Enabled returns whether notifications are enabled.
@@ -135,6 +154,23 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 		}()
 	}
 
+	// Channel 3: Webhook notification (F22)
+	e.mu.Lock()
+	webhookCfg := e.webhook
+	e.mu.Unlock()
+
+	if webhookCfg.IsConfigured() {
+		go func() {
+			whTitle := fmt.Sprintf("⚠️ %s quota low", model)
+			whMsg := fmt.Sprintf("%.1f%% remaining (threshold: %.0f%%) — consider switching models", remainingPct, threshold)
+			if err := SendWebhook(&webhookCfg, whTitle, whMsg, remainingPct); err != nil {
+				e.logger.Error("Failed to send webhook notification", "error", err, "model", model)
+			} else {
+				e.logger.Info("Webhook quota alert sent", "model", model, "type", webhookCfg.Type)
+			}
+		}()
+	}
+
 	// Mark as notified for this cycle
 	e.mu.Lock()
 	e.guard[model] = true
@@ -183,4 +219,17 @@ func (e *Engine) SendTestEmail() error {
 	}
 
 	return SendEmail(&cfg, "Niyantra — SMTP Test", FormatTestEmailHTML())
+}
+
+// SendTestWebhookFromEngine sends a test webhook to verify configuration (F22).
+func (e *Engine) SendTestWebhookFromEngine() error {
+	e.mu.Lock()
+	cfg := e.webhook
+	e.mu.Unlock()
+
+	if !cfg.IsConfigured() {
+		return fmt.Errorf("webhook is not configured")
+	}
+
+	return SendTestWebhook(&cfg)
 }

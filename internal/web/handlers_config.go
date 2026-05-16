@@ -23,7 +23,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 
 	// Mask sensitive config values
 	for _, e := range entries {
-		if (e.Key == "copilot_pat" || e.Key == "smtp_pass") && e.Value != "" {
+		if (e.Key == "copilot_pat" || e.Key == "smtp_pass" || e.Key == "webhook_secret") && e.Value != "" {
 			e.Value = "configured"
 		}
 	}
@@ -163,6 +163,9 @@ func (s *Server) onConfigChanged(key, value string) {
 		"smtp_from", "smtp_to", "smtp_tls":
 		// F11: Reload SMTP config on any smtp_* key change
 		s.notifier.ConfigureSMTP(s.loadSMTPConfig())
+	case "webhook_enabled", "webhook_type", "webhook_url", "webhook_secret":
+		// F22: Reload webhook config on any webhook_* key change
+		s.notifier.ConfigureWebhook(s.loadWebhookConfig())
 	}
 }
 
@@ -178,5 +181,16 @@ func (s *Server) loadSMTPConfig() notify.SMTPConfig {
 		From:    s.store.GetConfig("smtp_from"),
 		To:      s.store.GetConfig("smtp_to"),
 		TLSMode: s.store.GetConfig("smtp_tls"),
+	}
+}
+
+// loadWebhookConfig reads all webhook config keys from the store and returns
+// a populated WebhookConfig struct for the notification engine.
+func (s *Server) loadWebhookConfig() notify.WebhookConfig {
+	return notify.WebhookConfig{
+		Enabled: s.store.GetConfigBool("webhook_enabled"),
+		Type:    notify.WebhookType(s.store.GetConfig("webhook_type")),
+		URL:     s.store.GetConfig("webhook_url"),
+		Secret:  s.store.GetConfig("webhook_secret"),
 	}
 }

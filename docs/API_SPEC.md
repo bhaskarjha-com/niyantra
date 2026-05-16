@@ -1639,7 +1639,43 @@ Sends a test email to verify SMTP configuration. Requires `smtp_enabled=true` an
 | `smtp_to` | string | `""` | Recipient email address(es), comma-separated |
 | `smtp_tls` | string | `"starttls"` | Encryption mode: `starttls`, `tls`, `none` |
 
-> **Dual-Channel Delivery:** When quota alerts fire (F9), notifications are sent via both OS-native desktop and SMTP email (if configured). SMTP delivery is async (goroutine) and does not block the polling loop.
+> **Tri-Channel Delivery:** When quota alerts fire (F9), notifications are sent via OS-native desktop, SMTP email (if configured), and Webhook (if configured). SMTP and Webhook deliveries are async (goroutine) and do not block the polling loop.
+
+---
+
+### `POST /api/notify/test-webhook` (Phase 16: F22)
+
+Sends a test notification to verify webhook configuration. Supports Discord, Telegram, Slack, and generic (ntfy/Gotify) endpoints.
+
+**Response (success):** `200 OK`
+
+```json
+{ "status": "sent" }
+```
+
+**Response (not configured):** `500 Internal Server Error`
+
+```json
+{ "error": "webhook failed: webhook is not configured" }
+```
+
+**Webhook Config Keys (stored in `config` table):**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `webhook_enabled` | bool | `false` | Master toggle for webhook delivery |
+| `webhook_type` | string | `"discord"` | Service type: `discord`, `telegram`, `slack`, `generic` |
+| `webhook_url` | string | `""` | Webhook URL (Discord/Slack), Chat ID (Telegram), or endpoint URL (Generic) |
+| `webhook_secret` | string | `""` | Bot token (Telegram), auth header (Generic); masked in GET response |
+
+**Supported Services:**
+
+| Service | URL Field | Secret Field | Payload Format |
+|---------|-----------|-------------|---------------|
+| Discord | Webhook URL | _(unused)_ | JSON embed with severity color |
+| Telegram | Chat ID (numeric) | Bot token from @BotFather | HTML-formatted sendMessage |
+| Slack | Incoming webhook URL | _(unused)_ | JSON attachment with color |
+| Generic (ntfy) | POST endpoint URL | Auth header (optional) | Plain text body + Title/Priority headers |
 
 ---
 

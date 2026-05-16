@@ -22,10 +22,10 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 16
+	// Verify schema version is 17
 	v := s.getUserVersion()
-	if v != 16 {
-		t.Errorf("expected schema version 16, got %d", v)
+	if v != 17 {
+		t.Errorf("expected schema version 17, got %d", v)
 	}
 
 	// Insert a snapshot and query it back

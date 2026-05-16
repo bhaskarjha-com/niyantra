@@ -249,6 +249,122 @@ export function initSettings(): void {
       });
     }
 
+    // ── F22: Webhook Notifications ──
+    var webhookEnabledEl = document.getElementById('s-webhook-enabled');
+    var webhookConfigRows = document.getElementById('webhook-config-rows');
+    if (webhookEnabledEl) {
+      (webhookEnabledEl as HTMLInputElement).checked = cfg['webhook_enabled'] === 'true';
+      webhookConfigRows!.style.display = (webhookEnabledEl as HTMLInputElement).checked ? '' : 'none';
+
+      // Populate webhook fields from config
+      var webhookTypeEl = document.getElementById('s-webhook-type') as HTMLSelectElement;
+      var webhookUrlEl = document.getElementById('s-webhook-url') as HTMLInputElement;
+      var webhookSecretEl = document.getElementById('s-webhook-secret') as HTMLInputElement;
+
+      webhookTypeEl.value = cfg['webhook_type'] || 'discord';
+      webhookUrlEl.value = cfg['webhook_url'] || '';
+
+      if (cfg['webhook_secret']) {
+        webhookSecretEl.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+      }
+
+      // Update labels/hints based on selected type
+      function updateWebhookLabels() {
+        var urlLabel = document.getElementById('webhook-url-label')!;
+        var urlHint = document.getElementById('webhook-url-hint')!;
+        var secretLabel = document.getElementById('webhook-secret-label')!;
+        var secretHint = document.getElementById('webhook-secret-hint')!;
+        var secretRow = document.getElementById('webhook-secret-row')!;
+        var urlInput = document.getElementById('s-webhook-url') as HTMLInputElement;
+
+        switch (webhookTypeEl.value) {
+          case 'discord':
+            urlLabel.textContent = 'Webhook URL';
+            urlHint.textContent = 'Discord channel webhook URL';
+            urlInput.placeholder = 'https://discord.com/api/webhooks/...';
+            secretRow.style.display = 'none';
+            break;
+          case 'telegram':
+            urlLabel.textContent = 'Chat ID';
+            urlHint.textContent = 'Telegram chat/group ID (numeric)';
+            urlInput.placeholder = '123456789';
+            secretRow.style.display = '';
+            secretLabel.textContent = 'Bot Token';
+            secretHint.textContent = 'Telegram bot token from @BotFather';
+            webhookSecretEl.placeholder = '123456:ABC-DEF...';
+            break;
+          case 'slack':
+            urlLabel.textContent = 'Webhook URL';
+            urlHint.textContent = 'Slack incoming webhook URL';
+            urlInput.placeholder = 'https://hooks.slack.com/services/...';
+            secretRow.style.display = 'none';
+            break;
+          case 'generic':
+            urlLabel.textContent = 'Endpoint URL';
+            urlHint.textContent = 'ntfy/Gotify/custom POST URL';
+            urlInput.placeholder = 'https://ntfy.sh/mytopic';
+            secretRow.style.display = '';
+            secretLabel.textContent = 'Auth Header';
+            secretHint.textContent = 'Optional: Bearer token or Basic auth';
+            webhookSecretEl.placeholder = 'Bearer your-token';
+            break;
+        }
+      }
+      updateWebhookLabels();
+
+      // Toggle handler
+      webhookEnabledEl.addEventListener('change', function() {
+        var val = (webhookEnabledEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('webhook_enabled', val).then(function() {
+          showToast((webhookEnabledEl as HTMLInputElement).checked ? '🔗 Webhook enabled' : '🔗 Webhook disabled', 'success');
+        });
+        webhookConfigRows!.style.display = (webhookEnabledEl as HTMLInputElement).checked ? '' : 'none';
+      });
+
+      // Type selector — save + update labels
+      webhookTypeEl.addEventListener('change', function() {
+        updateConfig('webhook_type', webhookTypeEl.value);
+        showToast('🔗 Webhook service updated', 'success');
+        updateWebhookLabels();
+      });
+
+      // Auto-save URL
+      webhookUrlEl.addEventListener('change', function() {
+        updateConfig('webhook_url', webhookUrlEl.value.trim());
+        showToast('🔗 Webhook URL saved', 'success');
+      });
+
+      // Auto-save secret
+      webhookSecretEl.addEventListener('change', function() {
+        var val = webhookSecretEl.value.trim();
+        if (val) {
+          updateConfig('webhook_secret', val).then(function() {
+            showToast('🔗 Webhook secret saved', 'success');
+            webhookSecretEl.value = '';
+            webhookSecretEl.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+          });
+        }
+      });
+
+      // Test webhook button
+      document.getElementById('webhook-test-btn')!.addEventListener('click', function() {
+        var btn = document.getElementById('webhook-test-btn') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = '🔗 Sending...';
+        fetch('/api/notify/test-webhook', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) showToast('❌ ' + data.error, 'error');
+            else showToast('🔗 Test webhook sent!', 'success');
+          })
+          .catch(function() { showToast('❌ Failed to send test webhook', 'error'); })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = '🔗 Send Test';
+          });
+      });
+    }
+
     // ── Phase 11: Codex Capture Toggle ──
     var codexCaptureEl = document.getElementById('s-codex-capture');
     if (codexCaptureEl) {

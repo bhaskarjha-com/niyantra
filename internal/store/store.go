@@ -722,6 +722,23 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v17: F22 Webhook Notifications config ──────────────────────
+	if s.getUserVersion() < 17 {
+		if _, err := s.db.Exec(`
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('webhook_enabled', 'false',   'bool',   'notification', 'Webhook Notifications',     'Enable webhook delivery for quota alerts (Discord, Telegram, Slack, ntfy)'),
+				('webhook_type',    'discord', 'string', 'notification', 'Webhook Type',              'Service type: discord, telegram, slack, generic (ntfy/Gotify)'),
+				('webhook_url',     '',        'string', 'notification', 'Webhook URL',               'Webhook URL (Discord/Slack) or Chat ID (Telegram)'),
+				('webhook_secret',  '',        'string', 'notification', 'Webhook Secret',            'Bot token (Telegram), auth header (generic), unused (Discord/Slack)');
+		`); err != nil {
+			return fmt.Errorf("store: v17 seed webhook config: %w", err)
+		}
+
+		if err := s.setUserVersion(17); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

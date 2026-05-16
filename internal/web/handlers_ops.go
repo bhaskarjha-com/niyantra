@@ -130,6 +130,16 @@ func (s *Server) handleNotifyTestEmail(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "sent"})
 }
 
+// handleNotifyTestWebhook sends a test webhook to verify configuration (F22).
+func (s *Server) handleNotifyTestWebhook(w http.ResponseWriter, r *http.Request) {
+	if err := s.notifier.SendTestWebhookFromEngine(); err != nil {
+		jsonError(w, fmt.Sprintf("webhook failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "sent"})
+}
+
 // ── Phase 10 Handlers ────────────────────────────────────────────
 
 // handleExportJSON exports all data as a JSON file for full portability.
