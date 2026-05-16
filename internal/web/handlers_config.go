@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
@@ -16,12 +17,46 @@ import (
 var sensitiveConfigKeys = map[string]bool{
 	"copilot_pat":           true,
 	"smtp_pass":             true,
+	"smtp_user":             true,
 	"webhook_secret":        true,
 	"webpush_vapid_private": true,
 }
 
+// isSensitiveKey returns true if a config key contains a secret value
+// that must be masked in API responses and activity logs.
+// Checks the static map first, then pattern-matches plugin config keys
+// whose manifest field has secret: true (stored as plugin_{id}_{key}
+// where the key name contains "api_key", "token", "secret", or "password").
+func isSensitiveKey(key string) bool {
+	if sensitiveConfigKeys[key] {
+		return true
+	}
+	// Pattern-match plugin config keys: plugin_{id}_{fieldname}
+	// Fields declared as secret in plugin.json manifest are stored with these
+	// naming patterns. We match conservatively on the suffix.
+	if strings.HasPrefix(key, "plugin_") {
+		lk := strings.ToLower(key)
+		for _, pattern := range []string{"_api_key", "_token", "_secret", "_password", "_pat", "_credential"} {
+			if strings.HasSuffix(lk, pattern) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// maskConfigEntries replaces sensitive config values with "configured"
+// to prevent secret leakage in API responses. Used by both GET and PUT handlers.
+func maskConfigEntries(entries []*store.ConfigEntry) {
+	for _, e := range entries {
+		if isSensitiveKey(e.Key) && e.Value != "" {
+			e.Value = "configured"
+		}
+	}
+}
+
 // handleConfigGet returns server configuration entries.
-// Sensitive values (e.g., copilot_pat) are masked before transmission.
+// Sensitive values (e.g., copilot_pat, plugin API keys) are masked before transmission.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	entries, err := s.store.AllConfig(category)
@@ -30,13 +65,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mask sensitive config values
-	for _, e := range entries {
-		if sensitiveConfigKeys[e.Key] && e.Value != "" {
-			e.Value = "configured"
-		}
-	}
-
+	maskConfigEntries(entries)
 	writeJSON(w, map[string]interface{}{"config": entries})
 }
 
@@ -70,7 +99,7 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 
 	// Log the config change (mask sensitive values to prevent secret leakage)
 	logFrom, logTo := oldVal, req.Value
-	if sensitiveConfigKeys[req.Key] {
+	if isSensitiveKey(req.Key) {
 		logFrom = "***"
 		logTo = "***"
 	}
@@ -93,7 +122,9 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 	// React to bridge/notification config changes
 	s.onConfigChanged(req.Key, req.Value)
 
+	// Return updated config — mask sensitive values (security fix: previously unmasked)
 	entries, _ := s.store.AllConfig("")
+	maskConfigEntries(entries)
 	writeJSON(w, map[string]interface{}{"config": entries})
 }
 

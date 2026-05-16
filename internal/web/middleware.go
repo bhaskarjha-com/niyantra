@@ -36,10 +36,37 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 // (POST /api/snap, POST /api/plugins/{id}/run, PUT /api/config).
 // Low priority while app is localhost-only; implement before public distribution.
 
-// securityMiddleware enforces CORS and Content-Type policies.
+// securityMiddleware enforces CORS, Content-Type, and browser security policies.
 func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CORS: only allow localhost origin matching our port
+		// ── Security Headers ──────────────────────────────────────────
+		// Set on ALL responses to protect against XSS, clickjacking,
+		// MIME sniffing, and unauthorized browser feature access.
+		// Critical for cloud PWA deployment where the dashboard is public.
+
+		// Content-Security-Policy: restrict script/style/connect sources.
+		// 'self' = same-origin only. 'unsafe-inline' required for style attributes
+		// used by Chart.js canvas rendering and inline component styles.
+		w.Header().Set("Content-Security-Policy",
+			"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data:; connect-src 'self'; font-src 'self'; "+
+				"object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+
+		// Prevent clickjacking by disallowing framing from any origin.
+		w.Header().Set("X-Frame-Options", "DENY")
+
+		// Prevent MIME type sniffing — browser must respect Content-Type.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
+		// Limit Referer header leakage to same-origin only.
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+
+		// Disable unnecessary browser features (camera, mic, geolocation, etc.).
+		w.Header().Set("Permissions-Policy",
+			"camera=(), microphone=(), geolocation=(), payment=()")
+
+		// ── CORS ──────────────────────────────────────────────────────
+		// Only allow localhost origin matching our port.
 		allowedOrigin := fmt.Sprintf("http://localhost:%d", s.port)
 		allowedOrigin2 := fmt.Sprintf("http://127.0.0.1:%d", s.port)
 		origin := r.Header.Get("Origin")
@@ -68,8 +95,9 @@ func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Enforce Content-Type: application/json on mutation endpoints
-		// Skip for /mcp — the MCP SDK handler manages its own content negotiation
+		// ── Content-Type Enforcement ──────────────────────────────────
+		// Enforce Content-Type: application/json on mutation endpoints.
+		// Skip for /mcp — the MCP SDK handler manages its own content negotiation.
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				ct := r.Header.Get("Content-Type")

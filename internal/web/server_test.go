@@ -155,3 +155,63 @@ func TestOptionsPreflightReturns204(t *testing.T) {
 		t.Errorf("expected 204 for OPTIONS, got %d", rec.Code)
 	}
 }
+
+// TestSecurityHeaders verifies all security headers are set on every response.
+// These headers protect against XSS, clickjacking, MIME sniffing, and
+// unauthorized browser feature access — critical for cloud/PWA deployment.
+func TestSecurityHeaders(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/status", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	headers := map[string]string{
+		"Content-Security-Policy":   "default-src 'self'",  // check prefix
+		"X-Frame-Options":          "DENY",
+		"X-Content-Type-Options":   "nosniff",
+		"Referrer-Policy":          "strict-origin-when-cross-origin",
+		"Permissions-Policy":       "camera=(), microphone=(), geolocation=(), payment=()",
+	}
+
+	for name, expected := range headers {
+		got := rec.Header().Get(name)
+		if got == "" {
+			t.Errorf("missing security header: %s", name)
+			continue
+		}
+		// For CSP, just check it starts with the expected prefix
+		if name == "Content-Security-Policy" {
+			if !strings.HasPrefix(got, expected) {
+				t.Errorf("%s: expected to start with %q, got %q", name, expected, got)
+			}
+		} else if got != expected {
+			t.Errorf("%s: expected %q, got %q", name, expected, got)
+		}
+	}
+}
+
+// TestMCPBlocksCrossOrigin verifies that MCP endpoint blocks cross-origin with 403.
+func TestMCPBlocksCrossOrigin(t *testing.T) {
+	srv := &Server{port: 9222}
+
+	handler := srv.securityMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("next handler should not be called for cross-origin MCP")
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+	req.Header.Set("Origin", "https://evil.com")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for cross-origin MCP, got %d", rec.Code)
+	}
+}
+

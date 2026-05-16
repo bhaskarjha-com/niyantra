@@ -1,6 +1,6 @@
 # Architecture: Niyantra
 
-> **Updated:** v0.26.1 · Schema v19 · 19 tables · 60+ REST endpoints · 129 tests
+> **Updated:** v0.26.1 · Schema v19 · 19 tables · 60+ REST endpoints · 132 tests
 
 ## System Overview
 

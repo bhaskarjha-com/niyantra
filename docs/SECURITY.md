@@ -1,6 +1,6 @@
 # Security Model
 
-> **Updated:** v0.26.1 · 7 providers + plugins · 4 notification channels
+> **Updated:** v0.26.1 · 7 providers + plugins · 4 notification channels · 5 security headers
 
 ## What Niyantra Accesses
 
@@ -54,18 +54,42 @@ The Antigravity language server uses a self-signed certificate. Niyantra connect
 
 ## Sensitive Configuration Masking
 
-The following config keys contain secrets. When returned via `GET /api/config`, the actual values are replaced with `"configured"` to prevent exposure:
+Config keys containing secrets are masked before API transmission. When returned via `GET /api/config` or `PUT /api/config` response, the actual values are replaced with `"configured"`.
+
+### Static Keys
 
 | Key | Purpose |
 |-----|--------|
 | `copilot_pat` | GitHub Personal Access Token |
 | `smtp_pass` | SMTP authentication password |
+| `smtp_user` | SMTP authentication username |
 | `webhook_secret` | Webhook authentication secret (Telegram bot token, etc.) |
 | `webpush_vapid_private` | VAPID P-256 private key |
+
+### Dynamic Pattern Matching (Plugins)
+
+Plugin config keys matching these suffix patterns are automatically masked:
+`_api_key`, `_token`, `_secret`, `_password`, `_pat`, `_credential`
+
+For example, `plugin_weather_api_key` is masked automatically.
+
+## Browser Security Headers
+
+All HTTP responses include the following security headers:
+
+| Header | Value | Purpose |
+|--------|-------|---------|
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self'; ...` | Prevents XSS by restricting script sources |
+| `X-Frame-Options` | `DENY` | Prevents clickjacking via framing |
+| `X-Content-Type-Options` | `nosniff` | Prevents MIME type sniffing |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Limits URL leakage in Referer header |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | Disables unnecessary browser features |
 
 ## Dashboard Authentication
 
 Optional HTTP basic auth via `--auth user:pass` flag or `NIYANTRA_AUTH` environment variable. No session tokens, no cookies. The auth is per-request and not persisted.
+
+**LAN Exposure Warning:** If `--bind 0.0.0.0` is used without `--auth`, Niyantra prints a visible warning to stderr advising the user to enable authentication before exposing the dashboard to the network.
 
 ## Data Storage
 

@@ -278,6 +278,16 @@ func cmdServe(logger *slog.Logger, dbPath string, port int, auth string, bind st
 		fmt.Println("  ║  Auth:      enabled                  ║")
 	}
 	fmt.Println("  ╚══════════════════════════════════════╝")
+
+	// Security warning: binding to non-localhost without auth exposes the
+	// dashboard (and all quota/config data) to any machine on the network.
+	if bind != "127.0.0.1" && bind != "localhost" && auth == "" {
+		fmt.Println()
+		fmt.Println("  ⚠️  WARNING: Dashboard is bound to " + bind + " without authentication!")
+		fmt.Println("     Any device on your network can access your data.")
+		fmt.Println("     To secure: niyantra serve --bind " + bind + " --auth user:pass")
+	}
+
 	fmt.Println()
 
 	// Handle shutdown signals
