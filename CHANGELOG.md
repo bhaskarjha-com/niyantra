@@ -3,6 +3,32 @@
 All notable changes to Niyantra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions map to feature milestones, not semver.
 
+## [0.26.1] - 2026-05-17
+
+### Security
+- **MCP endpoint hardened** — now enforces `--auth` basic auth and rejects cross-origin browser requests (Origin validation)
+- **Activity log masking** — sensitive config values (PAT, passwords, VAPID keys) are masked with `***` in change logs
+- **Config key validation** — `PUT /api/config` rejects unknown keys to prevent arbitrary data injection
+
+### Fixed
+- **JSON export** — now includes all 7 provider snapshot tables (Codex, Cursor, Gemini, Copilot, Plugin) + pretty-printed output
+- **Notification guard** — uses 6h TTL expiry instead of permanent suppression for non-Antigravity providers
+- **Config sync** — Cursor and Gemini capture toggles now correctly update `data_sources` table
+- **Quick Adjust** — uses direct `GetSnapshotByID` instead of O(N) scan; added `io.LimitReader` body limit
+- **Retention cleanup** — plugin snapshots and token usage records now cleaned up by retention policy
+- **Plugin test runs** — results are now persisted to `plugin_snapshots` table
+- **Account lookup** — `GET /api/accounts/{id}` uses direct `GetAccountByID` instead of loading all accounts
+- **Copilot status** — now included in unified `/api/status` response (parity with 4 other providers)
+- **WebPush endpoint** — unsubscribe route renamed from `DELETE /subscribe` to `DELETE /unsubscribe`
+- **Heatmap streak** — fixed edge case bug in streak calculation; removed dead code
+- **Git costs** — requires explicit `repo` parameter (CWD fallback removed for Docker reliability)
+- **UI** — WebPush settings correctly nested inside Notifications section; About shows real schema version
+- **Migration v14** — uses `getUserVersion()` consistently with all other migrations
+- **Plugin error format** — standardized to `jsonError()` helper
+
+### Changed
+- 129 tests across 13 files in 10 packages (+1 new `TestGuardTTLExpiry`)
+
 ## [0.26.0] - 2026-05-16
 
 ### Added
@@ -19,11 +45,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
   - `POST /api/notify/test-smtp`
   - 8 tests in `smtp_test.go`
 - **Notification engine refactor** — quad-channel async dispatch (OS + SMTP + Webhook + WebPush). Once-per-cycle guard. `engine.go` with threshold check and `OnNotify` callback. 8 tests in `engine_test.go`.
+- **Plugin system (F18)** — `plugin_snapshots` table (schema v19). Plugin discovery, execution, and persistence.
 
 ### Changed
 - Notification architecture upgraded from single-channel (OS-only) to quad-channel
 - Config masking: `smtp_pass`, `webhook_secret`, `webpush_vapid_private` return `"configured"` in API (never expose secrets)
-- Schema v16 → v18 (3 migrations)
+- Schema v16 → v19 (4 migrations)
 - 148 total tests across 13 files in 10 packages
 
 ## [0.25.0] - 2026-05-16
