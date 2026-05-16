@@ -23,6 +23,9 @@ interface HeatmapDay {
   antigravity: number;
   claude: number;
   codex: number;
+  cursor: number;
+  gemini: number;
+  copilot: number;
 }
 
 interface HeatmapData {
@@ -98,6 +101,9 @@ function renderHeatmap(container: HTMLElement, data: HeatmapData): void {
           if (entry.antigravity > 0) parts.push(entry.antigravity + ' AG');
           if (entry.claude > 0) parts.push(entry.claude + ' Claude');
           if (entry.codex > 0) parts.push(entry.codex + ' Codex');
+          if (entry.cursor > 0) parts.push(entry.cursor + ' Cursor');
+          if (entry.gemini > 0) parts.push(entry.gemini + ' Gemini');
+          if (entry.copilot > 0) parts.push(entry.copilot + ' Copilot');
           if (parts.length > 0) tooltip += ' (' + parts.join(', ') + ')';
         }
       }

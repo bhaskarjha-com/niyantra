@@ -11,6 +11,7 @@ import (
 )
 
 // handleConfigGet returns server configuration entries.
+// Sensitive values (e.g., copilot_pat) are masked before transmission.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	category := r.URL.Query().Get("category")
 	entries, err := s.store.AllConfig(category)
@@ -18,6 +19,14 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "database error", http.StatusInternalServerError)
 		return
 	}
+
+	// Mask sensitive config values
+	for _, e := range entries {
+		if e.Key == "copilot_pat" && e.Value != "" {
+			e.Value = "configured"
+		}
+	}
+
 	writeJSON(w, map[string]interface{}{"config": entries})
 }
 
@@ -141,6 +150,9 @@ func (s *Server) onConfigChanged(key, value string) {
 	case "codex_capture":
 		// S7: Sync data_sources.codex.enabled to match config
 		s.store.SetSourceEnabled("codex", value == "true")
+	case "copilot_capture":
+		// F15c: Sync data_sources.copilot.enabled to match config
+		s.store.SetSourceEnabled("copilot", value == "true")
 	case "notify_enabled", "notify_threshold":
 		s.notifier.Configure(
 			s.store.GetConfigBool("notify_enabled"),

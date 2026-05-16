@@ -39,6 +39,7 @@
                         <div class="snap-option" data-source="codex">○ Codex / ChatGPT</div>
                         <div class="snap-option" data-source="cursor">○ Cursor</div>
                         <div class="snap-option" data-source="gemini">○ Gemini CLI</div>
+                        <div class="snap-option" data-source="copilot">○ GitHub Copilot</div>
                         <div class="snap-divider"></div>
                         <div class="snap-option" data-source="all">⚡ Snap All Sources</div>
                     </div>
@@ -80,6 +81,7 @@
                             <option value="claude">Claude Code</option>
                             <option value="cursor">Cursor</option>
                             <option value="gemini">Gemini CLI</option>
+                            <option value="copilot">GitHub Copilot</option>
                         </select>
                     </div>
                 </div>
@@ -263,6 +265,32 @@
                             </div>
                         </div>
                         <div id="gemini-status-settings" class="polling-status" style="display:none"></div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>🐙 GitHub Copilot</h3>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Enable Copilot Capture</strong>
+                                <span>Track GitHub Copilot premium interaction quotas via PAT</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-copilot-capture">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>Personal Access Token</strong>
+                                <span>GitHub PAT with <code>read:user</code> scope. <a href="https://github.com/settings/tokens" target="_blank" style="color:var(--accent)">Create one →</a></span>
+                            </div>
+                            <div class="settings-control">
+                                <input type="password" id="s-copilot-pat" class="form-input" placeholder="ghp_..." style="width:220px;font-family:monospace;font-size:12px">
+                            </div>
+                        </div>
+                        <div id="copilot-status-settings" class="polling-status" style="display:none"></div>
                     </div>
 
                     <div class="settings-section">

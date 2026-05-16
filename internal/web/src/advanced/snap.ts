@@ -119,6 +119,18 @@ export function snapSource(source: string): void {
     );
   }
 
+  if (source === 'copilot' || source === 'all') {
+    promises.push(
+      fetch('/api/copilot/snap', { method: 'POST' }).then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.error) return { source: 'Copilot', error: d.error };
+        var label = 'Copilot · ' + (d.plan || 'unknown') + ' · ' + (d.premiumPct || 0).toFixed(0) + '%';
+        return { source: 'Copilot', data: d, label: label };
+      })
+      .catch(function() { return { source: 'Copilot', error: 'capture failed' }; })
+    );
+  }
+
   if (promises.length === 0) {
     (btn as HTMLButtonElement).innerHTML = orig;
     (btn as HTMLButtonElement).disabled = false;

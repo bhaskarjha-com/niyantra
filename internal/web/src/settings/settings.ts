@@ -199,6 +199,37 @@ export function initSettings(): void {
       });
     }
 
+    // ── F15c: GitHub Copilot Capture Toggle + PAT ──
+    var copilotCaptureEl = document.getElementById('s-copilot-capture');
+    var copilotPatEl = document.getElementById('s-copilot-pat');
+    if (copilotCaptureEl) {
+      (copilotCaptureEl as HTMLInputElement).checked = cfg['copilot_capture'] === 'true';
+      copilotCaptureEl.addEventListener('change', function() {
+        var val = (copilotCaptureEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('copilot_capture', val).then(function() {
+          showToast((copilotCaptureEl as HTMLInputElement).checked ? '\ud83d\udc19 Copilot capture enabled' : '\ud83d\udc19 Copilot capture disabled', 'success');
+          loadDataSources();
+        });
+      });
+    }
+    if (copilotPatEl) {
+      // Show masked value if PAT exists
+      if (cfg['copilot_pat']) {
+        (copilotPatEl as HTMLInputElement).placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+      }
+      copilotPatEl.addEventListener('change', function() {
+        var val = (copilotPatEl as HTMLInputElement).value.trim();
+        if (val) {
+          updateConfig('copilot_pat', val).then(function() {
+            showToast('\ud83d\udc19 Copilot PAT saved', 'success');
+            (copilotPatEl as HTMLInputElement).value = '';
+            (copilotPatEl as HTMLInputElement).placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+            loadDataSources();
+          });
+        }
+      });
+    }
+
     // ── Phase 11: JSON Import ──
     var importBtn = document.getElementById('import-json-btn');
     var importFile = document.getElementById('import-file');
