@@ -1741,9 +1741,126 @@ Returns WebPush status.
 
 ---
 
+### Plugin Endpoints (Phase 16: F18)
+
+Manage and query external data source plugins. Plugins are language-agnostic scripts in `~/.niyantra/plugins/` that extend Niyantra's tracking capabilities.
+
+#### `GET /api/plugins`
+
+Lists all discovered plugins with their manifests, enabled state, configuration, and capture stats.
+
+**Response:** `200 OK`
+
+```json
+{
+  "plugins": [
+    {
+      "manifest": {
+        "id": "openrouter-usage",
+        "name": "OpenRouter Usage Tracker",
+        "version": "1.0.0",
+        "description": "Tracks OpenRouter API credit usage",
+        "author": "Niyantra Examples",
+        "entryPoint": "capture.py",
+        "timeout": 15,
+        "config": {
+          "api_key": { "type": "string", "label": "OpenRouter API Key", "required": true, "secret": true },
+          "base_url": { "type": "string", "label": "API Base URL", "default": "https://openrouter.ai/api/v1" }
+        }
+      },
+      "dir": "/home/user/.niyantra/plugins/openrouter-usage",
+      "enabled": true,
+      "config": { "base_url": "https://openrouter.ai/api/v1", "api_key": "••••••••" },
+      "lastCapture": "2026-05-16T14:30:00Z",
+      "captureCount": 12
+    }
+  ],
+  "pluginsDir": "/home/user/.niyantra/plugins",
+  "errors": []
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `plugins` | array | All discovered plugins with valid manifests |
+| `plugins[].manifest` | object | Parsed `plugin.json` manifest |
+| `plugins[].dir` | string | Absolute path to the plugin directory |
+| `plugins[].enabled` | bool | Whether auto-polling captures this plugin |
+| `plugins[].config` | object | Current config values (secrets masked) |
+| `plugins[].lastCapture` | string? | ISO timestamp of last successful capture |
+| `plugins[].captureCount` | int | Total number of captures stored |
+| `pluginsDir` | string | Base plugins directory path |
+| `errors` | array | Discovery errors (invalid manifests, permission issues) |
+
+#### `GET /api/plugins/{id}/status`
+
+Returns the latest snapshot data for a specific plugin.
+
+**Response:** `200 OK`
+
+```json
+{
+  "pluginId": "openrouter-usage",
+  "provider": "openrouter",
+  "label": "OpenRouter",
+  "usagePct": 42.5,
+  "usageDisplay": "$4.25 / $10.00",
+  "plan": "api",
+  "capturedAt": "2026-05-16T14:30:00Z",
+  "captureCount": 12
+}
+```
+
+**Response (no data):** `404 Not Found` — `{ "error": "no snapshot found" }`
+
+#### `POST /api/plugins/{id}/run`
+
+Triggers a manual test execution of a plugin. The plugin's subprocess is invoked immediately with its current config, and the captured data is returned (but not persisted).
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "provider": "openrouter",
+    "label": "OpenRouter",
+    "usage_pct": 42.5,
+    "usage_display": "$4.25 / $10.00",
+    "plan": "api"
+  }
+}
+```
+
+**Response (plugin error):** `200 OK` — `{ "status": "error", "error": "API key invalid" }`
+
+**Response (plugin not found):** `404 Not Found` — `{ "error": "plugin 'xyz' not found" }`
+
+#### `PUT /api/plugins/{id}/config`
+
+Updates configuration for a plugin. Supports setting arbitrary key-value pairs (matched against the plugin's config schema) and the special `enabled` key for toggling auto-capture.
+
+**Request:** `application/json`
+
+```json
+{
+  "enabled": "true",
+  "api_key": "sk-or-v1-abc123...",
+  "base_url": "https://openrouter.ai/api/v1"
+}
+```
+
+**Response:** `200 OK` — `{ "message": "config updated" }`
+
+> **Config Storage:** Plugin config values are stored in Niyantra's existing `config` table using the key format `plugin_{id}_{key}` (e.g., `plugin_openrouter-usage_api_key`). Secret fields are masked in GET responses.
+
+> **Plugin Protocol:** Plugins receive `{"action": "capture", "config": {...}}` on stdin and must return `{"status": "ok", "data": {...}}` on stdout. See `examples/plugins/openrouter-usage/` for a reference implementation.
+
+---
+
 ### `POST /mcp` — Streamable HTTP MCP (Phase 15: F14)
 
-Exposes all 11 MCP tools over HTTP using the MCP Streamable HTTP transport protocol. This enables remote MCP clients (Claude Desktop on another machine, CI/CD pipelines, cross-machine AI agents) to connect without stdio.
+Exposes all 12 MCP tools over HTTP using the MCP Streamable HTTP transport protocol. This enables remote MCP clients (Claude Desktop on another machine, CI/CD pipelines, cross-machine AI agents) to connect without stdio.
 
 **No authentication required** — the MCP SDK handles its own transport-level security (Origin/Host header verification). The endpoint does not go through Niyantra's basic auth middleware.
 
@@ -1769,7 +1886,7 @@ curl -X POST http://localhost:9222/mcp \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 ```
 
-**Available tools (11):**
+**Available tools (12):**
 
 | Tool | Description |
 |------|-------------|
@@ -1784,7 +1901,9 @@ curl -X POST http://localhost:9222/mcp \
 | `quota_forecast` | Time-to-exhaustion predictions with severity |
 | `token_usage_stats` | Unified token analytics across all providers |
 | `git_commit_costs` | Git commit ↔ AI token cost correlation |
+| `plugin_status` | Latest data from all installed external plugins |
 
-> **Transport Note:** The same 11 tools are available via both stdio (`niyantra mcp`) and HTTP (`/mcp` on the web dashboard). The HTTP transport uses the MCP Go SDK's `NewStreamableHTTPHandler` with session management and SSE support built in.
+> **Transport Note:** The same 12 tools are available via both stdio (`niyantra mcp`) and HTTP (`/mcp` on the web dashboard). The HTTP transport uses the MCP Go SDK's `NewStreamableHTTPHandler` with session management and SSE support built in.
 
 > **Claude Desktop Config:** To connect Claude Desktop to a remote Niyantra instance, configure the MCP server URL as `http://<host>:9222/mcp` using the Streamable HTTP transport type.
+

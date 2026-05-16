@@ -1,0 +1,22 @@
+{
+  "id": "openrouter-usage",
+  "name": "OpenRouter Usage Tracker",
+  "version": "1.0.0",
+  "description": "Tracks OpenRouter API credit usage and remaining balance",
+  "author": "Niyantra Examples",
+  "entryPoint": "capture.py",
+  "timeout": 15,
+  "config": {
+    "api_key": {
+      "type": "string",
+      "label": "OpenRouter API Key",
+      "required": true,
+      "secret": true
+    },
+    "base_url": {
+      "type": "string",
+      "label": "API Base URL",
+      "default": "https://openrouter.ai/api/v1"
+    }
+  }
+}

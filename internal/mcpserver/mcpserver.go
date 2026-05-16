@@ -5,10 +5,10 @@
 //   - stdio (JSON-RPC 2.0) for local AI agent integration via `niyantra mcp`
 //   - Streamable HTTP for remote clients via the `/mcp` endpoint on the web dashboard
 //
-// It provides 11 tools for querying quota status, model availability, usage
+// It provides 12 tools for querying quota status, model availability, usage
 // intelligence, budget forecasts, model recommendations, spending analysis,
 // switch advice, Codex status, quota time-to-exhaustion, token usage
-// analytics, and git commit cost correlation.
+// analytics, git commit cost correlation, and plugin data.
 //
 // Tool handlers are organized into domain files:
 //
@@ -115,6 +115,11 @@ func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string
 		Name:        "copilot_status",
 		Description: "Get GitHub Copilot detection state and usage. Shows if a PAT is configured, current plan (Pro/Pro+/Free/Business/Enterprise), premium interaction usage percentage, chat usage percentage, and latest snapshot. Requires a GitHub PAT with read:user scope.",
 	}, m.handleCopilotStatus)
+
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "plugin_status",
+		Description: "Get the latest data from all installed external plugins (F18 Plugin System). Optionally filter by plugin_id. Returns each plugin's provider name, label, usage percentage, usage display string, plan type, and last capture timestamp. Plugins are external scripts in ~/.niyantra/plugins/ that track custom AI services.",
+	}, m.handlePluginStatus)
 
 	return m
 }

@@ -276,3 +276,75 @@ func (m *MCPServer) handleCopilotStatus(_ context.Context, _ *mcp.CallToolReques
 
 	return nil, out, nil
 }
+
+// ── Phase 16: F18 Plugin System ──────────────────────────────────
+
+// PluginSnapshotInfo represents a plugin's latest capture for MCP output.
+type PluginSnapshotInfo struct {
+	PluginID     string  `json:"pluginId"`
+	Provider     string  `json:"provider"`
+	Label        string  `json:"label"`
+	UsagePct     float64 `json:"usagePct"`
+	UsageDisplay string  `json:"usageDisplay"`
+	Plan         string  `json:"plan"`
+	CapturedAt   string  `json:"capturedAt"`
+}
+
+// PluginStatusInput is the optional input for plugin_status.
+type PluginStatusInput struct {
+	PluginID string `json:"plugin_id,omitempty"`
+}
+
+// PluginStatusOutput is the output of plugin_status.
+type PluginStatusOutput struct {
+	Plugins []PluginSnapshotInfo `json:"plugins"`
+	Count   int                  `json:"count"`
+	Message string               `json:"message"`
+}
+
+func (m *MCPServer) handlePluginStatus(_ context.Context, _ *mcp.CallToolRequest, input PluginStatusInput) (*mcp.CallToolResult, PluginStatusOutput, error) {
+	out := PluginStatusOutput{}
+
+	if input.PluginID != "" {
+		// Query a specific plugin
+		snap, err := m.store.LatestPluginSnapshot(input.PluginID)
+		if err != nil {
+			out.Message = fmt.Sprintf("No data for plugin '%s'. It may not be installed or hasn't captured yet.", input.PluginID)
+			return nil, out, nil
+		}
+		out.Plugins = append(out.Plugins, PluginSnapshotInfo{
+			PluginID:     snap.PluginID,
+			Provider:     snap.Provider,
+			Label:        snap.Label,
+			UsagePct:     snap.UsagePct,
+			UsageDisplay: snap.UsageDisplay,
+			Plan:         snap.Plan,
+			CapturedAt:   snap.CapturedAt,
+		})
+		out.Count = 1
+		out.Message = fmt.Sprintf("Plugin '%s': %s — %.1f%% (%s).",
+			snap.PluginID, snap.Label, snap.UsagePct, snap.UsageDisplay)
+	} else {
+		// Query all plugins
+		snaps, err := m.store.AllLatestPluginSnapshots()
+		if err != nil || len(snaps) == 0 {
+			out.Message = "No plugin data available. Install plugins in ~/.niyantra/plugins/ and enable them in Settings."
+			return nil, out, nil
+		}
+		for _, snap := range snaps {
+			out.Plugins = append(out.Plugins, PluginSnapshotInfo{
+				PluginID:     snap.PluginID,
+				Provider:     snap.Provider,
+				Label:        snap.Label,
+				UsagePct:     snap.UsagePct,
+				UsageDisplay: snap.UsageDisplay,
+				Plan:         snap.Plan,
+				CapturedAt:   snap.CapturedAt,
+			})
+		}
+		out.Count = len(out.Plugins)
+		out.Message = fmt.Sprintf("%d plugin(s) reporting data.", out.Count)
+	}
+
+	return nil, out, nil
+}
