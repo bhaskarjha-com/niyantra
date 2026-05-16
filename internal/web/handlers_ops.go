@@ -506,13 +506,9 @@ func (s *Server) handleGitCosts(w http.ResponseWriter, r *http.Request) {
 	// Repo path: query param or auto-detect CWD
 	repoPath := r.URL.Query().Get("repo")
 	if repoPath == "" {
-		// Default to current working directory
-		var err error
-		repoPath, err = os.Getwd()
-		if err != nil {
-			jsonError(w, "unable to determine working directory", http.StatusInternalServerError)
-			return
-		}
+		// Require explicit repo path — CWD is unreliable (especially in Docker)
+		jsonError(w, "repo query parameter is required", http.StatusBadRequest)
+		return
 	}
 
 	days := 30

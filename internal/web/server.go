@@ -229,7 +229,7 @@ func (s *Server) ListenAndServe() error {
 	// F19: WebPush routes
 	mux.HandleFunc("GET /api/webpush/vapid-key", s.handleWebPushVAPIDKey)
 	mux.HandleFunc("POST /api/webpush/subscribe", s.handleWebPushSubscribe)
-	mux.HandleFunc("DELETE /api/webpush/subscribe", s.handleWebPushUnsubscribe)
+	mux.HandleFunc("DELETE /api/webpush/unsubscribe", s.handleWebPushUnsubscribe)
 	mux.HandleFunc("GET /api/webpush/status", s.handleWebPushStatus)
 
 	// Phase 10 routes

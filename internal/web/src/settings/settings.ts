@@ -437,7 +437,7 @@ export function initSettings(): void {
             if (existingSub) {
               // Unsubscribe
               return existingSub.unsubscribe().then(function() {
-                return fetch('/api/webpush/subscribe', {
+                return fetch('/api/webpush/unsubscribe', {
                   method: 'DELETE',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ endpoint: existingSub.endpoint })

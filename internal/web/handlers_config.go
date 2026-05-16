@@ -55,6 +55,13 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate key exists in the config table (prevents arbitrary key injection)
+	configMap := s.store.ConfigMap()
+	if _, exists := configMap[req.Key]; !exists {
+		jsonError(w, "unknown config key: "+req.Key, http.StatusBadRequest)
+		return
+	}
+
 	oldVal, err := s.store.SetConfig(req.Key, req.Value)
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)

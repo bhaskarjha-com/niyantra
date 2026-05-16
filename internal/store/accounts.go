@@ -71,6 +71,22 @@ func (s *Store) AllAccounts() ([]*Account, error) {
 	return accounts, nil
 }
 
+// GetAccountByID returns a single account by primary key.
+func (s *Store) GetAccountByID(id int64) (*Account, error) {
+	a := &Account{}
+	err := s.db.QueryRow(
+		`SELECT id, email, plan_name, COALESCE(provider,'antigravity'),
+			COALESCE(notes,''), COALESCE(tags,''), COALESCE(pinned_group,''),
+			COALESCE(credit_renewal_day,0), created_at, updated_at
+		FROM accounts WHERE id = ?`, id,
+	).Scan(&a.ID, &a.Email, &a.PlanName, &a.Provider, &a.Notes, &a.Tags,
+		&a.PinnedGroup, &a.CreditRenewalDay, &a.CreatedAt, &a.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("store: account %d: %w", id, err)
+	}
+	return a, nil
+}
+
 // AccountMeta returns the notes, tags, pinned_group, and credit_renewal_day for a specific account.
 func (s *Store) AccountMeta(accountID int64) (notes, tags, pinnedGroup string, creditRenewalDay int, err error) {
 	err = s.db.QueryRow(

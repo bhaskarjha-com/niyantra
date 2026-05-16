@@ -36,19 +36,12 @@ func (s *Server) handleAccountGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := s.store.AllAccounts()
+	account, err := s.store.GetAccountByID(accountID)
 	if err != nil {
-		jsonError(w, "database error", http.StatusInternalServerError)
+		jsonError(w, "account not found", http.StatusNotFound)
 		return
 	}
-
-	for _, a := range accounts {
-		if a.ID == accountID {
-			writeJSON(w, a)
-			return
-		}
-	}
-	jsonError(w, "account not found", http.StatusNotFound)
+	writeJSON(w, account)
 }
 
 // handleAccountMeta updates account notes, tags, pinned group, and credit renewal day.
@@ -369,7 +362,6 @@ func (s *Server) handleHeatmap(w http.ResponseWriter, r *http.Request) {
 
 	// Compute current streak and longest streak by walking dates
 	now := time.Now().UTC()
-	today := now.Format("2006-01-02")
 	streak := 0
 	longestStreak := 0
 	currentStreak := 0
@@ -381,25 +373,21 @@ func (s *Server) handleHeatmap(w http.ResponseWriter, r *http.Request) {
 			if currentStreak > longestStreak {
 				longestStreak = currentStreak
 			}
+		} else if i == 0 {
+			// Today has no activity — skip and try from yesterday
+			continue
 		} else {
-			// If we haven't counted a streak yet and it's not today, stop
-			if i == 0 {
-				// Today has no activity — streak starts from yesterday
-				currentStreak = 0
-			} else if streak == 0 {
-				// First gap after initial run
+			// First gap ends the current streak
+			if streak == 0 {
 				streak = currentStreak
-				currentStreak = 0
-			} else {
-				currentStreak = 0
 			}
+			currentStreak = 0
 		}
 	}
 	// If we never hit a gap, streak = currentStreak
 	if streak == 0 {
 		streak = currentStreak
 	}
-	_ = today // suppress unused warning
 
 	writeJSON(w, map[string]interface{}{
 		"days":           data,

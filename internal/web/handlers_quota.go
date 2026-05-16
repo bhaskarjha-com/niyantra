@@ -63,6 +63,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		result["geminiSnapshot"] = geminiSnap
 	}
 
+	// F15c: Include Copilot snapshot if available
+	copilotSnap, _ := s.store.LatestCopilotSnapshot()
+	if copilotSnap != nil {
+		result["copilotSnapshot"] = copilotSnap
+	}
+
 	// F7: Compute per-account forecasts using sliding-window rates
 	forecastsByAccount := s.computeAccountForecasts(snapshots)
 	if forecastsByAccount != nil {

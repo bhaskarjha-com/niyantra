@@ -1,6 +1,5 @@
-// GENERATED FILE — do not edit. Source: internal/web/src/
 "use strict";
-(() => {
+var Niyantra = (() => {
   // internal/web/src/core/state.ts
   var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];
   var GROUP_LABELS = ["Claude + GPT", "Gemini Pro", "Gemini Flash"];
@@ -3761,7 +3760,7 @@
             return reg.pushManager.getSubscription().then(function(existingSub) {
               if (existingSub) {
                 return existingSub.unsubscribe().then(function() {
-                  return fetch("/api/webpush/subscribe", {
+                  return fetch("/api/webpush/unsubscribe", {
                     method: "DELETE",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ endpoint: existingSub.endpoint })

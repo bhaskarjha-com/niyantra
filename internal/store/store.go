@@ -464,11 +464,7 @@ func (s *Store) migrate() error {
 		if err != nil {
 			return fmt.Errorf("store: v12 begin tx: %w", err)
 		}
-		defer func() {
-			if err != nil {
-				tx.Rollback()
-			}
-		}()
+		defer tx.Rollback()
 
 		// 1. Recreate accounts table with UNIQUE(email, provider) instead of UNIQUE(email)
 		if _, err = tx.Exec(`
@@ -558,11 +554,7 @@ func (s *Store) migrate() error {
 		if err != nil {
 			return fmt.Errorf("store: v13 begin tx: %w", err)
 		}
-		defer func() {
-			if err != nil {
-				tx.Rollback()
-			}
-		}()
+		defer tx.Rollback()
 
 		// 1. Create gemini_snapshots table
 		if _, err = tx.Exec(`
@@ -610,7 +602,7 @@ func (s *Store) migrate() error {
 	}
 
 	// ── v14: F13 Token Usage Analytics ────────────────────────────
-	if version < 14 {
+	if s.getUserVersion() < 14 {
 		tx, err := s.db.Begin()
 		if err != nil {
 			return fmt.Errorf("store: v14 begin: %w", err)

@@ -81,7 +81,7 @@ func (s *Server) handlePlugins(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePluginStatus(w http.ResponseWriter, r *http.Request) {
 	pluginID := r.PathValue("id")
 	if pluginID == "" {
-		http.Error(w, `{"error":"plugin id required"}`, http.StatusBadRequest)
+		jsonError(w, "plugin id required", http.StatusBadRequest)
 		return
 	}
 
