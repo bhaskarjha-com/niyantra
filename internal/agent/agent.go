@@ -10,6 +10,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/codex"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
+	"github.com/bhaskarjha-com/niyantra/internal/plugin"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
@@ -44,6 +45,9 @@ type PollingAgent struct {
 
 	// Copilot state
 	copilotAuthFails int
+
+	// F18: Plugin system
+	plugins []*plugin.Plugin
 
 	// Backoff state for consecutive failures
 	mu           sync.Mutex
@@ -160,6 +164,9 @@ func (a *PollingAgent) poll(ctx context.Context) {
 
 	// GitHub Copilot polling: if copilot_capture is enabled
 	a.pollCopilot(ctx)
+
+	// F18: External plugin polling
+	a.pollPlugins(ctx)
 
 	// Data retention cleanup: delete snapshots older than retention_days
 	a.cleanupOldSnapshots()

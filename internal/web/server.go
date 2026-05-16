@@ -13,6 +13,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/mcpserver"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
+	"github.com/bhaskarjha-com/niyantra/internal/plugin"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
 )
@@ -133,6 +134,37 @@ func (s *Server) startPollingAgent() {
 	// Initialize session managers with configurable idle timeout
 	idleTimeout := time.Duration(s.store.GetConfigInt("session_idle_timeout", 1200)) * time.Second
 	ag.SetSessionManagers(idleTimeout)
+
+	// F18: Discover and load plugins
+	pluginsDir := plugin.DefaultPluginsDir()
+	plugins, errs := plugin.Discover(pluginsDir)
+	for _, e := range errs {
+		s.logger.Warn("Plugin discovery error", "error", e)
+	}
+	// Load enabled state and config for each plugin from SQLite
+	for _, p := range plugins {
+		p.Enabled = s.store.GetConfigBool("plugin_" + p.Manifest.ID + "_enabled")
+		for key := range p.Manifest.Config {
+			val := s.store.GetConfig("plugin_" + p.Manifest.ID + "_" + key)
+			if val != "" {
+				p.Config[key] = val
+			}
+		}
+		if p.Enabled {
+			// Register data source if not exists
+			s.registerPluginDataSource(p)
+		}
+	}
+	ag.SetPlugins(plugins)
+	if len(plugins) > 0 {
+		enabled := 0
+		for _, p := range plugins {
+			if p.Enabled {
+				enabled++
+			}
+		}
+		s.logger.Info("Plugins discovered", "total", len(plugins), "enabled", enabled, "dir", pluginsDir)
+	}
 
 	s.agentMgr.Start(ag)
 	s.logger.Info("Auto-capture started", "interval", interval, "sessionIdleTimeout", idleTimeout)
@@ -258,6 +290,12 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("DELETE /api/snapshots/{id}", s.handleSnapshotByID)
 	mux.HandleFunc("PATCH /api/snap/adjust", s.handleSnapAdjust)
 	mux.HandleFunc("POST /api/snap/adjust", s.handleSnapAdjust)
+
+	// Phase 16 routes: Plugin System (F18)
+	mux.HandleFunc("GET /api/plugins", s.handlePlugins)
+	mux.HandleFunc("GET /api/plugins/{id}/status", s.handlePluginStatus)
+	mux.HandleFunc("POST /api/plugins/{id}/run", s.handlePluginRun)
+	mux.HandleFunc("PUT /api/plugins/{id}/config", s.handlePluginConfig)
 
 	// Static files (embedded in prod, disk in dev)
 	staticFS, err := fs.Sub(staticFiles, "static")

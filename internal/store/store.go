@@ -65,6 +65,13 @@ func (s *Store) Close() error {
 	return nil
 }
 
+// ExecRaw runs a raw SQL statement with the given args.
+// Returns any error; used for one-off administrative operations.
+func (s *Store) ExecRaw(query string, args ...any) error {
+	_, err := s.db.Exec(query, args...)
+	return err
+}
+
 // Path returns the database file path.
 func (s *Store) Path() string {
 	return s.path
@@ -759,6 +766,37 @@ func (s *Store) migrate() error {
 		}
 
 		if err := s.setUserVersion(18); err != nil {
+			return err
+		}
+	}
+
+	// ── v19: F18 Plugin System ─────────────────────────────────────
+	if s.getUserVersion() < 19 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS plugin_snapshots (
+				id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+				plugin_id       TEXT     NOT NULL,
+				provider        TEXT     DEFAULT '',
+				label           TEXT     DEFAULT '',
+				email           TEXT     DEFAULT '',
+				usage_pct       REAL     DEFAULT 0,
+				usage_display   TEXT     DEFAULT '',
+				plan            TEXT     DEFAULT '',
+				models_json     TEXT     DEFAULT '[]',
+				metadata_json   TEXT     DEFAULT '{}',
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				capture_method  TEXT     DEFAULT 'plugin'
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_plugin_snapshots_time
+				ON plugin_snapshots(captured_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_plugin_snapshots_plugin
+				ON plugin_snapshots(plugin_id, captured_at DESC);
+		`); err != nil {
+			return fmt.Errorf("store: v19 create plugin_snapshots: %w", err)
+		}
+
+		if err := s.setUserVersion(19); err != nil {
 			return err
 		}
 	}

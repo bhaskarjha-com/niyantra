@@ -13,6 +13,7 @@ import { loadClaudeBridgeStatus } from '../advanced/claude';
 import { loadCodexSettingsStatus } from '../advanced/codex';
 import { loadSubscriptions } from '../subscriptions';
 import { updateChartTheme } from '../charts/history';
+import { loadPlugins } from './plugins';
 
 
 export function initSettings(): void {
@@ -632,6 +633,9 @@ export function initSettings(): void {
   document.getElementById('activity-refresh')!.addEventListener('click', loadActivityLog);
   document.getElementById('activity-filter')!.addEventListener('change', loadActivityLog);
   loadActivityLog();
+
+  // F18: Load plugins
+  loadPlugins();
 }
 
 // One-time migration of localStorage budget/currency to server config
