@@ -4,7 +4,7 @@ import "fmt"
 
 // GetOrCreateAccount returns the account ID for the given email and provider,
 // creating a new account if one doesn't exist.
-// Provider must be one of: "antigravity", "codex", "claude", "cursor".
+// Provider must be one of: "antigravity", "codex", "claude", "cursor", "copilot".
 func (s *Store) GetOrCreateAccount(email, planName, provider string) (int64, error) {
 	if provider == "" {
 		provider = "antigravity"
@@ -103,6 +103,7 @@ func (s *Store) DeleteAccount(accountID int64) (int64, error) {
 		{"DELETE FROM antigravity_reset_cycles WHERE account_id = ?", "reset_cycles"},
 		{"DELETE FROM codex_snapshots WHERE account_id = ?", "codex_snapshots"},
 		{"DELETE FROM cursor_snapshots WHERE account_id = ?", "cursor_snapshots"},
+		{"DELETE FROM copilot_snapshots WHERE account_id = ?", "copilot_snapshots"},
 		{"DELETE FROM accounts WHERE id = ?", "accounts"},
 	}
 

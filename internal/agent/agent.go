@@ -42,6 +42,9 @@ type PollingAgent struct {
 	// Gemini state
 	geminiAuthFails int
 
+	// Copilot state
+	copilotAuthFails int
+
 	// Backoff state for consecutive failures
 	mu           sync.Mutex
 	failCount    int
@@ -154,6 +157,9 @@ func (a *PollingAgent) poll(ctx context.Context) {
 
 	// Gemini CLI polling: if gemini_capture is enabled
 	a.pollGemini(ctx)
+
+	// GitHub Copilot polling: if copilot_capture is enabled
+	a.pollCopilot(ctx)
 
 	// Data retention cleanup: delete snapshots older than retention_days
 	a.cleanupOldSnapshots()

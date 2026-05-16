@@ -194,6 +194,10 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("GET /api/gemini/status", s.handleGeminiStatus)
 	mux.HandleFunc("POST /api/gemini/snap", s.handleGeminiSnap)
 
+	// Phase 15 routes: GitHub Copilot provider (F15c)
+	mux.HandleFunc("GET /api/copilot/status", s.handleCopilotStatus)
+	mux.HandleFunc("POST /api/copilot/snap", s.handleCopilotSnap)
+
 	// Phase 13 routes
 	mux.HandleFunc("GET /api/config/pricing", s.handleModelPricingGet)
 	mux.HandleFunc("PUT /api/config/pricing", s.handleModelPricingPut)

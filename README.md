@@ -118,7 +118,7 @@ niyantra serve    # Dashboard shows your real data
 
 ### Know Your Quotas
 
-Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy and track Claude Code rate limits via statusline bridge. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. See who's ready, who's exhausted, and when resets happen.
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy, track Claude Code rate limits via statusline bridge, track Cursor usage via session token API, monitor Gemini CLI quota via OAuth, and **track GitHub Copilot** premium interactions via PAT. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. See who's ready, who's exhausted, and when resets happen.
 
 ### Control Your Spending
 
@@ -126,7 +126,7 @@ Track subscriptions across **26+ AI platforms** with renewals, spending breakdow
 
 ### Let AI Help You Code Smarter
 
-**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (11 tools over stdio + HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (12 tools over stdio + HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
 
 ### Your Data, Your Machine
 

@@ -886,6 +886,77 @@ Triggers a manual Gemini CLI usage snapshot.
 
 ---
 
+### `GET /api/copilot/status` (Phase 15: F15c)
+
+Returns GitHub Copilot detection state and latest usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "configured": true,
+  "captureEnabled": false,
+  "snapshot": {
+    "id": 3,
+    "accountId": 15,
+    "email": "user@github.com",
+    "username": "octocat",
+    "plan": "Pro",
+    "premiumPct": 35.5,
+    "chatPct": 12.0,
+    "hasPremium": true,
+    "hasChat": true,
+    "capturedAt": "2026-05-16T12:00:00Z",
+    "captureMethod": "manual",
+    "captureSource": "ui"
+  }
+}
+```
+
+**Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `configured` | bool | Whether a `copilot_pat` config key is set |
+| `captureEnabled` | bool | Whether auto-polling is enabled (`copilot_capture` config) |
+| `snapshot.plan` | string | `Pro`, `Pro+`, `Free`, `Business`, `Enterprise`, `unknown` |
+| `snapshot.premiumPct` | float | Premium interactions usage % (0-100) |
+| `snapshot.chatPct` | float | Chat usage % (0-100) |
+| `snapshot.hasPremium` | bool | Whether premium data is available |
+| `snapshot.hasChat` | bool | Whether chat data is available |
+| `snapshot.username` | string | GitHub username |
+
+> **Authentication:** User provides a GitHub PAT with `read:user` scope via Settings → `copilot_pat` config key. The PAT is used as `Authorization: token <PAT>` to query the Copilot internal usage API.
+
+> **API Flow:** Two endpoints polled:
+> 1. `GET api.github.com/copilot_internal/user` → quota snapshots (premiumInteractions, chat) + plan
+> 2. `GET api.github.com/user` → username/email (best-effort)
+
+---
+
+### `POST /api/copilot/snap` (Phase 15: F15c)
+
+Triggers a manual GitHub Copilot usage snapshot.
+
+**Response:** `200 OK`
+
+```json
+{
+  "message": "Copilot snapshot captured",
+  "snapshotId": 3,
+  "plan": "Pro",
+  "premiumPct": 35.5,
+  "chatPct": 12.0,
+  "username": "octocat"
+}
+```
+
+**Error Responses:**
+- `400` — Copilot PAT not configured
+- `502` — Copilot API error (PAT invalid, Copilot not enabled, or network failure)
+
+---
+
 ## Error Format
 
 All errors use a consistent JSON envelope:

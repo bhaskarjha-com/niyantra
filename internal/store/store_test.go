@@ -22,10 +22,10 @@ func openTestDB(t *testing.T) *Store {
 func TestOpenAndMigrate(t *testing.T) {
 	s := openTestDB(t)
 
-	// Verify schema version is 14
+	// Verify schema version is 15
 	v := s.getUserVersion()
-	if v != 14 {
-		t.Errorf("expected schema version 14, got %d", v)
+	if v != 15 {
+		t.Errorf("expected schema version 15, got %d", v)
 	}
 
 	// Insert a snapshot and query it back
@@ -663,6 +663,16 @@ func TestHeatmapData(t *testing.T) {
 	}
 	_, _ = s.InsertGeminiSnapshot(geminiSnap)
 
+	// Copilot snapshot (today)
+	copilotSnap := &CopilotSnapshot{
+		Plan:          "Pro",
+		PremiumPct:    25.0,
+		HasPremium:    true,
+		CaptureMethod: "auto",
+		CaptureSource: "server",
+	}
+	_, _ = s.InsertCopilotSnapshot(copilotSnap)
+
 	// Query heatmap
 	days, err = s.HeatmapData(365)
 	if err != nil {
@@ -688,8 +698,11 @@ func TestHeatmapData(t *testing.T) {
 	if day.Gemini != 1 {
 		t.Errorf("expected 1 Gemini snapshot, got %d", day.Gemini)
 	}
-	if day.Count != 6 {
-		t.Errorf("expected total count 6, got %d", day.Count)
+	if day.Copilot != 1 {
+		t.Errorf("expected 1 Copilot snapshot, got %d", day.Copilot)
+	}
+	if day.Count != 7 {
+		t.Errorf("expected total count 7, got %d", day.Count)
 	}
 }
 

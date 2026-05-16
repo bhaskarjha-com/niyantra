@@ -243,3 +243,36 @@ func (m *MCPServer) handleCodexStatus(_ context.Context, _ *mcp.CallToolRequest,
 
 	return nil, out, nil
 }
+
+// CopilotStatusOutput is the output of copilot_status.
+type CopilotStatusOutput struct {
+	Configured     bool                     `json:"configured"`
+	CaptureEnabled bool                     `json:"captureEnabled"`
+	Snapshot       *store.CopilotSnapshot   `json:"snapshot,omitempty"`
+	Message        string                   `json:"message"`
+}
+
+func (m *MCPServer) handleCopilotStatus(_ context.Context, _ *mcp.CallToolRequest, _ EmptyInput) (*mcp.CallToolResult, CopilotStatusOutput, error) {
+	pat := m.store.GetConfig("copilot_pat")
+	out := CopilotStatusOutput{
+		Configured:     pat != "",
+		CaptureEnabled: m.store.GetConfigBool("copilot_capture"),
+	}
+
+	snap, _ := m.store.LatestCopilotSnapshot()
+	if snap != nil {
+		out.Snapshot = snap
+	}
+
+	if !out.Configured {
+		out.Message = "GitHub Copilot PAT not configured. Set a PAT with read:user scope in Settings → Copilot PAT."
+	} else if snap == nil {
+		out.Message = "Copilot PAT configured. No snapshots yet — capture one via the dashboard or enable auto-capture."
+	} else {
+		usagePct := snap.UsagePct()
+		out.Message = fmt.Sprintf("Copilot active (%s plan, %s). Premium: %.1f%% used.",
+			snap.Plan, snap.Username, usagePct)
+	}
+
+	return nil, out, nil
+}

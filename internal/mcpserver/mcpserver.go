@@ -111,6 +111,11 @@ func New(s *store.Store, t *tracker.Tracker, logger *slog.Logger, version string
 		Description: "Correlate git commits with actual AI token consumption. For each recent commit, finds overlapping Claude Code sessions within a 30-minute window and reports real token usage and cost — not estimated from diffs. Returns per-commit costs, branch-level aggregation, and totals. Provide a repo path or defaults to the current working directory.",
 	}, m.handleGitCommitCosts)
 
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "copilot_status",
+		Description: "Get GitHub Copilot detection state and usage. Shows if a PAT is configured, current plan (Pro/Pro+/Free/Business/Enterprise), premium interaction usage percentage, chat usage percentage, and latest snapshot. Requires a GitHub PAT with read:user scope.",
+	}, m.handleCopilotStatus)
+
 	return m
 }
 

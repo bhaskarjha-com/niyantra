@@ -644,6 +644,63 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v15: GitHub Copilot snapshots (F15c) ──────────────────────
+	if s.getUserVersion() < 15 {
+		tx, err := s.db.Begin()
+		if err != nil {
+			return fmt.Errorf("store: v15 begin tx: %w", err)
+		}
+		defer func() {
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// 1. Create copilot_snapshots table
+		if _, err = tx.Exec(`
+			CREATE TABLE IF NOT EXISTS copilot_snapshots (
+				id              INTEGER  PRIMARY KEY AUTOINCREMENT,
+				account_id      INTEGER  DEFAULT 0,
+				email           TEXT     DEFAULT '',
+				username        TEXT     DEFAULT '',
+				plan            TEXT     DEFAULT '',
+				premium_pct     REAL     DEFAULT 0,
+				chat_pct        REAL     DEFAULT 0,
+				models_json     TEXT     DEFAULT '{}',
+				captured_at     DATETIME DEFAULT (datetime('now')),
+				capture_method  TEXT     DEFAULT 'manual',
+				capture_source  TEXT     DEFAULT 'ui',
+				FOREIGN KEY (account_id) REFERENCES accounts(id)
+			);
+			CREATE INDEX IF NOT EXISTS idx_copilot_snapshots_time
+				ON copilot_snapshots(captured_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_copilot_snapshots_account
+				ON copilot_snapshots(account_id, captured_at DESC);
+		`); err != nil {
+			return fmt.Errorf("store: v15 create copilot_snapshots: %w", err)
+		}
+
+		// 2. Seed Copilot config keys and data source
+		if _, err = tx.Exec(`
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('copilot_capture', 'false', 'bool',   'capture', 'Copilot Capture',        'Enable GitHub Copilot quota tracking via PAT'),
+				('copilot_pat',     '',      'string', 'capture', 'Copilot PAT',             'GitHub Personal Access Token with read:user scope for Copilot usage tracking');
+
+			INSERT OR IGNORE INTO data_sources (id, name, source_type, enabled, config_json) VALUES
+				('copilot', 'GitHub Copilot', 'pat_api', 0, '{}');
+		`); err != nil {
+			return fmt.Errorf("store: v15 seed copilot config: %w", err)
+		}
+
+		if err = tx.Commit(); err != nil {
+			return fmt.Errorf("store: v15 commit: %w", err)
+		}
+
+		if err := s.setUserVersion(15); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
