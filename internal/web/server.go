@@ -11,6 +11,7 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/agent"
 	"github.com/bhaskarjha-com/niyantra/internal/claude"
 	"github.com/bhaskarjha-com/niyantra/internal/client"
+	"github.com/bhaskarjha-com/niyantra/internal/mcpserver"
 	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 	"github.com/bhaskarjha-com/niyantra/internal/tracker"
@@ -207,6 +208,13 @@ func (s *Server) ListenAndServe() error {
 
 	// Phase 15 routes: Git Commit Correlation (F16)
 	mux.HandleFunc("GET /api/git-costs", s.handleGitCosts)
+
+	// Phase 15 routes: Streamable HTTP MCP (F14)
+	// The MCP SDK handler manages its own Origin/Content-Type verification,
+	// session management, and SSE streaming. We mount it directly so the
+	// security middleware doesn't interfere with the MCP protocol.
+	mcpSrv := mcpserver.New(s.store, s.tracker, s.logger, s.Version)
+	mux.Handle("/mcp", mcpSrv.HTTPHandler())
 
 	// Data management routes
 	mux.HandleFunc("GET /api/accounts", s.handleAccounts)

@@ -16,8 +16,10 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 	user, pass := parts[0], parts[1]
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for health check endpoint (container probes)
-		if r.URL.Path == "/healthz" {
+		// Skip auth for health check and MCP endpoints
+		// /healthz: container probes need unauthenticated access
+		// /mcp: MCP SDK handles its own Origin/Host security at transport level
+		if r.URL.Path == "/healthz" || r.URL.Path == "/mcp" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -51,6 +53,7 @@ func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Enforce Content-Type: application/json on mutation endpoints
+		// Skip for /mcp — the MCP SDK handler manages its own content negotiation
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				ct := r.Header.Get("Content-Type")

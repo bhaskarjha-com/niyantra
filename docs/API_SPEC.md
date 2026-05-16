@@ -1518,3 +1518,53 @@ Correlates git commits with actual AI token consumption from Claude Code session
 > **Algorithm:** Runs `git log --all --no-merges --format` to extract commits, then for each commit timestamp finds Claude Code JSONL session records in `[commit_time - 30min, commit_time]`. Cost computed via `store.GetModelPrice()` with fuzzy prefix matching. No database writes — pure computation.
 
 > **Unique Feature:** No competitor does cost correlation with actual token data. `semcod/costs` estimates from diff size; Niyantra uses real Claude Code session telemetry.
+
+---
+
+### `POST /mcp` — Streamable HTTP MCP (Phase 15: F14)
+
+Exposes all 11 MCP tools over HTTP using the MCP Streamable HTTP transport protocol. This enables remote MCP clients (Claude Desktop on another machine, CI/CD pipelines, cross-machine AI agents) to connect without stdio.
+
+**No authentication required** — the MCP SDK handles its own transport-level security (Origin/Host header verification). The endpoint does not go through Niyantra's basic auth middleware.
+
+**Protocol:** MCP JSON-RPC 2.0 over HTTP, with optional SSE streaming for server-to-client notifications.
+
+**Supported methods:**
+- `POST /mcp` — Send JSON-RPC requests (initialize, tools/list, tools/call)
+- `GET /mcp` — Open SSE stream for server notifications (requires active session)
+- `DELETE /mcp` — Terminate a session
+
+**Example: List available tools**
+
+```bash
+# Initialize session
+curl -X POST http://localhost:9222/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+
+# List tools (use session ID from response)
+curl -X POST http://localhost:9222/mcp \
+  -H "Content-Type: application/json" \
+  -H "Mcp-Session-Id: <session-id>" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```
+
+**Available tools (11):**
+
+| Tool | Description |
+|------|-------------|
+| `quota_status` | All tracked accounts' quota status with readiness |
+| `model_availability` | Check a specific model's remaining quota |
+| `usage_intelligence` | Consumption rates and projections for all models |
+| `budget_forecast` | Monthly budget burn rate and projections |
+| `best_model` | Recommend optimal model by remaining quota |
+| `analyze_spending` | Subscription spending patterns and insights |
+| `switch_recommendation` | Which account to use right now |
+| `codex_status` | Codex/ChatGPT detection and usage state |
+| `quota_forecast` | Time-to-exhaustion predictions with severity |
+| `token_usage_stats` | Unified token analytics across all providers |
+| `git_commit_costs` | Git commit ↔ AI token cost correlation |
+
+> **Transport Note:** The same 11 tools are available via both stdio (`niyantra mcp`) and HTTP (`/mcp` on the web dashboard). The HTTP transport uses the MCP Go SDK's `NewStreamableHTTPHandler` with session management and SSE support built in.
+
+> **Claude Desktop Config:** To connect Claude Desktop to a remote Niyantra instance, configure the MCP server URL as `http://<host>:9222/mcp` using the Streamable HTTP transport type.

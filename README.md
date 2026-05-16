@@ -126,7 +126,7 @@ Track subscriptions across **26+ AI platforms** with renewals, spending breakdow
 
 ### Let AI Help You Code Smarter
 
-**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (8 tools) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task.
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (11 tools over stdio + HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
 
 ### Your Data, Your Machine
 
