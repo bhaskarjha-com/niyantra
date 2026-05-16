@@ -1,6 +1,6 @@
 # ADR-0002: Cloud Sync Architecture
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Date:** 2026-05-17  
 **Authors:** Bhaskar Jha  
 **Supersedes:** `draft/cloud/00-10` (written 2026-05-01 at v0.15.0, Schema v9)
@@ -72,12 +72,21 @@ with PKCE (public client, no client_secret). Tokens stored in OS-native keychain
 Wails v3 remains the recommended framework but is deferred to a future sprint. Cloud sync
 works entirely in browser mode. Shipping on an alpha framework is unnecessary risk.
 
-### Hosting: Oracle Cloud Always Free
+### Hosting: Oracle Cloud Always Free (Mumbai)
 
-Oracle's Always Free tier (4 ARM OCPU, 24GB RAM, 200GB storage) is selected as primary host.
+Oracle's Always Free tier (4 ARM OCPU, 24GB RAM, 200GB storage) is selected as primary host,
+region `ap-mumbai-1` (lowest latency for primary user, good capacity availability).
 Risks (idle reclamation, account termination) are mitigated by PAYG upgrade, external
 keepalive, automated backups, and a documented migration runbook. Hetzner ($4.50/mo)
 is the documented backup option.
+
+### Domain: Single-Origin Architecture
+
+All services hosted under `niyantra.bhaskarjha.dev` (single first-level subdomain).
+PocketBase serves both the API and PWA static files from `pb_public/`. This avoids:
+- Second-level subdomain SSL issues (Cloudflare free cert doesn't cover `api.niyantra.*`)
+- CORS configuration (same origin = no cross-origin requests)
+- Extra DNS records (one A record to Oracle Cloud IP)
 
 ### Schema: v20 Migration
 
