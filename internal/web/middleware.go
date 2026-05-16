@@ -16,10 +16,9 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 	user, pass := parts[0], parts[1]
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for health check and MCP endpoints
+		// Skip auth for health check only
 		// /healthz: container probes need unauthenticated access
-		// /mcp: MCP SDK handles its own Origin/Host security at transport level
-		if r.URL.Path == "/healthz" || r.URL.Path == "/mcp" {
+		if r.URL.Path == "/healthz" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -40,6 +39,19 @@ func (s *Server) securityMiddleware(next http.Handler) http.Handler {
 		allowedOrigin := fmt.Sprintf("http://localhost:%d", s.port)
 		allowedOrigin2 := fmt.Sprintf("http://127.0.0.1:%d", s.port)
 		origin := r.Header.Get("Origin")
+
+		// MCP endpoint: enforce strict Origin check to prevent cross-site exfiltration.
+		// Requests without Origin header are allowed (CLI tools, MCP SDK clients).
+		if r.URL.Path == "/mcp" && origin != "" &&
+			origin != allowedOrigin && origin != allowedOrigin2 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "cross-origin MCP requests are not allowed",
+			})
+			return
+		}
+
 		if origin == allowedOrigin || origin == allowedOrigin2 {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")

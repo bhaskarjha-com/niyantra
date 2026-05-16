@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bhaskarjha-com/niyantra/internal/client"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
@@ -214,7 +213,7 @@ func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
 			RemainingPercent float64 `json:"remainingPercent"`
 		} `json:"adjustments"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&req); err != nil {
 		jsonError(w, "invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -227,21 +226,9 @@ func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch current snapshot to get existing models
-	snaps, err := s.store.History(0, 1000)
+	// Fetch the specific snapshot by ID (replaces O(N) History scan)
+	targetSnap, err := s.store.GetSnapshotByID(req.SnapshotID)
 	if err != nil {
-		jsonError(w, "database error", http.StatusInternalServerError)
-		return
-	}
-
-	var targetSnap *client.Snapshot
-	for _, snap := range snaps {
-		if snap.ID == req.SnapshotID {
-			targetSnap = snap
-			break
-		}
-	}
-	if targetSnap == nil {
 		jsonError(w, "snapshot not found", http.StatusNotFound)
 		return
 	}

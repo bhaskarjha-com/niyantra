@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestCheckQuotaGuard(t *testing.T) {
@@ -15,7 +16,7 @@ func TestCheckQuotaGuard(t *testing.T) {
 
 	// Guard should be empty
 	e.mu.Lock()
-	if e.guard["test-model"] {
+	if !e.guard["test-model"].IsZero() {
 		t.Error("expected guard to be empty for test-model")
 	}
 	e.mu.Unlock()
@@ -27,14 +28,14 @@ func TestOnResetClearsGuard(t *testing.T) {
 
 	// Manually set guard
 	e.mu.Lock()
-	e.guard["claude_3.5_sonnet"] = true
+	e.guard["claude_3.5_sonnet"] = time.Now()
 	e.mu.Unlock()
 
 	// OnReset should clear it
 	e.OnReset("claude_3.5_sonnet")
 
 	e.mu.Lock()
-	if e.guard["claude_3.5_sonnet"] {
+	if !e.guard["claude_3.5_sonnet"].IsZero() {
 		t.Error("expected guard to be cleared after OnReset")
 	}
 	e.mu.Unlock()
@@ -88,7 +89,7 @@ func TestCheckQuotaSkipsWhenDisabled(t *testing.T) {
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.guard["test-model"] {
+	if !e.guard["test-model"].IsZero() {
 		t.Error("expected guard to remain empty when notifications are disabled")
 	}
 }
@@ -102,7 +103,7 @@ func TestCheckQuotaSkipsAboveThreshold(t *testing.T) {
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.guard["test-model"] {
+	if !e.guard["test-model"].IsZero() {
 		t.Error("expected guard to remain empty when above threshold")
 	}
 }
@@ -154,4 +155,45 @@ func TestSendTestReturnsError(t *testing.T) {
 	// SendTest should return an error or nil depending on platform support
 	// Just verify it doesn't panic
 	_ = e.SendTest()
+}
+
+func TestGuardTTLExpiry(t *testing.T) {
+	e := NewEngine(slog.Default())
+	e.Configure(true, 10)
+	e.guardTTL = 100 * time.Millisecond // short TTL for testing
+
+	// First call below threshold — should fire and set guard
+	e.CheckQuota("codex_5h", 5.0)
+	e.mu.Lock()
+	guardSet := !e.guard["codex_5h"].IsZero()
+	e.mu.Unlock()
+	if !guardSet {
+		t.Fatal("expected guard to be set after CheckQuota below threshold")
+	}
+
+	// Immediate second call — should be suppressed by guard
+	e.mu.Lock()
+	guardBefore := e.guard["codex_5h"]
+	e.mu.Unlock()
+
+	e.CheckQuota("codex_5h", 5.0)
+
+	e.mu.Lock()
+	guardAfter := e.guard["codex_5h"]
+	e.mu.Unlock()
+	if !guardBefore.Equal(guardAfter) {
+		t.Error("expected guard timestamp to remain unchanged (suppressed)")
+	}
+
+	// Wait for TTL to expire
+	time.Sleep(150 * time.Millisecond)
+
+	// Third call — TTL expired, should fire again and update timestamp
+	e.CheckQuota("codex_5h", 5.0)
+	e.mu.Lock()
+	guardFinal := e.guard["codex_5h"]
+	e.mu.Unlock()
+	if guardFinal.Equal(guardBefore) {
+		t.Error("expected guard timestamp to be updated after TTL expiry")
+	}
 }

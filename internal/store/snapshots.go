@@ -107,6 +107,37 @@ func (s *Store) History(accountID int64, limit int) ([]*client.Snapshot, error) 
 	return scanSnapshots(rows)
 }
 
+// GetSnapshotByID returns a single snapshot by its primary key.
+func (s *Store) GetSnapshotByID(id int64) (*client.Snapshot, error) {
+	row := s.db.QueryRow(`
+		SELECT id, account_id, captured_at, email, plan_name,
+			prompt_credits, monthly_credits, models_json, raw_json,
+			COALESCE(capture_method,'manual'), COALESCE(capture_source,'cli'),
+			COALESCE(source_id,'antigravity'), COALESCE(ai_credits_json,'')
+		FROM snapshots WHERE id = ?`, id)
+
+	var snap client.Snapshot
+	var capturedAt, modelsJSON, aiCreditsJSON string
+	if err := row.Scan(
+		&snap.ID, &snap.AccountID, &capturedAt, &snap.Email,
+		&snap.PlanName, &snap.PromptCredits, &snap.MonthlyCredits,
+		&modelsJSON, &snap.RawJSON, &snap.CaptureMethod, &snap.CaptureSource,
+		&snap.SourceID, &aiCreditsJSON,
+	); err != nil {
+		return nil, fmt.Errorf("store: get snapshot %d: %w", id, err)
+	}
+
+	if t, err := time.Parse(time.RFC3339, capturedAt); err == nil {
+		snap.CapturedAt = t
+	}
+	json.Unmarshal([]byte(modelsJSON), &snap.Models)
+	if aiCreditsJSON != "" {
+		json.Unmarshal([]byte(aiCreditsJSON), &snap.AICredits)
+	}
+
+	return &snap, nil
+}
+
 // SnapshotCount returns the total number of snapshots.
 func (s *Store) SnapshotCount() int {
 	var count int
@@ -239,6 +270,24 @@ func (s *Store) DeleteSnapshotsOlderThan(days int) (int64, error) {
 	if err == nil {
 		d6, _ := result6.RowsAffected()
 		deleted += d6
+	}
+
+	// Also clean up old plugin snapshots (F18)
+	result7, err := s.db.Exec(
+		`DELETE FROM plugin_snapshots WHERE captured_at < datetime('now', ?)`, cutoff,
+	)
+	if err == nil {
+		d7, _ := result7.RowsAffected()
+		deleted += d7
+	}
+
+	// Also clean up old token usage records
+	result8, err := s.db.Exec(
+		`DELETE FROM token_usage WHERE date < date('now', ?)`, cutoff,
+	)
+	if err == nil {
+		d8, _ := result8.RowsAffected()
+		deleted += d8
 	}
 
 	return deleted, nil

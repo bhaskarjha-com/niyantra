@@ -260,6 +260,26 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	claudeSnaps, _ := s.store.ClaudeSnapshotHistory(500)
 	export["claudeSnapshots"] = claudeSnaps
 
+	// Codex snapshots (last 500)
+	codexSnaps, _ := s.store.RecentCodexSnapshots(24 * 365 * time.Hour)
+	export["codexSnapshots"] = codexSnaps
+
+	// Cursor snapshots (last 500)
+	cursorSnaps, _ := s.store.RecentCursorSnapshots(500)
+	export["cursorSnapshots"] = cursorSnaps
+
+	// Gemini CLI snapshots (last 500)
+	geminiSnaps, _ := s.store.RecentGeminiSnapshots(500)
+	export["geminiSnapshots"] = geminiSnaps
+
+	// Copilot snapshots (last 500)
+	copilotSnaps, _ := s.store.RecentCopilotSnapshots(500)
+	export["copilotSnapshots"] = copilotSnaps
+
+	// Plugin snapshots (all latest per plugin)
+	pluginSnaps, _ := s.store.AllLatestPluginSnapshots()
+	export["pluginSnapshots"] = pluginSnaps
+
 	// Config
 	config, _ := s.store.AllConfig("")
 	export["config"] = config

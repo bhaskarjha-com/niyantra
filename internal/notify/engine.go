@@ -13,8 +13,9 @@ import (
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
-	threshold float64         // alert when remaining% drops below this (default 10)
-	guard     map[string]bool // model → has been notified this cycle
+	threshold float64              // alert when remaining% drops below this (default 10)
+	guard     map[string]time.Time // model → time of last notification
+	guardTTL  time.Duration        // how long to suppress re-notifications (default 6h)
 	logger    *slog.Logger
 	smtp      SMTPConfig      // F11: SMTP email delivery settings
 	webhook   WebhookConfig   // F22: Webhook delivery settings
@@ -32,7 +33,8 @@ func NewEngine(logger *slog.Logger) *Engine {
 	return &Engine{
 		enabled:   false,
 		threshold: 10,
-		guard:     make(map[string]bool),
+		guard:     make(map[string]time.Time),
+		guardTTL:  6 * time.Hour,
 		logger:    logger,
 	}
 }
@@ -137,7 +139,8 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 	e.mu.Lock()
 	enabled := e.enabled
 	threshold := e.threshold
-	alreadySent := e.guard[model]
+	lastSent, exists := e.guard[model]
+	alreadySent := exists && time.Since(lastSent) < e.guardTTL
 	e.mu.Unlock()
 
 	if !enabled || alreadySent {
@@ -226,7 +229,7 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 
 	// Mark as notified for this cycle
 	e.mu.Lock()
-	e.guard[model] = true
+	e.guard[model] = time.Now()
 	cb := e.onNotify
 	e.mu.Unlock()
 

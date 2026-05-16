@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/bhaskarjha-com/niyantra/internal/plugin"
+	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
 // handlePlugins returns all discovered plugins with their status.
@@ -146,8 +147,47 @@ func (s *Server) handlePluginRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Persist the capture result if status is OK
+	persisted := false
+	if result.Status == "ok" {
+		modelsJSON := "[]"
+		if result.Data.Models != nil {
+			if b, merr := json.Marshal(result.Data.Models); merr == nil {
+				modelsJSON = string(b)
+			}
+		}
+		metadataJSON := "{}"
+		if result.Data.Metadata != nil {
+			if b, merr := json.Marshal(result.Data.Metadata); merr == nil {
+				metadataJSON = string(b)
+			}
+		}
+
+		snap := &store.PluginSnapshot{
+			PluginID:      pluginID,
+			Provider:      result.Data.Provider,
+			Label:         result.Data.Label,
+			Email:         result.Data.Email,
+			UsagePct:      result.Data.UsagePct,
+			UsageDisplay:  result.Data.UsageDisplay,
+			Plan:          result.Data.Plan,
+			ModelsJSON:    modelsJSON,
+			MetadataJSON:  metadataJSON,
+			CaptureMethod: "manual",
+		}
+		if _, serr := s.store.InsertPluginSnapshot(snap); serr != nil {
+			s.logger.Warn("Failed to persist plugin test run", "plugin", pluginID, "error", serr)
+		} else {
+			s.store.UpdateSourceCapture("plugin_" + pluginID)
+			persisted = true
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(map[string]any{
+		"result":    result,
+		"persisted": persisted,
+	})
 }
 
 // handlePluginConfig saves plugin configuration values.

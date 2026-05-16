@@ -11,6 +11,15 @@ import (
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
+// sensitiveConfigKeys contains config keys whose values must never be
+// exposed via the API or logged to the activity log.
+var sensitiveConfigKeys = map[string]bool{
+	"copilot_pat":           true,
+	"smtp_pass":             true,
+	"webhook_secret":        true,
+	"webpush_vapid_private": true,
+}
+
 // handleConfigGet returns server configuration entries.
 // Sensitive values (e.g., copilot_pat) are masked before transmission.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +32,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 
 	// Mask sensitive config values
 	for _, e := range entries {
-		if (e.Key == "copilot_pat" || e.Key == "smtp_pass" || e.Key == "webhook_secret" || e.Key == "webpush_vapid_private") && e.Value != "" {
+		if sensitiveConfigKeys[e.Key] && e.Value != "" {
 			e.Value = "configured"
 		}
 	}
@@ -52,9 +61,14 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log the config change
+	// Log the config change (mask sensitive values to prevent secret leakage)
+	logFrom, logTo := oldVal, req.Value
+	if sensitiveConfigKeys[req.Key] {
+		logFrom = "***"
+		logTo = "***"
+	}
 	s.store.LogInfo("ui", "config_change", "", map[string]interface{}{
-		"key": req.Key, "from": oldVal, "to": req.Value,
+		"key": req.Key, "from": logFrom, "to": logTo,
 	})
 
 	// React to auto_capture toggle
@@ -154,6 +168,12 @@ func (s *Server) onConfigChanged(key, value string) {
 	case "copilot_capture":
 		// F15c: Sync data_sources.copilot.enabled to match config
 		s.store.SetSourceEnabled("copilot", value == "true")
+	case "cursor_capture":
+		// F15a: Sync data_sources.cursor.enabled to match config
+		s.store.SetSourceEnabled("cursor", value == "true")
+	case "gemini_capture":
+		// F15b: Sync data_sources.gemini.enabled to match config
+		s.store.SetSourceEnabled("gemini", value == "true")
 	case "notify_enabled", "notify_threshold":
 		s.notifier.Configure(
 			s.store.GetConfigBool("notify_enabled"),
