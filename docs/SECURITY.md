@@ -1,5 +1,7 @@
 # Security Model
 
+> **Updated:** v0.26.0 · 7 providers · 4 notification channels
+
 ## What Niyantra Accesses
 
 | Data | How | Why |
@@ -9,24 +11,38 @@
 | Local HTTP endpoint (`127.0.0.1`) | Single HTTP POST per snap | Fetch quota data via Connect RPC |
 | Codex auth file (`~/.codex/auth.json`) | File read | OAuth token for Codex API polling |
 | Claude settings (`~/.claude/settings.json`) | File read + optional patch | Statusline bridge for rate limits |
+| Claude session logs (`~/.claude/projects/`) | File read | JSONL session parsing for token analytics |
+| Cursor session token | File read from `~/.cursor-server/` | HTTP API authentication |
+| Gemini CLI credentials | File read from `~/.config/gemini/` | OAuth for GCP API polling |
+| GitHub Copilot PAT | User-provided in Settings UI | GitHub billing API authentication |
 
 ## What Niyantra Does NOT Access
 
 - No programmatic account switching (see "Why Not Account Switching" below)
-- No user credentials stored or transmitted (except Codex OAuth for explicit opt-in polling)
+- No user credentials stored or transmitted (except opt-in provider tokens stored locally)
 - No telemetry, analytics, or phone-home
-- No third-party services contacted (Codex polling is opt-in only)
 - No file system writes outside its own database directory
 
 ## Network Behavior
 
+### Localhost Only (Core)
 - **`niyantra snap`**: 1 HTTP POST to `https://127.0.0.1:{port}` (self-signed TLS, local LS)
 - **`niyantra serve`**: Binds HTTP server on `localhost:9222` (configurable)
 - **`niyantra mcp`**: stdio only, no network
-- **Codex polling (opt-in)**: HTTPS to OpenAI authorization servers (`auth0.openai.com`) using locally-stored OAuth tokens from `~/.codex/auth.json`
-- **All other commands**: 0 network calls
+- **`niyantra status`**: 0 network calls (reads from SQLite)
 
-> **Note:** Codex polling is the ONLY feature that makes external network calls. It is off by default and must be explicitly enabled in Settings.
+### External (Opt-In Provider Polling)
+- **Codex**: HTTPS to `auth0.openai.com` (OAuth token refresh) + OpenAI API
+- **Cursor**: HTTPS to `cursor.com/api/usage`
+- **Gemini CLI**: HTTPS to GCP APIs (loadCodeAssist + retrieveUserQuota)
+- **GitHub Copilot**: HTTPS to `api.github.com` (billing endpoints)
+
+### External (Opt-In Notification Channels)
+- **SMTP**: TCP to configured SMTP server (plain/STARTTLS/TLS)
+- **Webhook**: HTTPS POST to configured endpoint (Discord/Telegram/Slack/ntfy)
+- **WebPush**: HTTPS POST to push service (Chrome FCM, Firefox autopush, etc.)
+
+> **Note:** All external network calls are opt-in and disabled by default. The dashboard works fully offline with only Antigravity LS detection.
 
 ## TLS
 
@@ -35,15 +51,28 @@ The Antigravity language server uses a self-signed certificate. Niyantra connect
 2. The CSRF token provides request authentication
 3. The alternative (no TLS) would be less secure
 
+## Sensitive Configuration Masking
+
+The following config keys contain secrets. When returned via `GET /api/config`, the actual values are replaced with `"configured"` to prevent exposure:
+
+| Key | Purpose |
+|-----|--------|
+| `copilot_pat` | GitHub Personal Access Token |
+| `smtp_pass` | SMTP authentication password |
+| `webhook_secret` | Webhook authentication secret (Telegram bot token, etc.) |
+| `webpush_vapid_private` | VAPID P-256 private key |
+
 ## Dashboard Authentication
 
-Optional HTTP basic auth via `--auth user:pass` flag. No session tokens, no cookies. The auth is per-request and not persisted.
+Optional HTTP basic auth via `--auth user:pass` flag or `NIYANTRA_AUTH` environment variable. No session tokens, no cookies. The auth is per-request and not persisted.
 
 ## Data Storage
 
 - All data stored in a single SQLite file (default: `~/.niyantra/niyantra.db`)
 - No encryption at rest (the database contains quota percentages, not credentials)
+- Provider tokens stored in config table (masked in API, plaintext in SQLite)
 - Backup/restore via `niyantra backup` / `niyantra restore`
+- WebPush VAPID keys auto-generated on first subscribe (P-256 ECDSA)
 
 ## Provenance
 

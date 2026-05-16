@@ -76,8 +76,8 @@ internal/
     types.go                          API response structs
     helpers.go                        Model grouping logic (claude_gpt / gemini_pro / gemini_flash)
 
-  store/                           ← SQLite persistence (schema v11, 13 tables)
-    store.go                          Open, migrate schema, close
+  store/                           ← SQLite persistence (schema v18, 18 tables, 23 Go files)
+    store.go                          Open, migrate schema (v1→v18), close
     snapshots.go                      InsertSnapshot, LatestPerAccount, History
     accounts.go                       GetOrCreateAccount (upsert by email)
     subscriptions.go                  Subscription CRUD, 26 presets
@@ -86,6 +86,12 @@ internal/
     codex.go                          Codex snapshot persistence
     sessions.go                       Usage session tracking
     usage_logs.go                     Manual usage log CRUD
+    cursor.go                         Cursor snapshot persistence
+    gemini.go                         Gemini snapshot persistence
+    copilot.go                        Copilot snapshot persistence
+    webpush.go                        WebPush subscription CRUD
+    heatmap.go                        Activity heatmap data queries
+    token_usage.go                    Claude token usage daily storage
 
   readiness/                       ← Pure readiness computation (zero I/O)
     readiness.go                      Calculate() — groups models, computes % + countdowns
@@ -97,56 +103,86 @@ internal/
 
   agent/                           ← Auto-capture polling agent
     agent.go                          Ticker loop, exponential backoff, graceful shutdown
-
   tracker/                         ← Usage intelligence
     tracker.go                        Reset cycle detection, consumption rates, exhaustion forecast
 
   codex/                           ← Codex/ChatGPT integration
     codex.go                          OAuth auth detection + API polling
 
-  claudebridge/                    ← Claude Code bridge
-    bridge.go                         Settings patch + rate limit monitoring
+  claude/                           ← Claude Code provider
+    deep.go                           JSONL session parser (token usage, model normalization)
+    bridge.go                         Statusline settings patch + rate limit monitoring
 
-  notify/                          ← OS-native notifications
-    notify.go                         Windows (PowerShell), macOS (osascript), Linux (notify-send)
+  cursor/                           ← Cursor provider
+    cursor.go                         Session token auth + HTTP API polling
 
-  mcpserver/                       ← MCP stdio server
-    server.go                         9 tools: quota, models, usage, budget, best_model, spending, switch, codex, forecast
+  gemini/                           ← Gemini CLI provider
+    gemini.go                         OAuth discovery + GCP API (loadCodeAssist + retrieveUserQuota)
 
-  web/                             ← Modular HTTP server (11 files)
-    server.go                         Server struct, lifecycle, route table (226 lines)
+  copilot/                          ← GitHub Copilot provider
+    copilot.go                        PAT auth + GitHub billing API
+
+  notify/                          ← Quad-channel notification engine
+    engine.go                         Threshold check, guard, OnNotify callback, quad-channel dispatch
+    notify.go                         Cross-platform OS notifications (PowerShell/osascript/notify-send)
+    smtp.go                           Pure Go SMTP (plain/STARTTLS/TLS), HTML templates
+    webhook.go                        Multi-service webhooks (Discord/Telegram/Slack/Generic)
+    webpush.go                        VAPID + RFC 8291 encryption (zero x/crypto)
+
+  forecast/                        ← Forecasting engine
+    forecast.go                       TTX + cost forecasting
+
+  costtrack/                       ← Cost tracking engine
+    costtrack.go                      Blended model pricing + cost calculation
+
+  tokenusage/                      ← Token usage analytics
+    tokenusage.go                     Claude JSONL → daily aggregation pipeline
+
+  gitcorr/                         ← Git commit cost correlation
+    gitcorr.go                        Git log ↔ Claude session timestamp correlation
+
+  mcpserver/                       ← MCP stdio + Streamable HTTP server
+    server.go                         11 tools: quota, models, usage, budget, best_model, spending, switch, codex, forecast, token_usage, git_commit_costs
+
+  web/                             ← Modular HTTP server (17 Go files)
+    server.go                         Server struct, lifecycle, route table
     middleware.go                     Auth + CORS middleware
     helpers.go                        JSON response utilities
     compute.go                        Forecast/cost engines (pure logic, no HTTP)
     handlers_quota.go                 status, snap, history, usage endpoints
-    handlers_config.go                config, activity, mode endpoints
-    handlers_ops.go                   healthz, Claude, backup, export, alerts, advisor
+    handlers_config.go                config, activity, mode, onConfigChanged
+    handlers_ops.go                   healthz, Claude, backup, notify, export, alerts, advisor, webpush
     handlers_codex.go                 Codex, sessions, usage logs endpoints
     handlers_data.go                  accounts, snapshots, pricing endpoints
     handlers_forecast.go              cost + TTX forecast endpoints
     handlers_subscriptions.go         Subscription CRUD, overview, presets, CSV
+    handlers_cursor.go                Cursor status/snap endpoints
+    handlers_gemini.go                Gemini status/snap endpoints
+    handlers_copilot.go               Copilot status/snap endpoints
+    handlers_heatmap.go               Activity heatmap data
     static/                           Embedded via Go embed.FS
       index.html                       Single-page dashboard shell
       style.css                        Design system (CSS variables, dark/light themes)
       app.js                           GENERATED — do not edit (bundled from src/)
-    src/                              TypeScript source (27 modules, strict mode)
+      sw.js                            Service Worker for WebPush notifications
+    src/                              TypeScript source (30 modules, strict mode)
       main.ts                          Entry point: imports + DOMContentLoaded init
       subscriptions.ts                 Subscription cards, modal, search
       core/                            state.ts, utils.ts, api.ts, theme.ts
       quotas/                          render.ts, expand.ts, features.ts
-      overview/                        overview.ts, budget.ts, insights.ts, cost.ts, calendar.ts
+      overview/                        overview.ts, budget.ts, insights.ts, cost.ts, calendar.ts, gitCosts.ts
       charts/                          history.ts (Chart.js integration)
       settings/                        settings.ts, pricing.ts, mode.ts, activity.ts, data.ts
-      advanced/                        snap.ts, palette.ts, keyboard.ts, alerts.ts, codex.ts, claude.ts
+      advanced/                        snap.ts, palette.ts, keyboard.ts, alerts.ts, codex.ts, claude.ts, heatmap.ts, tokenUsage.ts
       types/                           api.ts (API response interfaces)
 ```
 
 ### Frontend Build Pipeline
 
 ```
-TypeScript sources (27 .ts files, strict mode)
+TypeScript sources (30 .ts files, strict mode)
         ↓ esbuild --bundle --format=iife --minify
-    static/app.js (89 KB, single IIFE)
+    static/app.js (~119 KB, single IIFE)
         ↓ go:embed
     Go binary (self-contained)
 ```
@@ -217,7 +253,7 @@ make build
 make vet
 ```
 
-Current coverage: 60 tests across 8 packages (`readiness`, `advisor`, `store`, `tracker`, `web`, `notify`, `costtrack`, `forecast`).
+Current coverage: 148 tests across 13 files in 10 packages (`advisor`, `claude`, `costtrack`, `forecast`, `mcpserver`, `notify`, `readiness`, `store`, `tracker`, `web`).
 
 ## Common Issues
 

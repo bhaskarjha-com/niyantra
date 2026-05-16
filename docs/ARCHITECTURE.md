@@ -1,26 +1,35 @@
 # Architecture: Niyantra
 
+> **Updated:** v0.26.0 · Schema v18 · 18 tables · 60 REST endpoints · 148 tests
+
 ## System Overview
 
 ```
 User Interfaces
-  CLI (snap/status/serve/mcp/demo/backup)
+  CLI (snap/status/serve/mcp/demo/backup/restore)
   Dashboard (4 tabs, embedded web app, PWA)
-  MCP Server (9 tools, AI agent access)
+  MCP Server (11 tools, stdio + Streamable HTTP)
           |
 Application Layer
   agent/        - polling loop + session management
   client/       - LS detection + quota fetch (Connect RPC)
   codex/        - OAuth + Codex API polling + OIDC JWT parsing
-  claudebridge/ - statusline patch + read
+  claude/       - deep session parser + statusline bridge + settings patch
+  cursor/       - session token auth + HTTP API polling
+  gemini/       - OAuth + GCP billing/quota APIs
+  copilot/      - GitHub PAT + Copilot billing endpoints
   advisor/      - switch recommendation engine
-  tracker/      - cycle detection + intelligence
+  tracker/      - cycle detection + intelligence + sessions
   readiness/    - pure readiness computation (reset-time-corrected)
-  notify/       - OS-native notifications
+  notify/       - quad-channel notifications (OS + SMTP + Webhook + WebPush)
+  forecast/     - cost + TTX forecasting
+  costtrack/    - blended model pricing + cost calculation
+  tokenusage/   - Claude Code JSONL token analytics
+  gitcorr/      - git commit ↔ token usage cost correlation
           |
 Storage Layer
-  store/  - SQLite v9 (11 tables)
-  config  - typed key-value settings
+  store/  - SQLite v18 (18 tables, 23 Go files)
+  config  - typed key-value settings (74 config keys)
   Pure Go: modernc.org/sqlite (no CGo)
 ```
 
@@ -28,28 +37,35 @@ Storage Layer
 
 ```
 cmd/niyantra/main.go
-  +-- client     (detect LS, fetch quotas)
-  +-- store      (SQLite, all persistence)
-  +-- web        (HTTP server + dashboard)
-  |    +-- agent      (polling loop)
-  |    +-- tracker    (cycles + sessions)
-  |    +-- advisor    (switch engine)
-  |    +-- codex      (ChatGPT integration)
-  |    +-- claudebridge (Claude Code bridge)
-  |    +-- notify     (OS-native notifications + alert wiring)
-  +-- mcpserver  (MCP tools over stdio)
-  |    +-- store, tracker, advisor, codex, readiness
-  +-- readiness  (pure computation, zero I/O)
+  +-- client       (detect Antigravity LS, fetch quotas via Connect RPC)
+  +-- store        (SQLite, all persistence — 18 tables, 23 files)
+  +-- web          (HTTP server + dashboard — 17 Go files, 30 TS modules)
+  |    +-- agent        (polling loop, backoff, graceful shutdown)
+  |    +-- tracker      (cycles + sessions)
+  |    +-- advisor      (switch engine)
+  |    +-- codex        (ChatGPT integration)
+  |    +-- claude       (deep JSONL parser + statusline bridge)
+  |    +-- cursor       (Cursor Pro quota polling)
+  |    +-- gemini       (Gemini CLI OAuth + GCP APIs)
+  |    +-- copilot      (GitHub Copilot billing)
+  |    +-- notify       (OS + SMTP + Webhook + WebPush — 4 channels)
+  |    +-- costtrack    (blended pricing engine)
+  |    +-- forecast     (TTX + cost forecasting)
+  |    +-- tokenusage   (Claude JSONL token analytics)
+  |    +-- gitcorr      (git commit cost correlation)
+  +-- mcpserver    (11 MCP tools over stdio + Streamable HTTP)
+  |    +-- store, tracker, advisor, codex, readiness, forecast
+  +-- readiness    (pure computation, zero I/O)
 ```
 
-## 1. internal/client/ - Antigravity Language Server Client
+## 1. internal/client/ — Antigravity Language Server Client
 
 Detects the running Antigravity language server and fetches quota data via Connect RPC.
 
 Detection strategy (platform-specific):
 
 | Platform | Method | Fallback 1 | Fallback 2 |
-|----------|--------|-----------|-----------|
+|----------|--------|-----------|-----------| 
 | Windows | CIM (Win32_Process with -Filter) | Get-Process -match | WMIC |
 | macOS/Linux | ps aux grep | - | - |
 
@@ -57,13 +73,13 @@ Detection flow:
 1. Find Antigravity language server process
 2. Extract CSRF token from process arguments (parseFlag)
 3. Discover port from --port flag or via lsof/ss/netstat (tryPort)
-4. Validate endpoint via verifyEndpoint - HTTP GET to Connect RPC health
-5. Fetch quota data via FetchQuotas - single HTTP POST to GetUserStatus
+4. Validate endpoint via verifyEndpoint — HTTP GET to Connect RPC health
+5. Fetch quota data via FetchQuotas — single HTTP POST to GetUserStatus
 
 Key types:
-- Snapshot - captured quota data with provenance fields
-- ModelQuota - per-model `*float64` remainingFraction (protobuf semantics: nil=missing, 0=exhausted), resetTime, label
-- GroupedQuota - logical group (claude_gpt, gemini_pro, gemini_flash)
+- Snapshot — captured quota data with provenance fields
+- ModelQuota — per-model `*float64` remainingFraction (protobuf semantics: nil=missing, 0=exhausted), resetTime, label
+- GroupedQuota — logical group (claude_gpt, gemini_pro, gemini_flash)
 
 Data integrity:
 - `remainingFraction` uses `*float64` to distinguish protobuf zero (0% = exhausted) from missing/null
@@ -71,43 +87,56 @@ Data integrity:
 - LS payload uses `ideName: "antigravity"` (not `windsurf`) for correct data matching
 - LS cache refreshes on ~60-120s timer; Quick Adjust lets users fine-tune stale values post-snap
 
-## 2. internal/store/ - SQLite Ledger
+## 2. internal/store/ — SQLite Ledger
 
 Persists all application state in a local SQLite database.
 Uses modernc.org/sqlite (pure Go, no CGo) for true single-binary cross-compilation.
 
 ### Schema Version History
 
-| Version | Tables Added | Migration |
-|---------|-------------|-----------|
-| v1 | accounts, snapshots | Initial schema |
-| v2 | subscriptions | Manual subscription tracking, 26 presets |
-| v3 | config, activity_log, data_sources | Infrastructure: provenance, audit trail, sources |
-| v4 | antigravity_reset_cycles | Per-model reset cycle tracking (Phase 7) |
-| v5 | claude_snapshots | Claude Code rate limit data (Phase 9) |
-| v6 | system_alerts | System-level alerts with hybrid TTL (Phase 10) |
-| v7 | codex_snapshots, usage_sessions, usage_logs | Codex integration + sessions (Phase 11) |
-| v8 | snapshots.ai_credits_json column | AI Credits tracking (Phase 12) |
-| v9 | codex_snapshots.email column | Codex multi-account identity (Phase 12) |
-| v10 | accounts: notes, tags, pinned_group | Account metadata (Phase 13) |
-| v11 | accounts: credit_renewal_day | AI credit renewal tracking (Phase 13) |
+| Version | Tables / Changes | Migration |
+|---------|-----------------|-----------|
+| v1 | `accounts`, `snapshots` | Initial schema |
+| v2 | `subscriptions` | Manual subscription tracking, 26 presets |
+| v3 | `config`, `activity_log`, `data_sources` | Infrastructure: provenance, audit trail, sources |
+| v4 | `antigravity_reset_cycles` | Per-model reset cycle tracking (Phase 7) |
+| v5 | `claude_snapshots` | Claude Code rate limit data (Phase 9) |
+| v6 | `system_alerts` | System-level alerts with hybrid TTL (Phase 10) |
+| v7 | `codex_snapshots`, `usage_sessions`, `usage_logs` | Codex integration + sessions (Phase 11) |
+| v8 | `snapshots.ai_credits_json` column | AI Credits tracking (Phase 12) |
+| v9 | `codex_snapshots.email` column | Codex multi-account identity (Phase 12) |
+| v10 | `accounts.notes`, `tags`, `pinned_group` | Account metadata (Phase 13) |
+| v11 | `accounts.credit_renewal_day` | AI credit renewal tracking (Phase 13) |
+| v12 | `cursor_snapshots`, `gemini_snapshots`, `copilot_snapshots` | 3 new providers (Phase 14) |
+| v13 | `token_usage_daily` | Claude deep token analytics (Phase 14) |
+| v14 | `config`: `heatmap_lookback_days` | Activity heatmap config (Phase 14) |
+| v15 | `config`: `copilot_pat`, `copilot_capture` | GitHub Copilot integration (Phase 15) |
+| v16 | `config`: 8 SMTP keys | SMTP/Email notifications (Phase 16, F11) |
+| v17 | `config`: 4 webhook keys | Webhook notifications (Phase 16, F22) |
+| v18 | `webpush_subscriptions`, 3 config keys | WebPush notifications (Phase 16, F19) |
 
-### Tables (v11 - Current)
+### Tables (18 — Current)
 
-- accounts: id, email, plan_name, notes, tags, pinned_group, credit_renewal_day, created_at, updated_at
-- snapshots: id, account_id, captured_at, email, plan_name, prompt_credits, monthly_credits, models_json, raw_json, capture_method, capture_source, source_id
-- subscriptions: id, platform, category, plan_name, status, cost_monthly, currency, billing_cycle, email, next_renewal, trial_ends_at, notes, dashboard_url, status_page_url
-- config: key, value, value_type, category, label, description, updated_at
-- activity_log: id, timestamp, level, source, event_type, account_email, snapshot_id, details
-- data_sources: id, name, source_type, enabled, config_json, last_capture, capture_count, created_at
-- antigravity_reset_cycles: id, account_id, model_id, cycle_start, cycle_end, peak_usage, total_delta, snap_count
-- claude_snapshots: id, captured_at, five_hour and seven_day rate limit fields
-- system_alerts: id, severity, category, message, dismissed, created_at, expires_at
-- codex_snapshots: id, captured_at, account_id, five_hour, seven_day, review quota fields
-- usage_sessions: id, provider, started_at, ended_at, snap_count, duration_sec
-- usage_logs: id, subscription_id, logged_at, amount, unit, notes
+- `accounts` — identity (email, plan, notes, tags, pinned_group, credit_renewal_day)
+- `snapshots` — quota captures with provenance (account, models, ai_credits)
+- `subscriptions` — manual subscription tracking (26 presets)
+- `config` — 74 typed key-value settings (bool/int/float/string/json)
+- `activity_log` — structured audit trail
+- `data_sources` — source registry (antigravity, claude_code, codex, cursor, gemini, copilot)
+- `antigravity_reset_cycles` — per-model cycle intelligence
+- `claude_snapshots` — rate limit snapshots (5h/7d)
+- `system_alerts` — dismissible alerts with hybrid TTL
+- `codex_snapshots` — ChatGPT quota snapshots (5h/7d/review)
+- `usage_sessions` — detected sessions per provider
+- `usage_logs` — manual usage tracking
+- `cursor_snapshots` — Cursor quota snapshots (requests/USD credits)
+- `gemini_snapshots` — Gemini CLI quota snapshots
+- `copilot_snapshots` — GitHub Copilot usage snapshots
+- `token_usage_daily` — Claude Code per-day token analytics
+- `git_commit_costs` — (virtual, via query) git ↔ session correlation
+- `webpush_subscriptions` — browser push subscription storage
 
-## 3. internal/readiness/ - Readiness Engine
+## 3. internal/readiness/ — Readiness Engine
 
 Pure computation of readiness state from snapshot data. Zero I/O, zero network.
 
@@ -129,64 +158,63 @@ For each group:
 - Reset time = earliest resetTime in the group
 - Exhausted = any model in the group has remainingFraction <= 0
 
-## 4. internal/web/ - Dashboard and API
+## 4. internal/notify/ — Quad-Channel Notification Engine
+
+Provides alert delivery for quota warnings via 4 independent channels:
+
+| Channel | Implementation | Transport |
+|---------|----------------|-----------|
+| OS-native | `notify.go` | PowerShell (Win), osascript (macOS), notify-send (Linux) |
+| SMTP email | `smtp.go` | Pure Go `net/smtp` + `crypto/tls` (plain/STARTTLS/TLS) |
+| Webhook | `webhook.go` | Pure Go `net/http` — Discord, Telegram, Slack, Generic |
+| WebPush | `webpush.go` | Pure Go VAPID (RFC 8292) + RFC 8291 encryption |
+
+**Engine** (`engine.go`): threshold-gated, once-per-cycle guard, all async channels fire in goroutines.
+
+**Zero dependencies**: WebPush implements HKDF (RFC 5869) from stdlib `crypto/hmac` + `crypto/sha256`. No `x/crypto` import.
+
+## 5. internal/web/ — Dashboard and API
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### File Structure
+### File Structure (17 Go files)
 
 | File | Responsibility |
 |------|----------------|
-| `server.go` | Server struct, constructor, agent lifecycle, route registration |
+| `server.go` | Server struct, lifecycle, route table |
 | `middleware.go` | basicAuth, securityMiddleware (CORS + Content-Type) |
 | `helpers.go` | writeJSON, jsonError response helpers |
 | `compute.go` | Forecast/cost compute engines (no HTTP) |
 | `handlers_quota.go` | status, snap, history, usage |
 | `handlers_config.go` | config CRUD, activity, mode, onConfigChanged |
-| `handlers_ops.go` | healthz, Claude status, backup, notify, export/import, alerts, advisor |
+| `handlers_ops.go` | healthz, Claude, backup, notify, export/import, alerts, advisor, webpush |
 | `handlers_codex.go` | Codex status/snap, sessions, usage logs |
 | `handlers_data.go` | accounts, snapshots, snap adjust, model pricing |
 | `handlers_forecast.go` | cost and TTX forecast endpoints |
-| `handlers_subscriptions.go` | subscription CRUD, overview, presets, CSV export |
+| `handlers_subscriptions.go` | subscription CRUD, overview, presets, CSV |
+| `handlers_cursor.go` | Cursor status/snap endpoints |
+| `handlers_gemini.go` | Gemini status/snap endpoints |
+| `handlers_copilot.go` | Copilot status/snap endpoints |
+| `handlers_heatmap.go` | Activity heatmap data (365 days) |
+| `embed_prod.go` / `embed_dev.go` | Build-tag-switched static FS |
 
-### Endpoints (31 REST)
+### Endpoints (60 REST)
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | /healthz | Liveness/health check |
-| GET | / | Dashboard HTML |
-| GET | /api/status | All accounts + readiness |
-| POST | /api/snap | Trigger snapshot (tags source=ui) |
-| GET | /api/history | Snapshot history (with provenance) |
-| GET/POST | /api/subscriptions | List / create subscriptions |
-| PUT/DELETE | /api/subscriptions/:id | Update / delete subscription |
-| GET | /api/overview | Spend, renewals, insights |
-| GET | /api/presets | 26 platform templates |
-| GET | /api/export/csv | CSV download |
-| GET/PUT | /api/config | Server config CRUD |
-| GET | /api/activity | Activity log |
-| GET | /api/mode | Current capture mode status |
-| GET | /api/usage | Per-model intelligence + budget forecast |
-| GET | /api/claude/status | Claude Code bridge status + rate limits |
-| GET | /api/backup | Download database backup |
-| POST | /api/notify/test | Send test OS notification |
-| GET | /api/export/json | Full JSON export |
-| GET | /api/alerts | Active system alerts |
-| POST | /api/alerts/dismiss | Dismiss alert by ID |
-| GET | /api/advisor | Switch advisor recommendation |
-| GET | /api/codex/status | Codex detection + latest snapshot |
-| POST | /api/codex/snap | Manual Codex snapshot |
-| GET | /api/sessions | Usage sessions timeline |
-| GET/POST | /api/usage-logs | Usage log CRUD |
-| DELETE | /api/usage-logs/:id | Delete usage log |
-| POST | /api/import/json | Import JSON with merge/dedup |
-| GET | /api/accounts | List all tracked accounts |
-| DELETE | /api/accounts/:id | Cascade delete account + all data |
-| DELETE | /api/accounts/:id/snapshots | Clear snapshots only |
-| DELETE | /api/snapshots/:id | Delete single snapshot |
-| PATCH | /api/snap/adjust | Quick Adjust: fine-tune model quotas on a snapshot |
+60 REST API endpoints organized by domain. Full documentation in `docs/API_SPEC.md`.
 
-Stack: Go embed.FS + TypeScript (strict mode, 27 modules) bundled via esbuild into a single IIFE. Chart.js bundled locally from embedded assets.
+Stack: Go embed.FS + TypeScript (strict mode, 30 modules) bundled via esbuild into a single IIFE. Chart.js bundled locally from embedded assets.
+
+## 6. Providers (7)
+
+| Provider | Package | Auth | Method |
+|----------|---------|------|--------|
+| Antigravity | `client/` | CSRF token from process args | Connect RPC to local LS |
+| Codex/ChatGPT | `codex/` | OAuth from `~/.codex/auth.json` | HTTPS to OpenAI API |
+| Claude Code | `claude/` | None (local files) | JSONL session parsing + statusline bridge |
+| Cursor | `cursor/` | Session token from `~/.cursor-server/` | HTTPS to cursor.com API |
+| Gemini CLI | `gemini/` | OAuth from `~/.config/gemini/` | HTTPS to GCP APIs |
+| GitHub Copilot | `copilot/` | GitHub PAT | HTTPS to GitHub billing API |
+| Manual | `store/` | N/A | User input via subscription form |
 
 ## Data Flow
 
@@ -238,11 +266,33 @@ readiness.Calculate(snapshots)        <-- Pure computation
 Print readiness table / return JSON
 ```
 
+### Notification Flow (quad-channel, async)
+
+```
+Engine.CheckQuota(model, remaining%) triggered by polling loop
+  |
+  v
+Guard check: already notified this cycle? → skip
+  |
+  v
+Channel 1: OS notification (sync)     → PowerShell/osascript/notify-send
+Channel 2: SMTP email (goroutine)     → net/smtp + TLS
+Channel 3: Webhook (goroutine)        → net/http POST to Discord/Telegram/Slack/ntfy
+Channel 4: WebPush (goroutine)        → VAPID + RFC 8291 encrypted push
+  |
+  v
+Mark model as notified for this cycle
+  |
+  v
+Create system_alert + activity_log entry
+```
+
 ## Security Model
 
-- No credentials stored: Niyantra does not store API keys, tokens, or passwords
-- No outbound network: Only connects to 127.0.0.1 (local language server)
-- Process detection: Reads process command lines via OS tools (ps/CIM/netstat)
+- No credentials stored: Niyantra does not store API keys or passwords (except opt-in provider tokens)
+- No outbound network: Core features connect only to 127.0.0.1 (local language server)
+- Provider polling (opt-in): HTTPS to provider APIs using locally-stored tokens
+- Sensitive config masking: `copilot_pat`, `smtp_pass`, `webhook_secret`, `webpush_vapid_private` returned as `"configured"` in GET
 - CSRF token: Extracted from process arguments, used for same-request auth to local LS
 - TLS: Self-signed cert from language server, InsecureSkipVerify: true (localhost only)
 - Dashboard auth: Optional HTTP basic auth via --auth user:pass flag
@@ -254,8 +304,9 @@ Print readiness table / return JSON
 | Dependency | Purpose | Why |
 |-----------|---------|-----|
 | modernc.org/sqlite | SQLite database | Pure Go, no CGo, cross-compile friendly |
-| github.com/modelcontextprotocol/go-sdk | MCP server for AI agents | Official MCP Go SDK, stdio transport |
-| Go stdlib | Everything else | HTTP server, JSON, templates, embed, crypto |
+| github.com/modelcontextprotocol/go-sdk | MCP server for AI agents | Official MCP Go SDK, stdio + HTTP transport |
+| Go stdlib | Everything else | HTTP server, JSON, templates, embed, crypto, TLS, SMTP |
 
 No other dependencies. No web frameworks, no ORM, no logging libraries.
 Chart.js is bundled locally from embedded assets (no CDN dependency) for quota history visualization.
+WebPush uses stdlib crypto exclusively (ECDSA, AES-GCM, HMAC-SHA256) — zero x/crypto.

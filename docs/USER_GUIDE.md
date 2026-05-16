@@ -13,8 +13,11 @@ A complete guide to using every Niyantra feature.
 - [Switch Advisor](#switch-advisor)
 - [MCP Server (AI Agent Integration)](#mcp-server)
 - [Codex/ChatGPT Integration](#codexchatgpt-integration)
-- [Claude Code Bridge](#claude-code-bridge)
-- [Notifications](#notifications)
+- [Claude Code](#claude-code)
+- [Cursor Integration](#cursor-integration)
+- [Gemini CLI Integration](#gemini-cli-integration)
+- [GitHub Copilot Integration](#github-copilot-integration)
+- [Notifications (Quad-Channel)](#notifications)
 - [Command Palette](#command-palette)
 - [Data Management](#data-management)
 - [CLI Reference](#cli-reference)
@@ -117,14 +120,18 @@ The default view showing all tracked accounts organized by **provider sections**
 **Provider Sections**: Accounts are grouped into collapsible sections:
 - **Antigravity** — quota snapshots from the Antigravity Language Server
 - **Codex / ChatGPT** — multi-window quota data from OpenAI OAuth API
-- **Claude Code** — rate limit data from the statusline bridge
+- **Claude Code** — rate limit data from the statusline bridge + deep JSONL token analytics
+- **Cursor** — request counts and USD credit balance
+- **Gemini CLI** — rate limit tracking via GCP APIs
+- **Copilot** — GitHub billing data
 
 Each section has its own header with provider color coding and can be collapsed/expanded.
 
 **Toolbar**:
 - **Search**: Fuzzy search by email or plan name
-- **Provider filter**: Dropdown to show All / Antigravity / Codex / Claude accounts
+- **Provider filter**: Dropdown to show All / Antigravity / Codex / Claude / Cursor / Gemini / Copilot accounts
 - **Status filter**: Filter by readiness state — Ready (green), Low (yellow), Empty (red)
+- **Tag filter**: Filter by account tags (work, personal, etc.)
 - **Split-button snap**: Snap Now / Snap All Sources
 
 **Account rows** show:
@@ -143,6 +150,8 @@ Each section has its own header with provider color coding and can be collapsed/
 - Left Y-Axis: 0-100% quota burndown across LLM models
 - Right Y-Axis: absolute AI Credits token balance over time
 - Adapts to dark/light theme automatically
+
+**Activity Heatmap**: GitHub-style 365-day contribution grid showing daily snapshot activity.
 
 ### Subscriptions Tab
 
@@ -183,7 +192,7 @@ The intelligence hub combining data from all sources.
 - Detects "All Ready" state and shows "Stay" recommendation when overall health > 80%
 
 **Provider Health Cards:**
-- Per-provider status summary (Antigravity, Codex, Claude)
+- Per-provider status summary (Antigravity, Codex, Claude, Cursor, Gemini, Copilot)
 - Shows accounts tracked, overall health percentage, and last capture time
 
 **Codex Status** (if configured):
@@ -208,21 +217,26 @@ The intelligence hub combining data from all sources.
 - Polling interval slider (30s to 300s)
 - Manual snap button
 
-**Budget:**
+**Provider Settings:**
+- Claude Code Bridge toggle + deep tracking status
+- Codex/ChatGPT toggle + credential detection
+- Cursor capture toggle
+- Gemini CLI capture toggle
+- Copilot toggle + PAT input (masked in API)
+
+**Budget & Display:**
 - Monthly budget amount (used for forecasting on Overview tab)
+- Default currency selector
+- Theme toggle
 
-**Notifications:**
-- Enable/disable OS-native notifications
-- Threshold slider (notify when any quota drops below X%)
-- Test notification button
+**Model Pricing:**
+- Per-model $/1M token pricing for cost estimation
 
-**Claude Code Bridge:**
-- Enable/disable Claude Code rate limit monitoring
-- Shows bridge status and latest rate limit data
-
-**Codex/ChatGPT:**
-- Enable/disable Codex API polling
-- Shows detection status and credentials location
+**Notifications (Quad-Channel):**
+- OS Notifications: enable, threshold, test button
+- SMTP Email: host, port, user, pass (masked), from, to, TLS mode, test button
+- Webhooks: service type (Discord/Telegram/Slack/Generic), URL, secret (masked), test button
+- WebPush: subscribe/unsubscribe, status badge, test button
 
 **Data Management:**
 - Backup: Download a copy of your database
@@ -341,9 +355,11 @@ Each account gets a score (0-100) based on three factors:
 
 ## MCP Server
 
-Niyantra exposes 9 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
+Niyantra exposes 11 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ### Setup
+
+**Stdio Transport** (local agents):
 
 Add to your MCP client config:
 
@@ -359,9 +375,11 @@ Add to your MCP client config:
 }
 ```
 
-**Antigravity** (Settings > MCP): Add as a stdio MCP server pointing to your `niyantra` binary.
+**Streamable HTTP Transport** (remote agents):
 
-### Available Tools
+Connect to `POST /mcp` on the running dashboard server. Supports SSE streaming and session management via `Mcp-Session-Id` header.
+
+### Available Tools (11)
 
 | Tool | What you can ask |
 |------|-----------------|
@@ -373,6 +391,9 @@ Add to your MCP client config:
 | `analyze_spending` | "Break down my AI spending by category" |
 | `switch_recommendation` | "Should I switch accounts?" |
 | `codex_status` | "What's my Codex/ChatGPT status?" |
+| `quota_forecast` | "When will I exhaust quota at current rate?" |
+| `token_usage` | "How many tokens did I use today?" |
+| `git_commit_costs` | "What did my last feature branch cost?" |
 
 ### Running
 
@@ -405,31 +426,60 @@ The **Overview** tab shows a Codex status card with all three quota windows and 
 
 ---
 
-## Claude Code Bridge
+## Claude Code
 
-### What It Does
+### Statusline Bridge
 
-Monitors Claude Code's rate limit data via a statusline bridge. This patches Claude Code's settings to expose rate limit information that Niyantra can read.
-
-### Setup
+Monitors Claude Code's rate limit data via a statusline bridge. This patches Claude Code's settings to expose rate limit information.
 
 1. Enable in **Settings** tab > Claude Code Bridge
 2. Niyantra patches `~/.claude/settings.json` to add statusline data
-3. Rate limit data appears in the dashboard
+3. Rate limit data (5h/7d meters) appears in the dashboard
 
-### What Gets Tracked
+### Deep Token Tracking
 
-- 5-hour rate limit usage
-- 7-day rate limit usage
-- Current status (healthy, warning, throttled)
+Niyantra parses Claude Code's JSONL session logs for detailed token analytics:
+- Per-turn input/output/cache token counts
+- Model-aware cost estimation using configured model pricing
+- Daily aggregated views in the Token Usage section
+
+---
+
+## Cursor Integration
+
+Niyantra tracks Cursor usage via the `cursor.com/api/usage` endpoint.
+
+1. Detects session token from `~/.cursor-server/` filesystem
+2. Enable in **Settings** tab > Cursor section
+3. Tracks both legacy request-based and new USD credit-based billing models
+
+---
+
+## Gemini CLI Integration
+
+Niyantra tracks Gemini CLI usage via GCP APIs.
+
+1. Detects OAuth credentials from `~/.config/gemini/`
+2. Enable in **Settings** tab > Gemini CLI section
+3. Uses 2-step API (loadCodeAssist + retrieveUserQuota) for rate limit data
+
+---
+
+## GitHub Copilot Integration
+
+Niyantra tracks GitHub Copilot usage via the GitHub billing API.
+
+1. Create a GitHub Personal Access Token (PAT)
+2. Enter in **Settings** tab > Copilot section (PAT is masked in API responses)
+3. Usage metrics are tracked and displayed
 
 ---
 
 ## Notifications
 
-### OS-Native Alerts
+Niyantra supports **quad-channel notifications** when quotas drop below your configured threshold.
 
-Niyantra sends native OS notifications when quotas drop below your configured threshold.
+### Channel 1: OS-Native Alerts
 
 | OS | Method |
 |----|--------|
@@ -437,16 +487,38 @@ Niyantra sends native OS notifications when quotas drop below your configured th
 | macOS | `osascript` notification |
 | Linux | `notify-send` |
 
+### Channel 2: SMTP Email (F11)
+
+Pure Go SMTP client supporting plain, STARTTLS, and TLS encryption. Sends HTML-formatted emails with model details and quota percentages.
+
+Configure in **Settings** > SMTP Email section (host, port, user, pass, from, to, TLS mode).
+
+### Channel 3: Webhooks (F22)
+
+Multi-service webhook delivery with 4 service adapters:
+- **Discord** — Rich embed with severity color
+- **Telegram** — HTML-formatted via Bot API
+- **Slack** — Attachment with color coding
+- **Generic** — Plain text with headers (ntfy/Gotify/custom)
+
+### Channel 4: WebPush (F19)
+
+Browser push notifications using VAPID (RFC 8292) + RFC 8291 encryption.
+- Works on Chrome, Firefox, Edge, Safari 16+
+- Subscribe via **Settings** > WebPush section
+- Notifications arrive even when the dashboard tab is closed
+- VAPID keys auto-generated on first subscribe
+
 ### Configuration
 
-1. **Settings** tab > Notifications
-2. Toggle ON
+1. **Settings** tab > Notifications sections
+2. Toggle ON the channels you want
 3. Set threshold (e.g., 20% — notify when any quota drops below 20%)
-4. Click **Test** to verify notifications work
+4. Click **Test** on any channel to verify
 
 ### Once-Per-Cycle Guard
 
-Notifications fire once per reset cycle, not every poll. This prevents notification spam while ensuring you don't miss important alerts.
+Notifications fire once per reset cycle, not every poll. All 4 channels fire independently and asynchronously.
 
 ---
 
@@ -571,9 +643,16 @@ All configuration is stored in the SQLite database (not config files). Change se
 | `budget_monthly` | 0 | Monthly AI budget for forecasting |
 | `claude_bridge` | false | Enable Claude Code statusline bridge |
 | `codex_capture` | false | Enable Codex/ChatGPT polling |
+| `cursor_capture` | false | Enable Cursor polling |
+| `gemini_capture` | false | Enable Gemini CLI polling |
+| `copilot_capture` | false | Enable Copilot polling |
+| `copilot_pat` | "" | GitHub Personal Access Token (masked in API) |
 | `session_idle_timeout` | 300 | Seconds of inactivity before ending a session |
 | `auto_link_subs` | true | Auto-create subscription when snapping a new account |
 | `retention_days` | 90 | Days to keep old snapshots (0 = keep forever) |
+| `smtp_enabled` | false | Enable SMTP email notifications |
+| `webhook_enabled` | false | Enable webhook notifications |
+| `webpush_enabled` | false | Enable WebPush browser notifications |
 
 ---
 

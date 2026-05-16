@@ -20,6 +20,14 @@
 | v8 | `snapshots.ai_credits_json` column | Native AI Credits tracking from Antigravity |
 | v9 | `codex_snapshots.email` column | Multi-account Codex identity tracking via OIDC JWT |
 | v10 | `accounts.notes`, `accounts.tags`, `accounts.pinned_group` columns | Account notes, tags, and pinned model group (Phase 13 F1/F3) |
+| v11 | `accounts.credit_renewal_day` column | AI credit renewal tracking (Phase 13 F4) |
+| v12 | `cursor_snapshots`, `gemini_snapshots`, `copilot_snapshots` | 3 new provider tables (Phase 14) |
+| v13 | `token_usage_daily` | Claude deep token analytics (Phase 14) |
+| v14 | `config`: `heatmap_lookback_days` | Activity heatmap config (Phase 14) |
+| v15 | `config`: `copilot_pat`, `copilot_capture` | GitHub Copilot integration (Phase 15) |
+| v16 | `config`: 8 SMTP keys | SMTP/Email notifications (Phase 16, F11) |
+| v17 | `config`: 4 webhook keys | Webhook notifications (Phase 16, F22) |
+| v18 | `webpush_subscriptions`, 3 config keys | WebPush notifications (Phase 16, F19) |
 
 ---
 
@@ -514,7 +522,7 @@ Schema version is stored in SQLite's `user_version` pragma:
 
 ```sql
 PRAGMA user_version;       -- read current version
-PRAGMA user_version = 10;  -- current target (v10)
+PRAGMA user_version = 18;  -- current target (v18)
 ```
 
 Migrations are embedded in Go code and run on startup:
@@ -726,3 +734,162 @@ ALTER TABLE accounts ADD COLUMN pinned_group TEXT DEFAULT ''; -- quota group key
 
 **Data flow:** `handleStatus` enriches readiness results with account meta from DB before sending to frontend.
 
+---
+
+## Schema v11 — Credit Renewal Day (Phase 13)
+
+Adds per-account AI credit renewal tracking.
+
+```sql
+ALTER TABLE accounts ADD COLUMN credit_renewal_day INTEGER DEFAULT 0;
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `credit_renewal_day` | INTEGER | Day of month (1-31) when AI credits renew. 0 = not set. Enables countdown badges in Quotas tab. |
+
+---
+
+## Schema v12 — New Provider Tables (Phase 14)
+
+Adds per-provider snapshot tables for Cursor, Gemini CLI, and Copilot.
+
+### `cursor_snapshots`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `captured_at` | DATETIME | UTC timestamp |
+| `requests_used` | INTEGER | Request count used (legacy billing) |
+| `requests_limit` | INTEGER | Request limit per period |
+| `credits_used` | REAL | USD credits consumed (new billing) |
+| `credits_limit` | REAL | USD credit budget |
+| `plan_type` | TEXT | Plan tier |
+| `capture_method` | TEXT | `manual` or `auto` |
+| `capture_source` | TEXT | `ui` or `server` |
+
+### `gemini_snapshots`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `captured_at` | DATETIME | UTC timestamp |
+| `rate_limit_pct` | REAL | Rate limit utilization (0-100) |
+| `rate_limit_reset` | DATETIME | When rate limit resets |
+| `plan_type` | TEXT | Plan tier |
+| `capture_method` | TEXT | `manual` or `auto` |
+| `capture_source` | TEXT | `ui` or `server` |
+
+### `copilot_snapshots`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `captured_at` | DATETIME | UTC timestamp |
+| `usage_amount` | REAL | Usage metric value |
+| `plan_type` | TEXT | Plan tier |
+| `capture_method` | TEXT | `manual` or `auto` |
+| `capture_source` | TEXT | `ui` or `server` |
+
+---
+
+## Schema v13 — Token Usage Daily (Phase 14)
+
+Stores daily aggregated token usage from Claude Code JSONL session parsing.
+
+### `token_usage_daily`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER PK | Auto-incrementing ID |
+| `date` | TEXT | Date string (YYYY-MM-DD) |
+| `model` | TEXT | Model name (normalized) |
+| `input_tokens` | INTEGER | Input tokens consumed |
+| `output_tokens` | INTEGER | Output tokens generated |
+| `cache_read_tokens` | INTEGER | Cache read tokens |
+| `cache_write_tokens` | INTEGER | Cache write tokens |
+| `estimated_cost` | REAL | Estimated cost in USD (model pricing) |
+
+---
+
+## Schema v14–v15 — Config Seeding
+
+These migrations add config keys only (no new tables).
+
+**v14 Config Keys:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `heatmap_lookback_days` | `365` | Activity heatmap lookback range |
+
+**v15 Config Keys:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `copilot_capture` | `false` | Enable Copilot auto-polling |
+| `copilot_pat` | `""` | GitHub Personal Access Token (masked in API) |
+
+---
+
+## Schema v16 — SMTP/Email Notifications (Phase 16, F11)
+
+Seeds 8 SMTP config keys for email notification delivery.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `smtp_enabled` | `false` | Enable SMTP email delivery |
+| `smtp_host` | `""` | SMTP server hostname |
+| `smtp_port` | `587` | SMTP server port |
+| `smtp_user` | `""` | SMTP username |
+| `smtp_pass` | `""` | SMTP password (masked in API: returns `"configured"`) |
+| `smtp_from` | `""` | Sender email address |
+| `smtp_to` | `""` | Recipient email(s), comma-separated |
+| `smtp_tls` | `starttls` | Encryption mode: `starttls`, `tls`, `none` |
+
+---
+
+## Schema v17 — Webhook Notifications (Phase 16, F22)
+
+Seeds 4 webhook config keys for multi-service webhook delivery.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `webhook_enabled` | `false` | Enable webhook delivery |
+| `webhook_service` | `discord` | Service type: `discord`, `telegram`, `slack`, `generic` |
+| `webhook_url` | `""` | Webhook endpoint URL |
+| `webhook_secret` | `""` | Auth secret (masked in API: returns `"configured"`) |
+
+---
+
+## Schema v18 — WebPush Notifications (Phase 16, F19)
+
+Creates a new table for browser push subscriptions and seeds VAPID config keys.
+
+### `webpush_subscriptions`
+
+Stores browser push subscriptions registered via the PushManager API.
+
+```sql
+CREATE TABLE IF NOT EXISTS webpush_subscriptions (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    endpoint  TEXT    UNIQUE NOT NULL,
+    key_p256dh TEXT   NOT NULL,
+    key_auth   TEXT   NOT NULL,
+    created_at DATETIME DEFAULT (datetime('now'))
+);
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `endpoint` | TEXT | Push service URL (e.g., `https://fcm.googleapis.com/fcm/send/...`) |
+| `key_p256dh` | TEXT | Browser's P-256 DH public key (base64url) |
+| `key_auth` | TEXT | Browser's auth secret (base64url) |
+| `created_at` | DATETIME | When subscription was registered |
+
+**Config Keys:**
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `webpush_enabled` | `false` | Enable WebPush delivery |
+| `webpush_vapid_public` | `""` | VAPID public key (auto-generated) |
+| `webpush_vapid_private` | `""` | VAPID private key (masked in API: returns `"configured"`) |
