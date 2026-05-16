@@ -23,7 +23,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 
 	// Mask sensitive config values
 	for _, e := range entries {
-		if (e.Key == "copilot_pat" || e.Key == "smtp_pass" || e.Key == "webhook_secret") && e.Value != "" {
+		if (e.Key == "copilot_pat" || e.Key == "smtp_pass" || e.Key == "webhook_secret" || e.Key == "webpush_vapid_private") && e.Value != "" {
 			e.Value = "configured"
 		}
 	}
@@ -166,6 +166,9 @@ func (s *Server) onConfigChanged(key, value string) {
 	case "webhook_enabled", "webhook_type", "webhook_url", "webhook_secret":
 		// F22: Reload webhook config on any webhook_* key change
 		s.notifier.ConfigureWebhook(s.loadWebhookConfig())
+	case "webpush_enabled", "webpush_vapid_public", "webpush_vapid_private":
+		// F19: Reload WebPush config on any webpush_* key change
+		s.notifier.ConfigureWebPush(s.loadWebPushConfig())
 	}
 }
 
@@ -192,5 +195,15 @@ func (s *Server) loadWebhookConfig() notify.WebhookConfig {
 		Type:    notify.WebhookType(s.store.GetConfig("webhook_type")),
 		URL:     s.store.GetConfig("webhook_url"),
 		Secret:  s.store.GetConfig("webhook_secret"),
+	}
+}
+
+// loadWebPushConfig reads all WebPush config keys from the store and returns
+// a populated WebPushConfig struct for the notification engine.
+func (s *Server) loadWebPushConfig() notify.WebPushConfig {
+	return notify.WebPushConfig{
+		Enabled:    s.store.GetConfigBool("webpush_enabled"),
+		PublicKey:  s.store.GetConfig("webpush_vapid_public"),
+		PrivateKey: s.store.GetConfig("webpush_vapid_private"),
 	}
 }

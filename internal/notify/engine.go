@@ -9,7 +9,7 @@ import (
 
 // Engine tracks notification state and prevents spam.
 // Fires at most one notification per model per reset cycle.
-// Supports tri-channel delivery: OS-native + SMTP email (F11) + Webhook (F22).
+// Supports quad-channel delivery: OS-native + SMTP email (F11) + Webhook (F22) + WebPush (F19).
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
@@ -18,7 +18,9 @@ type Engine struct {
 	logger    *slog.Logger
 	smtp      SMTPConfig      // F11: SMTP email delivery settings
 	webhook   WebhookConfig   // F22: Webhook delivery settings
+	webpush   WebPushConfig   // F19: WebPush delivery settings
 
+	getSubscriptions func() []WebPushSubscription // F19: callback to get stored subscriptions
 	onNotify func(model string, remainingPct float64) // callback when notification fires
 }
 
@@ -80,6 +82,30 @@ func (e *Engine) WebhookEnabled() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.webhook.IsConfigured()
+}
+
+// ConfigureWebPush updates the WebPush delivery settings (F19).
+func (e *Engine) ConfigureWebPush(cfg WebPushConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.webpush = cfg
+	e.logger.Info("WebPush notification channel configured",
+		"enabled", cfg.Enabled,
+		"has_keys", cfg.PublicKey != "")
+}
+
+// WebPushEnabled returns whether WebPush delivery is active.
+func (e *Engine) WebPushEnabled() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.webpush.IsConfigured()
+}
+
+// SetGetSubscriptions registers a callback to fetch stored WebPush subscriptions.
+func (e *Engine) SetGetSubscriptions(fn func() []WebPushSubscription) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.getSubscriptions = fn
 }
 
 // Enabled returns whether notifications are enabled.
@@ -171,6 +197,33 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 		}()
 	}
 
+	// Channel 4: WebPush notification (F19)
+	e.mu.Lock()
+	webpushCfg := e.webpush
+	getSubs := e.getSubscriptions
+	e.mu.Unlock()
+
+	if webpushCfg.IsConfigured() && getSubs != nil {
+		go func() {
+			subs := getSubs()
+			if len(subs) == 0 {
+				return
+			}
+			payload := FormatQuotaAlertPush(model, remainingPct, threshold)
+			for _, sub := range subs {
+				if err := SendWebPush(&webpushCfg, &sub, payload); err != nil {
+					e.logger.Error("Failed to send WebPush notification", "error", err, "model", model)
+				} else {
+					epSnippet := sub.Endpoint
+					if len(epSnippet) > 50 {
+						epSnippet = epSnippet[:50]
+					}
+					e.logger.Info("WebPush quota alert sent", "model", model, "endpoint", epSnippet)
+				}
+			}
+		}()
+	}
+
 	// Mark as notified for this cycle
 	e.mu.Lock()
 	e.guard[model] = true
@@ -232,4 +285,23 @@ func (e *Engine) SendTestWebhookFromEngine() error {
 	}
 
 	return SendTestWebhook(&cfg)
+}
+
+// SendTestWebPushFromEngine sends a test push to all subscriptions (F19).
+func (e *Engine) SendTestWebPushFromEngine() error {
+	e.mu.Lock()
+	cfg := e.webpush
+	getSubs := e.getSubscriptions
+	e.mu.Unlock()
+
+	if !cfg.IsConfigured() {
+		return fmt.Errorf("WebPush is not configured")
+	}
+
+	var subs []WebPushSubscription
+	if getSubs != nil {
+		subs = getSubs()
+	}
+
+	return SendTestWebPush(&cfg, subs)
 }

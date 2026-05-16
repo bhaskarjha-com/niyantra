@@ -1639,7 +1639,7 @@ Sends a test email to verify SMTP configuration. Requires `smtp_enabled=true` an
 | `smtp_to` | string | `""` | Recipient email address(es), comma-separated |
 | `smtp_tls` | string | `"starttls"` | Encryption mode: `starttls`, `tls`, `none` |
 
-> **Tri-Channel Delivery:** When quota alerts fire (F9), notifications are sent via OS-native desktop, SMTP email (if configured), and Webhook (if configured). SMTP and Webhook deliveries are async (goroutine) and do not block the polling loop.
+> **Quad-Channel Delivery:** When quota alerts fire (F9), notifications are sent via OS-native desktop, SMTP email (if configured), Webhook (if configured), and WebPush (if configured). All async channels fire in independent goroutines.
 
 ---
 
@@ -1676,6 +1676,68 @@ Sends a test notification to verify webhook configuration. Supports Discord, Tel
 | Telegram | Chat ID (numeric) | Bot token from @BotFather | HTML-formatted sendMessage |
 | Slack | Incoming webhook URL | _(unused)_ | JSON attachment with color |
 | Generic (ntfy) | POST endpoint URL | Auth header (optional) | Plain text body + Title/Priority headers |
+
+---
+
+### WebPush Notifications (Phase 16: F19)
+
+Browser push notifications using VAPID (RFC 8292) + RFC 8291 payload encryption. Works on Chrome, Firefox, Edge, Safari 16+. Zero external Go dependencies — HKDF implemented via stdlib `crypto/hmac`.
+
+#### `GET /api/webpush/vapid-key`
+
+Returns the public VAPID key (auto-generates P-256 key pair on first request).
+
+```json
+{ "publicKey": "BNxBr..." }
+```
+
+#### `POST /api/webpush/subscribe`
+
+Stores a browser push subscription. Body is the standard `PushSubscription.toJSON()` output:
+
+```json
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+  "keys": { "auth": "...", "p256dh": "..." }
+}
+```
+
+**Response:** `200 OK`
+```json
+{ "status": "subscribed" }
+```
+
+#### `DELETE /api/webpush/subscribe`
+
+Removes a stored subscription by endpoint.
+
+```json
+{ "endpoint": "https://fcm.googleapis.com/fcm/send/..." }
+```
+
+#### `POST /api/notify/test-webpush`
+
+Sends a test push notification to all stored subscriptions.
+
+**Response:** `200 OK` / `500` with `{"error": "..."}`
+
+#### `GET /api/webpush/status`
+
+Returns WebPush status.
+
+```json
+{ "enabled": true, "subscriptions": 2, "has_vapid": true }
+```
+
+**WebPush Config Keys (stored in `config` table):**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `webpush_enabled` | bool | `false` | Master toggle for WebPush delivery |
+| `webpush_vapid_public` | string | `""` | Auto-generated VAPID public key |
+| `webpush_vapid_private` | string | `""` | Auto-generated VAPID private key (masked in GET) |
+
+> **Quad-Channel Delivery:** When quota alerts fire (F9), notifications are sent via OS-native desktop, SMTP email (if configured), Webhook (if configured), and WebPush (if configured). All async channels fire in independent goroutines.
 
 ---
 

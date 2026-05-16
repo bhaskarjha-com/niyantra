@@ -140,6 +140,94 @@ func (s *Server) handleNotifyTestWebhook(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]string{"status": "sent"})
 }
 
+// handleWebPushVAPIDKey returns (and auto-generates) the VAPID public key (F19).
+func (s *Server) handleWebPushVAPIDKey(w http.ResponseWriter, r *http.Request) {
+	pubKey := s.store.GetConfig("webpush_vapid_public")
+	if pubKey == "" {
+		// Auto-generate VAPID keys on first request
+		pub, priv, err := notify.GenerateVAPIDKeys()
+		if err != nil {
+			jsonError(w, fmt.Sprintf("Failed to generate VAPID keys: %v", err), http.StatusInternalServerError)
+			return
+		}
+		s.store.SetConfig("webpush_vapid_public", pub)
+		s.store.SetConfig("webpush_vapid_private", priv)
+		pubKey = pub
+
+		// Reload WebPush config
+		s.notifier.ConfigureWebPush(s.loadWebPushConfig())
+	}
+
+	writeJSON(w, map[string]string{"publicKey": pubKey})
+}
+
+// handleWebPushSubscribe stores a browser push subscription (F19).
+func (s *Server) handleWebPushSubscribe(w http.ResponseWriter, r *http.Request) {
+	var sub struct {
+		Endpoint string `json:"endpoint"`
+		Keys     struct {
+			Auth   string `json:"auth"`
+			P256dh string `json:"p256dh"`
+		} `json:"keys"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&sub); err != nil {
+		jsonError(w, "invalid subscription body", http.StatusBadRequest)
+		return
+	}
+	if sub.Endpoint == "" || sub.Keys.P256dh == "" || sub.Keys.Auth == "" {
+		jsonError(w, "missing required fields: endpoint, keys.auth, keys.p256dh", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.SaveWebPushSubscription(sub.Endpoint, sub.Keys.P256dh, sub.Keys.Auth); err != nil {
+		jsonError(w, fmt.Sprintf("save subscription: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "subscribed"})
+}
+
+// handleWebPushUnsubscribe removes a browser push subscription (F19).
+func (s *Server) handleWebPushUnsubscribe(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		jsonError(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	if body.Endpoint == "" {
+		jsonError(w, "missing endpoint", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.store.DeleteWebPushSubscription(body.Endpoint); err != nil {
+		jsonError(w, fmt.Sprintf("delete subscription: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "unsubscribed"})
+}
+
+// handleNotifyTestWebPush sends a test push to all subscriptions (F19).
+func (s *Server) handleNotifyTestWebPush(w http.ResponseWriter, r *http.Request) {
+	if err := s.notifier.SendTestWebPushFromEngine(); err != nil {
+		jsonError(w, fmt.Sprintf("webpush failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "sent"})
+}
+
+// handleWebPushStatus returns the number of subscriptions and enabled state (F19).
+func (s *Server) handleWebPushStatus(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, map[string]interface{}{
+		"enabled":       s.store.GetConfigBool("webpush_enabled"),
+		"subscriptions": s.store.WebPushSubscriptionCount(),
+		"has_vapid":     s.store.GetConfig("webpush_vapid_public") != "",
+	})
+}
+
 // ── Phase 10 Handlers ────────────────────────────────────────────
 
 // handleExportJSON exports all data as a JSON file for full portability.

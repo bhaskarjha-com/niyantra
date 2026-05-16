@@ -61,6 +61,20 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 	// F22: Configure webhook channel from stored settings
 	srv.notifier.ConfigureWebhook(srv.loadWebhookConfig())
 
+	// F19: Configure WebPush channel from stored settings
+	srv.notifier.ConfigureWebPush(srv.loadWebPushConfig())
+	srv.notifier.SetGetSubscriptions(func() []notify.WebPushSubscription {
+		storeSubs := srv.store.GetWebPushSubscriptions()
+		subs := make([]notify.WebPushSubscription, len(storeSubs))
+		for i, ss := range storeSubs {
+			subs[i] = notify.WebPushSubscription{
+				Endpoint: ss.Endpoint,
+				Keys: notify.WebPushKeys{Auth: ss.KeyAuth, P256dh: ss.KeyP256dh},
+			}
+		}
+		return subs
+	})
+
 	// F9: Wire tracker → notifier reset callback.
 	// When tracker detects a model cycle reset, clear the notification guard
 	// so the next low-quota event can fire a fresh notification.
@@ -178,6 +192,13 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("POST /api/notify/test", s.handleNotifyTest)
 	mux.HandleFunc("POST /api/notify/test-email", s.handleNotifyTestEmail)
 	mux.HandleFunc("POST /api/notify/test-webhook", s.handleNotifyTestWebhook)
+	mux.HandleFunc("POST /api/notify/test-webpush", s.handleNotifyTestWebPush)
+
+	// F19: WebPush routes
+	mux.HandleFunc("GET /api/webpush/vapid-key", s.handleWebPushVAPIDKey)
+	mux.HandleFunc("POST /api/webpush/subscribe", s.handleWebPushSubscribe)
+	mux.HandleFunc("DELETE /api/webpush/subscribe", s.handleWebPushUnsubscribe)
+	mux.HandleFunc("GET /api/webpush/status", s.handleWebPushStatus)
 
 	// Phase 10 routes
 	mux.HandleFunc("GET /api/export/json", s.handleExportJSON)

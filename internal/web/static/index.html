@@ -552,6 +552,43 @@
                         </div>
                     </div>
 
+                        <!-- F19: WebPush Notifications -->
+                        <h4 style="color:var(--text-secondary);margin:20px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);padding-top:16px">🔔 Browser Push Notifications</h4>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>WebPush Delivery</strong>
+                                <span>Receive quota alerts as browser notifications (even when tab is closed)</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-webpush-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="webpush-config-rows" style="display:none">
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Subscription Status</strong>
+                                    <span id="webpush-status-hint">Check if this browser is subscribed</span>
+                                </div>
+                                <div class="settings-control" style="display:flex;gap:8px;align-items:center">
+                                    <span id="webpush-status-badge" style="font-size:12px;padding:3px 8px;border-radius:4px;background:var(--bg-tertiary);color:var(--text-secondary)">checking...</span>
+                                    <button class="btn-add" id="webpush-subscribe-btn" style="padding:6px 12px;font-size:12px">🔔 Subscribe</button>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Test Push</strong>
+                                    <span>Send a test notification to all subscribed browsers</span>
+                                </div>
+                                <div class="settings-control">
+                                    <button class="btn-add" id="webpush-test-btn" style="padding:6px 12px;font-size:12px">🔔 Send Test</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-section">
                         <h3>💾 Data Management</h3>
                         <div class="settings-row">

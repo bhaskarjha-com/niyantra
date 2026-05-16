@@ -739,6 +739,30 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v18: F19 WebPush Notifications ─────────────────────────────
+	if s.getUserVersion() < 18 {
+		if _, err := s.db.Exec(`
+			CREATE TABLE IF NOT EXISTS webpush_subscriptions (
+				id INTEGER PRIMARY KEY,
+				endpoint TEXT UNIQUE NOT NULL,
+				key_p256dh TEXT NOT NULL,
+				key_auth TEXT NOT NULL,
+				created_at TEXT NOT NULL DEFAULT (datetime('now'))
+			);
+
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('webpush_enabled', 'false', 'bool',   'notification', 'WebPush Notifications',  'Enable browser push notifications for quota alerts (VAPID)'),
+				('webpush_vapid_public',  '', 'string', 'notification', 'VAPID Public Key',       'Auto-generated VAPID public key (do not edit)'),
+				('webpush_vapid_private', '', 'string', 'notification', 'VAPID Private Key',      'Auto-generated VAPID private key (do not edit)');
+		`); err != nil {
+			return fmt.Errorf("store: v18 create webpush tables: %w", err)
+		}
+
+		if err := s.setUserVersion(18); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

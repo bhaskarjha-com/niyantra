@@ -365,6 +365,138 @@ export function initSettings(): void {
       });
     }
 
+    // ── F19: WebPush Notifications ──
+    var webpushEnabledEl = document.getElementById('s-webpush-enabled');
+    var webpushConfigRows = document.getElementById('webpush-config-rows');
+    if (webpushEnabledEl && 'serviceWorker' in navigator && 'PushManager' in window) {
+      (webpushEnabledEl as HTMLInputElement).checked = cfg['webpush_enabled'] === 'true';
+      webpushConfigRows!.style.display = (webpushEnabledEl as HTMLInputElement).checked ? '' : 'none';
+
+      // Helper: convert VAPID base64url to Uint8Array
+      function urlBase64ToUint8Array(base64String: string): Uint8Array {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      }
+
+      // Check subscription status
+      function updateWebPushStatus() {
+        var badge = document.getElementById('webpush-status-badge')!;
+        var btn = document.getElementById('webpush-subscribe-btn') as HTMLButtonElement;
+
+        navigator.serviceWorker.getRegistration('/sw.js').then(function(reg) {
+          if (!reg) {
+            badge.textContent = '⚪ Not registered';
+            badge.style.color = 'var(--text-secondary)';
+            btn.textContent = '🔔 Subscribe';
+            return;
+          }
+          reg.pushManager.getSubscription().then(function(sub) {
+            if (sub) {
+              badge.textContent = '🟢 Subscribed';
+              badge.style.color = '#22c55e';
+              btn.textContent = '🔕 Unsubscribe';
+            } else {
+              badge.textContent = '⚪ Not subscribed';
+              badge.style.color = 'var(--text-secondary)';
+              btn.textContent = '🔔 Subscribe';
+            }
+          });
+        });
+      }
+      updateWebPushStatus();
+
+      // Toggle handler
+      webpushEnabledEl.addEventListener('change', function() {
+        var val = (webpushEnabledEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('webpush_enabled', val).then(function() {
+          showToast((webpushEnabledEl as HTMLInputElement).checked ? '🔔 WebPush enabled' : '🔔 WebPush disabled', 'success');
+        });
+        webpushConfigRows!.style.display = (webpushEnabledEl as HTMLInputElement).checked ? '' : 'none';
+      });
+
+      // Subscribe/Unsubscribe button
+      document.getElementById('webpush-subscribe-btn')!.addEventListener('click', function() {
+        var btn = document.getElementById('webpush-subscribe-btn') as HTMLButtonElement;
+        btn.disabled = true;
+
+        navigator.serviceWorker.getRegistration('/sw.js').then(function(reg) {
+          if (!reg) {
+            // Register service worker first
+            return navigator.serviceWorker.register('/sw.js');
+          }
+          return reg;
+        }).then(function(reg) {
+          return reg!.pushManager.getSubscription().then(function(existingSub) {
+            if (existingSub) {
+              // Unsubscribe
+              return existingSub.unsubscribe().then(function() {
+                return fetch('/api/webpush/subscribe', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ endpoint: existingSub.endpoint })
+                });
+              }).then(function() {
+                showToast('🔕 Unsubscribed from push notifications', 'success');
+                updateWebPushStatus();
+              });
+            } else {
+              // Subscribe — get VAPID key first
+              return fetch('/api/webpush/vapid-key').then(function(r) { return r.json(); }).then(function(data) {
+                var applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+                return reg!.pushManager.subscribe({
+                  userVisibleOnly: true,
+                  applicationServerKey: applicationServerKey
+                });
+              }).then(function(sub) {
+                // Send subscription to server
+                return fetch('/api/webpush/subscribe', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(sub.toJSON())
+                });
+              }).then(function() {
+                showToast('🔔 Subscribed to push notifications!', 'success');
+                updateWebPushStatus();
+              });
+            }
+          });
+        }).catch(function(err) {
+          showToast('❌ Push subscription failed: ' + err.message, 'error');
+        }).finally(function() {
+          btn.disabled = false;
+        });
+      });
+
+      // Test push button
+      document.getElementById('webpush-test-btn')!.addEventListener('click', function() {
+        var btn = document.getElementById('webpush-test-btn') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = '🔔 Sending...';
+        fetch('/api/notify/test-webpush', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) showToast('❌ ' + data.error, 'error');
+            else showToast('🔔 Test push sent!', 'success');
+          })
+          .catch(function() { showToast('❌ Failed to send test push', 'error'); })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = '🔔 Send Test';
+          });
+      });
+    } else if (webpushEnabledEl) {
+      // Browser doesn't support push — disable the toggle
+      (webpushEnabledEl as HTMLInputElement).disabled = true;
+      var hint = document.getElementById('webpush-status-hint');
+      if (hint) hint.textContent = 'Not supported in this browser';
+    }
+
     // ── Phase 11: Codex Capture Toggle ──
     var codexCaptureEl = document.getElementById('s-codex-capture');
     if (codexCaptureEl) {
