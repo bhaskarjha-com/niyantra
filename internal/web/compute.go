@@ -11,6 +11,9 @@ import (
 
 // computeAccountCosts estimates dollar costs for each account using
 // burn rates from the forecast engine + model pricing from F5.
+// TODO(audit#24): The frontend should clarify the difference between
+// "Subscription Forecast" (fixed monthly costs) and "Estimated Token Cost"
+// (variable usage × model pricing). Currently these are conflated in the Overview tab.
 func (s *Server) computeAccountCosts(
 	snapshots []*client.Snapshot,
 	forecasts map[int64][]forecast.GroupForecast,

@@ -310,6 +310,8 @@ func (s *Server) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 	defer writer.Flush()
 
 	// Header row
+	// TODO(audit#23): Add Token Limit, Credit Limit, Request Limit columns
+	// for Cursor USD credit billing and Copilot request-based quota systems.
 	writer.Write([]string{
 		"Platform", "Category", "Plan", "Status",
 		"Monthly Cost", "Currency", "Billing Cycle",
