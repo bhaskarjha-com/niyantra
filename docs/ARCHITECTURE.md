@@ -1,6 +1,6 @@
 # Architecture: Niyantra
 
-> **Updated:** v0.26.0 · Schema v18 · 18 tables · 60 REST endpoints · 148 tests
+> **Updated:** v0.26.1 · Schema v19 · 19 tables · 60+ REST endpoints · 129 tests
 
 ## System Overview
 
@@ -8,7 +8,7 @@
 User Interfaces
   CLI (snap/status/serve/mcp/demo/backup/restore)
   Dashboard (4 tabs, embedded web app, PWA)
-  MCP Server (11 tools, stdio + Streamable HTTP)
+  MCP Server (12 tools, stdio + Streamable HTTP)
           |
 Application Layer
   agent/        - polling loop + session management
@@ -28,8 +28,8 @@ Application Layer
   gitcorr/      - git commit ↔ token usage cost correlation
           |
 Storage Layer
-  store/  - SQLite v18 (18 tables, 23 Go files)
-  config  - typed key-value settings (74 config keys)
+  store/  - SQLite v19 (19 tables, 24 Go files)
+  config  - typed key-value settings (74+ config keys)
   Pure Go: modernc.org/sqlite (no CGo)
 ```
 
@@ -38,8 +38,8 @@ Storage Layer
 ```
 cmd/niyantra/main.go
   +-- client       (detect Antigravity LS, fetch quotas via Connect RPC)
-  +-- store        (SQLite, all persistence — 18 tables, 23 files)
-  +-- web          (HTTP server + dashboard — 17 Go files, 30 TS modules)
+  +-- store        (SQLite, all persistence — 19 tables, 24 files)
+  +-- web          (HTTP server + dashboard — 19 Go files, 30 TS modules)
   |    +-- agent        (polling loop, backoff, graceful shutdown)
   |    +-- tracker      (cycles + sessions)
   |    +-- advisor      (switch engine)
@@ -53,7 +53,8 @@ cmd/niyantra/main.go
   |    +-- forecast     (TTX + cost forecasting)
   |    +-- tokenusage   (Claude JSONL token analytics)
   |    +-- gitcorr      (git commit cost correlation)
-  +-- mcpserver    (11 MCP tools over stdio + Streamable HTTP)
+  |    +-- plugin       (plugin discovery, manifest validation, subprocess exec)
+  +-- mcpserver    (12 MCP tools over stdio + Streamable HTTP)
   |    +-- store, tracker, advisor, codex, readiness, forecast
   +-- readiness    (pure computation, zero I/O)
 ```
@@ -114,8 +115,9 @@ Uses modernc.org/sqlite (pure Go, no CGo) for true single-binary cross-compilati
 | v16 | `config`: 8 SMTP keys | SMTP/Email notifications (Phase 16, F11) |
 | v17 | `config`: 4 webhook keys | Webhook notifications (Phase 16, F22) |
 | v18 | `webpush_subscriptions`, 3 config keys | WebPush notifications (Phase 16, F19) |
+| v19 | `plugin_snapshots` table, plugin config keys | Plugin system (Phase 16, F18) |
 
-### Tables (18 — Current)
+### Tables (19 — Current)
 
 - `accounts` — identity (email, plan, notes, tags, pinned_group, credit_renewal_day)
 - `snapshots` — quota captures with provenance (account, models, ai_credits)
@@ -135,6 +137,7 @@ Uses modernc.org/sqlite (pure Go, no CGo) for true single-binary cross-compilati
 - `token_usage_daily` — Claude Code per-day token analytics
 - `git_commit_costs` — (virtual, via query) git ↔ session correlation
 - `webpush_subscriptions` — browser push subscription storage
+- `plugin_snapshots` — plugin-captured data snapshots
 
 ## 3. internal/readiness/ — Readiness Engine
 
@@ -177,7 +180,7 @@ Provides alert delivery for quota warnings via 4 independent channels:
 
 Serves a 4-tab dashboard with embedded static assets and a REST API.
 
-### File Structure (17 Go files)
+### File Structure (19 Go files)
 
 | File | Responsibility |
 |------|----------------|
@@ -195,6 +198,7 @@ Serves a 4-tab dashboard with embedded static assets and a REST API.
 | `handlers_cursor.go` | Cursor status/snap endpoints |
 | `handlers_gemini.go` | Gemini status/snap endpoints |
 | `handlers_copilot.go` | Copilot status/snap endpoints |
+| `handlers_plugins.go` | Plugin discovery, execution, config |
 | `handlers_heatmap.go` | Activity heatmap data (365 days) |
 | `embed_prod.go` / `embed_dev.go` | Build-tag-switched static FS |
 
@@ -215,6 +219,7 @@ Stack: Go embed.FS + TypeScript (strict mode, 30 modules) bundled via esbuild in
 | Gemini CLI | `gemini/` | OAuth from `~/.config/gemini/` | HTTPS to GCP APIs |
 | GitHub Copilot | `copilot/` | GitHub PAT | HTTPS to GitHub billing API |
 | Manual | `store/` | N/A | User input via subscription form |
+| Plugins | `plugin/` | Plugin-specific (API keys in config) | Subprocess exec with JSON protocol |
 
 ## Data Flow
 

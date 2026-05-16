@@ -1,6 +1,6 @@
 # Security Model
 
-> **Updated:** v0.26.0 · 7 providers · 4 notification channels
+> **Updated:** v0.26.1 · 7 providers + plugins · 4 notification channels
 
 ## What Niyantra Accesses
 
@@ -15,6 +15,7 @@
 | Cursor session token | File read from `~/.cursor-server/` | HTTP API authentication |
 | Gemini CLI credentials | File read from `~/.config/gemini/` | OAuth for GCP API polling |
 | GitHub Copilot PAT | User-provided in Settings UI | GitHub billing API authentication |
+| Plugin scripts | Subprocess execution from `~/.niyantra/plugins/` | Execute external scripts in sandboxed subprocess |
 
 ## What Niyantra Does NOT Access
 
@@ -73,6 +74,24 @@ Optional HTTP basic auth via `--auth user:pass` flag or `NIYANTRA_AUTH` environm
 - Provider tokens stored in config table (masked in API, plaintext in SQLite)
 - Backup/restore via `niyantra backup` / `niyantra restore`
 - WebPush VAPID keys auto-generated on first subscribe (P-256 ECDSA)
+- Plugin API keys stored in config table (masked in API, same treatment as other secrets)
+
+## Cloud Sync Security (Planned — ADR-0002)
+
+When cloud sync is enabled (opt-in):
+
+| Concern | Mitigation |
+|---------|------------|
+| Data isolation | PocketBase Row-Level Security on all 12 synced collections |
+| Auth | OAuth 2.0 PKCE (no client_secret on user's machine) |
+| Token storage | OS-native keychain via `go-keyring` (Win/Mac/Linux) |
+| Secrets in sync | **"Secrets Don't Sync" policy** — config keys with `syncable=0` never leave machine |
+| Transport | TLS 1.3 via Caddy + Let's Encrypt (HTTPS everywhere) |
+| MCP exposure | MCP reads local SQLite only — no direct cloud access from MCP |
+| CORS | Eliminated via single-origin architecture |
+| Admin access | PocketBase admin `/_/` restricted by IP whitelist in Caddy |
+| GDPR | "Delete Cloud Data" button — cascades all 12 collections |
+| At rest | Oracle Cloud boot volume encryption |
 
 ## Provenance
 

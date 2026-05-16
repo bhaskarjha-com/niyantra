@@ -86,7 +86,7 @@ Niyantra gathers data from multiple sources, each with its own capture method:
 │                                                      ▼   │
 │                              ┌─────────────────────┐     │
 │                              │  SQLite Ledger      │     │
-│                              │  (18 tables, v18)   │     │
+│                              │  (19 tables, v19)   │     │
 │                              │                     │     │
 │                              │  snapshots           │     │
 │                              │  subscriptions       │     │
@@ -229,7 +229,7 @@ Daily:
 
 ### Dashboard
 
-Four-tab dashboard at `http://localhost:9222` (also deployed as PWA at `https://niyantra.bhaskarjha.com`):
+Four-tab dashboard at `http://localhost:9222`:
 
 - **Quotas** — provider-sectioned layout (Antigravity / Codex / Claude / Cursor / Gemini / Copilot), per-model progress bars with reset timers, provider filter dropdown, status filter (Ready / Low / Empty), tag filter, text search, split-button snap (Snap Now / Snap All Sources), twin-axis history chart, activity heatmap, AI Credits tracking, Quick Adjust
 - **Subscriptions** — hybrid card + provider layout with spend summary bar, search, 26 platform presets, CSV export, platform filter, status filter
@@ -257,7 +257,7 @@ Polling agent with ticker loop, exponential backoff, config-driven enable/disabl
 Per-model reset cycle detection (3 methods), usage rate forecasting, projected exhaustion, budget burn rate alerts.
 
 ### ✅ Phase 8: MCP Server
-MCP server over stdio (11 tools) for AI agent integration. Uses official Go SDK (github.com/modelcontextprotocol/go-sdk).
+MCP server over stdio (12 tools) for AI agent integration. Uses official Go SDK (github.com/modelcontextprotocol/go-sdk).
 
 ### ✅ Phase 9: Multi-Source & Safety Net
 - **Claude Code statusline bridge** — real-time rate limit data via shared file, auto-patched `~/.claude/settings.json`, 5h/7d usage meters
@@ -361,11 +361,11 @@ MCP server over stdio (11 tools) for AI agent integration. Uses official Go SDK 
 - ✅ **SMTP/Email notifications** — pure Go SMTP with TLS/STARTTLS, HTML templates
 - ✅ **Webhook notifications** — Discord, Telegram, Slack, ntfy/Gotify/generic
 - ✅ **WebPush notifications** — VAPID (RFC 8292) + RFC 8291 encryption, zero x/crypto dependency
-- **Cloud sync (Pro tier)** — encrypted multi-device sync via PocketBase
-- **Plugin system** — `DataSource` interface for custom provider integrations
+- ✅ **Plugin system** — language-agnostic subprocess exec architecture (ADR-0001), `~/.niyantra/plugins/` with JSON manifests, 4 API endpoints, MCP tool
+- **Cloud sync (Pro tier)** — TLS-secured multi-device sync via PocketBase (architecture finalized, ADR-0002 accepted)
 - **Context window dashboard** — visualize IDE context consumption (requires LS research)
 
-> **Full details:** The internal development roadmap (`draft/roadmap.md`) contains 22 features with quantified scoring across Gap, Value, Effort, and Moat dimensions, plus a 37-feature × 12-tool competitive comparison matrix. Currently at 37+/37 features shipped.
+> **Full details:** The internal development roadmap (`draft/roadmap.md`) contains 22 features with quantified scoring across Gap, Value, Effort, and Moat dimensions, plus a 37-feature × 12-tool competitive comparison matrix. Cloud sync architecture documented in 11 internal design documents + ADR-0002.
 
 ## Real-World Use Cases
 
@@ -396,18 +396,20 @@ Things Niyantra deliberately does **not** do:
 - **Multi-user/team** — Single-user, single-machine design (cloud sync is optional, not multi-tenant)
 - **API gateway/proxy** — We monitor usage, we don't route or block requests. LiteLLM, Portkey, OmniRoute serve that need.
 
-## Cloud Architecture (Planned)
+## Cloud Architecture (Planned — ADR-0002 Accepted)
 
-Niyantra has a designed (not yet implemented) cloud tier for optional multi-device sync:
+Niyantra has a fully designed cloud tier for optional multi-device sync:
 
-- **Domain:** `niyantra.bhaskarjha.com` (PWA already deployed via Cloudflare Pages)
-- **Backend:** PocketBase on Oracle Cloud ARM instance
-- **Auth:** Google OAuth with device binding
-- **Sync:** End-to-end encrypted, conflict-free merge logic
-- **Mobile:** PWA-first approach with push notifications
-- **Monetization:** Free (local-only) / Pro (cloud sync + push + priority support)
+- **Domain:** `niyantra.bhaskarjha.dev` (single first-level subdomain, Cloudflare free SSL)
+- **Backend:** PocketBase on Oracle Cloud ARM (Mumbai, `ap-mumbai-1`, Always Free tier)
+- **Auth:** Google + GitHub OAuth with PKCE (no client_secret on device), tokens in OS keychain
+- **Sync:** 12/19 tables sync selectively — secrets never leave the machine (`syncable` column)
+- **Mobile:** PWA served from PocketBase `pb_public/` (same-origin, no CORS)
+- **Desktop wrapper:** Deferred (Wails v3 alpha — cloud sync works in browser mode)
+- **Monetization:** Free (local-only, all features) / Pro ($29/year, cloud sync + multi-machine)
+- **Security:** Row-Level Security on all 12 PocketBase collections, TLS via Caddy + Let's Encrypt
 
-Full architecture documented in 8 internal design documents covering auth, sync, schema, desktop client, backend, phases, mobile, and monetization.
+Full architecture documented in 11 design documents (`draft/cloud/`) + ADR (`docs/adr/0002-cloud-sync-architecture.md`).
 
 > **Note:** The free tier will always be fully functional local-only. Cloud features are additive, never required.
 
@@ -424,6 +426,6 @@ Niyantra is successful when:
 7. **Multi-source** — 7 AI coding tools tracked in a unified view ✅
 8. **7 providers** shipped: Antigravity + Codex + Claude deep + Cursor + Gemini CLI + Copilot + Manual ✅
 9. **37+ features** shipped across Phases 1-16, closing all competitive gaps vs onWatch ✅
-10. **148 tests** across 10 packages, all passing ✅
+10. **129 tests** across 10 packages, all passing ✅
 11. **4 notification channels**: OS + SMTP + Webhook + WebPush ✅
-12. **11 MCP tools** (stdio + Streamable HTTP) ✅
+12. **12 MCP tools** (stdio + Streamable HTTP) ✅
