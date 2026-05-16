@@ -395,6 +395,103 @@
                                 <button class="btn-add" id="notify-test-btn" style="padding:6px 12px;font-size:12px">🔔 Test</button>
                             </div>
                         </div>
+
+                        <!-- F11: SMTP Email Notifications -->
+                        <h4 style="color:var(--text-secondary);margin:20px 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border-top:1px solid var(--border);padding-top:16px">📧 Email Notifications</h4>
+                        <div class="settings-row">
+                            <div class="settings-label">
+                                <strong>SMTP Email Delivery</strong>
+                                <span>Send quota alerts via email in addition to desktop</span>
+                            </div>
+                            <div class="settings-control">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="s-smtp-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="smtp-config-rows" style="display:none">
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>SMTP Host</strong>
+                                    <span>Server hostname (e.g. smtp.gmail.com)</span>
+                                </div>
+                                <div class="settings-control">
+                                    <input type="text" id="s-smtp-host" class="form-input" placeholder="smtp.gmail.com" style="width:200px;font-size:12px">
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Port</strong>
+                                    <span>587 (STARTTLS), 465 (TLS), 25 (plain)</span>
+                                </div>
+                                <div class="settings-control">
+                                    <select id="s-smtp-port" class="form-input" style="width:100px">
+                                        <option value="587">587</option>
+                                        <option value="465">465</option>
+                                        <option value="25">25</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Encryption</strong>
+                                    <span>Transport-level security mode</span>
+                                </div>
+                                <div class="settings-control">
+                                    <select id="s-smtp-tls" class="form-input" style="width:130px">
+                                        <option value="starttls">STARTTLS</option>
+                                        <option value="tls">TLS/SSL</option>
+                                        <option value="none">None</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Username</strong>
+                                    <span>SMTP authentication username</span>
+                                </div>
+                                <div class="settings-control">
+                                    <input type="text" id="s-smtp-user" class="form-input" placeholder="user@gmail.com" style="width:200px;font-size:12px">
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>Password</strong>
+                                    <span>SMTP password or app-specific password</span>
+                                </div>
+                                <div class="settings-control">
+                                    <input type="password" id="s-smtp-pass" class="form-input" placeholder="••••••••" style="width:200px;font-size:12px;font-family:monospace">
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>From Address</strong>
+                                    <span>Sender email address</span>
+                                </div>
+                                <div class="settings-control">
+                                    <input type="email" id="s-smtp-from" class="form-input" placeholder="niyantra@yourdomain.com" style="width:200px;font-size:12px">
+                                </div>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-label">
+                                    <strong>To Address</strong>
+                                    <span>Recipient email(s), comma-separated</span>
+                                </div>
+                                <div class="settings-control">
+                                    <input type="text" id="s-smtp-to" class="form-input" placeholder="you@example.com" style="width:200px;font-size:12px">
+                                </div>
+                            </div>
+                            <div class="settings-row" id="smtp-test-row">
+                                <div class="settings-label">
+                                    <strong>Test Email</strong>
+                                    <span>Send a test email to verify SMTP config</span>
+                                </div>
+                                <div class="settings-control">
+                                    <button class="btn-add" id="smtp-test-btn" style="padding:6px 12px;font-size:12px">📧 Send Test</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="settings-section">

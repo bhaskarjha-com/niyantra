@@ -9,12 +9,14 @@ import (
 
 // Engine tracks notification state and prevents spam.
 // Fires at most one notification per model per reset cycle.
+// Supports dual-channel delivery: OS-native + SMTP email (F11).
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
 	threshold float64         // alert when remaining% drops below this (default 10)
 	guard     map[string]bool // model → has been notified this cycle
 	logger    *slog.Logger
+	smtp      SMTPConfig      // F11: SMTP email delivery settings
 
 	onNotify func(model string, remainingPct float64) // callback when notification fires
 }
@@ -40,6 +42,25 @@ func (e *Engine) Configure(enabled bool, threshold float64) {
 	if threshold > 0 {
 		e.threshold = threshold
 	}
+}
+
+// ConfigureSMTP updates the SMTP delivery settings (F11).
+func (e *Engine) ConfigureSMTP(cfg SMTPConfig) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.smtp = cfg
+	e.logger.Info("SMTP notification channel configured",
+		"enabled", cfg.Enabled,
+		"host", cfg.Host,
+		"port", cfg.Port,
+		"tls", cfg.TLSMode)
+}
+
+// SMTPEnabled returns whether SMTP delivery is active.
+func (e *Engine) SMTPEnabled() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.smtp.IsConfigured()
 }
 
 // Enabled returns whether notifications are enabled.
@@ -91,9 +112,27 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 		"remaining_pct", remainingPct,
 		"threshold", threshold)
 
+	// Channel 1: OS-native desktop notification
 	if err := Send(title, body); err != nil {
-		e.logger.Error("Failed to send notification", "error", err, "model", model)
-		return
+		e.logger.Error("Failed to send OS notification", "error", err, "model", model)
+		// Continue — email may still succeed
+	}
+
+	// Channel 2: SMTP email notification (F11)
+	e.mu.Lock()
+	smtpCfg := e.smtp
+	e.mu.Unlock()
+
+	if smtpCfg.IsConfigured() {
+		go func() {
+			subject := fmt.Sprintf("Niyantra Alert: %s quota low (%.1f%%)", model, remainingPct)
+			htmlBody := FormatQuotaAlertHTML(model, remainingPct, threshold)
+			if err := SendEmail(&smtpCfg, subject, htmlBody); err != nil {
+				e.logger.Error("Failed to send SMTP notification", "error", err, "model", model)
+			} else {
+				e.logger.Info("SMTP quota alert sent", "model", model, "to", smtpCfg.To)
+			}
+		}()
 	}
 
 	// Mark as notified for this cycle
@@ -131,4 +170,17 @@ func (e *Engine) SendTest() error {
 		fmt.Sprintf("Notifications are working! Threshold: %.0f%%. Time: %s",
 			e.Threshold(), time.Now().Format("15:04:05")),
 	)
+}
+
+// SendTestEmail sends a test email to verify SMTP configuration (F11).
+func (e *Engine) SendTestEmail() error {
+	e.mu.Lock()
+	cfg := e.smtp
+	e.mu.Unlock()
+
+	if !cfg.IsConfigured() {
+		return fmt.Errorf("SMTP is not configured")
+	}
+
+	return SendEmail(&cfg, "Niyantra — SMTP Test", FormatTestEmailHTML())
 }

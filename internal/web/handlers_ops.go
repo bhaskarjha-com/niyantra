@@ -120,6 +120,16 @@ func (s *Server) handleNotifyTest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"status": "sent"})
 }
 
+// handleNotifyTestEmail sends a test email to verify SMTP configuration (F11).
+func (s *Server) handleNotifyTestEmail(w http.ResponseWriter, r *http.Request) {
+	if err := s.notifier.SendTestEmail(); err != nil {
+		jsonError(w, fmt.Sprintf("email failed: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	writeJSON(w, map[string]string{"status": "sent"})
+}
+
 // ── Phase 10 Handlers ────────────────────────────────────────────
 
 // handleExportJSON exports all data as a JSON file for full portability.

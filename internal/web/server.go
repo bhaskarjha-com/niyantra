@@ -55,6 +55,9 @@ func NewServer(logger *slog.Logger, s *store.Store, c *client.Client, port int, 
 		s.GetConfigFloat("notify_threshold", 10),
 	)
 
+	// F11: Configure SMTP email channel from stored settings
+	srv.notifier.ConfigureSMTP(srv.loadSMTPConfig())
+
 	// F9: Wire tracker → notifier reset callback.
 	// When tracker detects a model cycle reset, clear the notification guard
 	// so the next low-quota event can fire a fresh notification.
@@ -170,6 +173,7 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("GET /api/claude/usage", s.handleClaudeUsage)
 	mux.HandleFunc("GET /api/backup", s.handleBackup)
 	mux.HandleFunc("POST /api/notify/test", s.handleNotifyTest)
+	mux.HandleFunc("POST /api/notify/test-email", s.handleNotifyTestEmail)
 
 	// Phase 10 routes
 	mux.HandleFunc("GET /api/export/json", s.handleExportJSON)

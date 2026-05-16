@@ -701,6 +701,27 @@ func (s *Store) migrate() error {
 		}
 	}
 
+	// ── v16: F11 SMTP/Email Notifications config ──────────────────
+	if s.getUserVersion() < 16 {
+		if _, err := s.db.Exec(`
+			INSERT OR IGNORE INTO config (key, value, value_type, category, label, description) VALUES
+				('smtp_enabled', 'false',    'bool',   'notification', 'Email Notifications',       'Enable SMTP email delivery for quota alerts'),
+				('smtp_host',    '',         'string', 'notification', 'SMTP Host',                  'SMTP server hostname (e.g. smtp.gmail.com)'),
+				('smtp_port',    '587',      'int',    'notification', 'SMTP Port',                  'SMTP port: 587 (STARTTLS), 465 (TLS), 25 (plain)'),
+				('smtp_user',    '',         'string', 'notification', 'SMTP Username',              'SMTP authentication username'),
+				('smtp_pass',    '',         'string', 'notification', 'SMTP Password',              'SMTP authentication password'),
+				('smtp_from',    '',         'string', 'notification', 'From Address',               'Sender email address'),
+				('smtp_to',      '',         'string', 'notification', 'To Address',                 'Recipient email address(es), comma-separated'),
+				('smtp_tls',     'starttls', 'string', 'notification', 'Encryption',                 'TLS mode: starttls (587), tls (465), none (25)');
+		`); err != nil {
+			return fmt.Errorf("store: v16 seed smtp config: %w", err)
+		}
+
+		if err := s.setUserVersion(16); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

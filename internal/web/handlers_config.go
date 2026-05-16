@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/bhaskarjha-com/niyantra/internal/claude"
+	"github.com/bhaskarjha-com/niyantra/internal/notify"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
 )
 
@@ -22,7 +23,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 
 	// Mask sensitive config values
 	for _, e := range entries {
-		if e.Key == "copilot_pat" && e.Value != "" {
+		if (e.Key == "copilot_pat" || e.Key == "smtp_pass") && e.Value != "" {
 			e.Value = "configured"
 		}
 	}
@@ -158,5 +159,24 @@ func (s *Server) onConfigChanged(key, value string) {
 			s.store.GetConfigBool("notify_enabled"),
 			s.store.GetConfigFloat("notify_threshold", 10),
 		)
+	case "smtp_enabled", "smtp_host", "smtp_port", "smtp_user", "smtp_pass",
+		"smtp_from", "smtp_to", "smtp_tls":
+		// F11: Reload SMTP config on any smtp_* key change
+		s.notifier.ConfigureSMTP(s.loadSMTPConfig())
+	}
+}
+
+// loadSMTPConfig reads all SMTP config keys from the store and returns
+// a populated SMTPConfig struct for the notification engine.
+func (s *Server) loadSMTPConfig() notify.SMTPConfig {
+	return notify.SMTPConfig{
+		Enabled: s.store.GetConfigBool("smtp_enabled"),
+		Host:    s.store.GetConfig("smtp_host"),
+		Port:    s.store.GetConfigInt("smtp_port", 587),
+		User:    s.store.GetConfig("smtp_user"),
+		Pass:    s.store.GetConfig("smtp_pass"),
+		From:    s.store.GetConfig("smtp_from"),
+		To:      s.store.GetConfig("smtp_to"),
+		TLSMode: s.store.GetConfig("smtp_tls"),
 	}
 }

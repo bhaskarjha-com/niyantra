@@ -1592,6 +1592,57 @@ Correlates git commits with actual AI token consumption from Claude Code session
 
 ---
 
+### `POST /api/notify/test` (Phase 9)
+
+Sends a test OS-native desktop notification to verify the platform notification system works.
+
+**Response (success):** `200 OK`
+
+```json
+{ "status": "sent" }
+```
+
+**Response (unsupported):** `400 Bad Request`
+
+```json
+{ "error": "notifications not supported on this platform" }
+```
+
+---
+
+### `POST /api/notify/test-email` (Phase 16: F11)
+
+Sends a test email to verify SMTP configuration. Requires `smtp_enabled=true` and all SMTP config keys to be set.
+
+**Response (success):** `200 OK`
+
+```json
+{ "status": "sent" }
+```
+
+**Response (not configured):** `500 Internal Server Error`
+
+```json
+{ "error": "email failed: SMTP is not configured" }
+```
+
+**SMTP Config Keys (stored in `config` table):**
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `smtp_enabled` | bool | `false` | Master toggle for SMTP email delivery |
+| `smtp_host` | string | `""` | SMTP server hostname (e.g. `smtp.gmail.com`) |
+| `smtp_port` | int | `587` | SMTP port: 587 (STARTTLS), 465 (TLS), 25 (plain) |
+| `smtp_user` | string | `""` | SMTP authentication username |
+| `smtp_pass` | string | `""` | SMTP password (masked as `"configured"` in GET response) |
+| `smtp_from` | string | `""` | Sender email address |
+| `smtp_to` | string | `""` | Recipient email address(es), comma-separated |
+| `smtp_tls` | string | `"starttls"` | Encryption mode: `starttls`, `tls`, `none` |
+
+> **Dual-Channel Delivery:** When quota alerts fire (F9), notifications are sent via both OS-native desktop and SMTP email (if configured). SMTP delivery is async (goroutine) and does not block the polling loop.
+
+---
+
 ### `POST /mcp` — Streamable HTTP MCP (Phase 15: F14)
 
 Exposes all 11 MCP tools over HTTP using the MCP Streamable HTTP transport protocol. This enables remote MCP clients (Claude Desktop on another machine, CI/CD pipelines, cross-machine AI agents) to connect without stdio.

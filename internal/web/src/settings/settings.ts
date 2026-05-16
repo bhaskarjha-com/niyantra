@@ -157,6 +157,98 @@ export function initSettings(): void {
       });
     }
 
+    // ── F11: SMTP Email Notifications ──
+    var smtpEnabledEl = document.getElementById('s-smtp-enabled');
+    var smtpConfigRows = document.getElementById('smtp-config-rows');
+    if (smtpEnabledEl) {
+      (smtpEnabledEl as HTMLInputElement).checked = cfg['smtp_enabled'] === 'true';
+      smtpConfigRows!.style.display = (smtpEnabledEl as HTMLInputElement).checked ? '' : 'none';
+
+      // Populate SMTP fields from config
+      var smtpHostEl = document.getElementById('s-smtp-host') as HTMLInputElement;
+      var smtpPortEl = document.getElementById('s-smtp-port') as HTMLSelectElement;
+      var smtpTlsEl = document.getElementById('s-smtp-tls') as HTMLSelectElement;
+      var smtpUserEl = document.getElementById('s-smtp-user') as HTMLInputElement;
+      var smtpPassEl = document.getElementById('s-smtp-pass') as HTMLInputElement;
+      var smtpFromEl = document.getElementById('s-smtp-from') as HTMLInputElement;
+      var smtpToEl = document.getElementById('s-smtp-to') as HTMLInputElement;
+
+      smtpHostEl.value = cfg['smtp_host'] || '';
+      smtpPortEl.value = cfg['smtp_port'] || '587';
+      smtpTlsEl.value = cfg['smtp_tls'] || 'starttls';
+      smtpUserEl.value = cfg['smtp_user'] || '';
+      smtpFromEl.value = cfg['smtp_from'] || '';
+      smtpToEl.value = cfg['smtp_to'] || '';
+
+      // Show placeholder if password is configured
+      if (cfg['smtp_pass']) {
+        smtpPassEl.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+      }
+
+      // Toggle handler
+      smtpEnabledEl.addEventListener('change', function() {
+        var val = (smtpEnabledEl as HTMLInputElement).checked ? 'true' : 'false';
+        updateConfig('smtp_enabled', val).then(function() {
+          showToast((smtpEnabledEl as HTMLInputElement).checked ? '📧 Email notifications enabled' : '📧 Email notifications disabled', 'success');
+        });
+        smtpConfigRows!.style.display = (smtpEnabledEl as HTMLInputElement).checked ? '' : 'none';
+      });
+
+      // Auto-save for each SMTP field
+      smtpHostEl.addEventListener('change', function() {
+        updateConfig('smtp_host', smtpHostEl.value.trim());
+        showToast('📧 SMTP host saved', 'success');
+      });
+      smtpPortEl.addEventListener('change', function() {
+        updateConfig('smtp_port', smtpPortEl.value);
+        showToast('📧 SMTP port saved', 'success');
+      });
+      smtpTlsEl.addEventListener('change', function() {
+        updateConfig('smtp_tls', smtpTlsEl.value);
+        showToast('📧 Encryption mode saved', 'success');
+      });
+      smtpUserEl.addEventListener('change', function() {
+        updateConfig('smtp_user', smtpUserEl.value.trim());
+        showToast('📧 SMTP username saved', 'success');
+      });
+      smtpPassEl.addEventListener('change', function() {
+        var val = smtpPassEl.value.trim();
+        if (val) {
+          updateConfig('smtp_pass', val).then(function() {
+            showToast('📧 SMTP password saved', 'success');
+            smtpPassEl.value = '';
+            smtpPassEl.placeholder = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)';
+          });
+        }
+      });
+      smtpFromEl.addEventListener('change', function() {
+        updateConfig('smtp_from', smtpFromEl.value.trim());
+        showToast('📧 From address saved', 'success');
+      });
+      smtpToEl.addEventListener('change', function() {
+        updateConfig('smtp_to', smtpToEl.value.trim());
+        showToast('📧 To address saved', 'success');
+      });
+
+      // Test email button
+      document.getElementById('smtp-test-btn')!.addEventListener('click', function() {
+        var btn = document.getElementById('smtp-test-btn') as HTMLButtonElement;
+        btn.disabled = true;
+        btn.textContent = '📧 Sending...';
+        fetch('/api/notify/test-email', { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            if (data.error) showToast('❌ ' + data.error, 'error');
+            else showToast('📧 Test email sent!', 'success');
+          })
+          .catch(function() { showToast('❌ Failed to send test email', 'error'); })
+          .finally(function() {
+            btn.disabled = false;
+            btn.textContent = '📧 Send Test';
+          });
+      });
+    }
+
     // ── Phase 11: Codex Capture Toggle ──
     var codexCaptureEl = document.getElementById('s-codex-capture');
     if (codexCaptureEl) {
