@@ -1,7 +1,94 @@
 # Changelog
 
 All notable changes to Niyantra are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions map to feature milestones, not semver.
 
+## [0.26.0] - 2026-05-16
+
+### Added
+- **WebPush notifications (F19)** — browser push via VAPID (RFC 8292) + RFC 8291 encryption. Zero `x/crypto` dependency — HKDF implemented from stdlib `crypto/hmac` + `crypto/sha256`. Service Worker (`sw.js`) with subscribe/unsubscribe/test UI in Settings.
+  - `webpush_subscriptions` table (schema v18)
+  - `GET /api/webpush/vapid-key`, `POST /api/webpush/subscribe`, `DELETE /api/webpush/unsubscribe`, `GET /api/webpush/status`, `POST /api/webpush/test`
+  - 14 tests in `webpush_test.go`
+- **Webhook notifications (F22)** — multi-service webhook delivery with 4 adapters (Discord, Telegram, Slack, Generic/ntfy). Auto-format payloads per service. Severity-based color coding.
+  - `webhook_enabled`, `webhook_service`, `webhook_url`, `webhook_secret` config keys (schema v17)
+  - `POST /api/notify/test-webhook`
+  - 12 tests in `webhook_test.go`
+- **SMTP/Email notifications (F11)** — pure Go SMTP client supporting plain, STARTTLS, and TLS encryption. HTML-formatted quota alert emails.
+  - 8 SMTP config keys (schema v16)
+  - `POST /api/notify/test-smtp`
+  - 8 tests in `smtp_test.go`
+- **Notification engine refactor** — quad-channel async dispatch (OS + SMTP + Webhook + WebPush). Once-per-cycle guard. `engine.go` with threshold check and `OnNotify` callback. 8 tests in `engine_test.go`.
+
+### Changed
+- Notification architecture upgraded from single-channel (OS-only) to quad-channel
+- Config masking: `smtp_pass`, `webhook_secret`, `webpush_vapid_private` return `"configured"` in API (never expose secrets)
+- Schema v16 → v18 (3 migrations)
+- 148 total tests across 13 files in 10 packages
+
+## [0.25.0] - 2026-05-16
+
+### Added
+- **GitHub Copilot provider (F15c)** — 7th tracked provider. PAT-based auth, GitHub billing API polling. Frontend settings with PAT input (masked in API).
+  - `copilot_snapshots` table (schema v12)
+  - `copilot_capture`, `copilot_pat` config keys (schema v15)
+  - `GET /api/copilot/status`, `POST /api/copilot/snap`
+- **Streamable HTTP MCP (F14)** — expose all 11 MCP tools over `POST /mcp` endpoint. SSE streaming, session management via `Mcp-Session-Id` header. Enables remote agent access.
+
+## [0.24.0] - 2026-05-14
+
+### Added
+- **Git commit correlation (F16)** — AI cost per commit. Correlates git log timestamps with Claude Code JSONL sessions (±30 min window). Branch-level cost aggregation. `git_commit_costs` MCP tool.
+  - `GET /api/git-costs`, `GET /api/git-costs/branches`
+- **Token usage analytics (F13)** — multi-provider token intelligence. Claude JSONL session parser with per-turn input/output/cache token counting. Model-aware cost estimation using configured pricing. Daily aggregation.
+  - `token_usage_daily` table (schema v13)
+  - `GET /api/token-usage`, `POST /api/token-usage/parse`
+  - `token_usage` MCP tool
+
+### Fixed
+- Fuzzy model ID matching for cost estimation (partial name match instead of exact)
+
+## [0.23.0] - 2026-05-14
+
+### Added
+- **Docker deployment (F21)** — multi-stage Dockerfile (builder → distroless / Alpine). `docker-compose.yml` with volume persistence. Multi-arch support (linux/amd64, linux/arm64). `niyantra healthcheck` command for Docker health probes.
+  - Makefile targets: `make docker`, `make docker-shell`, `make docker-run`
+
+## [0.22.0] - 2026-05-13
+
+### Added
+- **Gemini CLI provider (F15b)** — OAuth credential discovery from `~/.config/gemini/`, 2-step API (loadCodeAssist + retrieveUserQuota). Full-stack: backend `internal/gemini/` + frontend settings + Quotas rendering.
+  - `gemini_snapshots` table (schema v12)
+  - `GET /api/gemini/status`, `POST /api/gemini/snap`
+
+## [0.21.0] - 2026-05-13
+
+### Added
+- **Cursor provider (F15a)** — session token detection from filesystem, HTTP API polling to `cursor.com/api/usage`. Supports legacy request-based and new USD credit-based billing models.
+  - `cursor_snapshots` table (schema v12)
+  - `GET /api/cursor/status`, `POST /api/cursor/snap`
+- **Schema v12** — unified account model. 3 new provider snapshot tables created in single migration. Agent polling refactored to split per-provider handlers.
+
+### Fixed
+- Cursor API client rewritten based on deep-dive analysis of actual API endpoints and auth flow
+
+## [0.20.0] - 2026-05-12
+
+### Added
+- **Claude Code deep tracking (F15d)** — full JSONL session parser for per-turn token analytics (input/output/cache). Model-aware cost estimation. New `internal/claude/` package refactored from `claudebridge/`.
+  - 7 tests in `deep_test.go`
+- **Activity heatmap (F6)** — GitHub-style 365-day contribution grid. Color intensity reflects daily snapshot count. Configurable lookback via `heatmap_lookback_days` config key (schema v14).
+  - `GET /api/heatmap`
+
+## [0.19.0] - 2026-05-12
+
+### Changed
+- **CSS modularization** — monolithic `style.css` split into 22 domain CSS files bundled via esbuild. `make css`, `make css-prod`, `make css-watch` targets.
+
+## [0.18.0] - 2026-05-12
+
+### Changed
+- **Frontend TypeScript migration** — 27 strict-mode TypeScript modules. IIFE-bundled via esbuild. Zero `@ts-nocheck` directives. `make js`, `make js-prod`, `make js-watch` targets.
 
 ## [0.17.0] - 2026-05-12
 

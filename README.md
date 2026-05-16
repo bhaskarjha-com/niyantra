@@ -118,15 +118,23 @@ niyantra serve    # Dashboard shows your real data
 
 ### Know Your Quotas
 
-Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor Codex/ChatGPT via an API proxy, track Claude Code rate limits via statusline bridge, track Cursor usage via session token API, monitor Gemini CLI quota via OAuth, and **track GitHub Copilot** premium interactions via PAT. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. See who's ready, who's exhausted, and when resets happen.
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor **Codex/ChatGPT** via OAuth API, track **Claude Code** rate limits + deep JSONL token analytics, track **Cursor** usage via session token API, monitor **Gemini CLI** quota via OAuth, and track **GitHub Copilot** premium interactions via PAT. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. **7 providers** in one unified view.
 
 ### Control Your Spending
 
-Track subscriptions across **26+ AI platforms** with renewals, spending breakdowns, and CSV export. Set a monthly budget and get forecasts before you overspend. Visual renewal calendar so nothing surprises you.
+Track subscriptions across **26+ AI platforms** with renewals, spending breakdowns, and CSV export. Set a monthly budget and get forecasts before you overspend. Visual renewal calendar so nothing surprises you. **Estimated cost tracking** calculates per-model spend from quota deltas × model pricing. **Git commit correlation** attributes AI costs to specific feature branches.
 
 ### Let AI Help You Code Smarter
 
-**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (12 tools over stdio + HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (11 tools over stdio + Streamable HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
+
+### Stay Informed
+
+**Quad-channel notifications** alert you when quotas drop below threshold:
+- **OS-native** (PowerShell / osascript / notify-send)
+- **SMTP Email** (TLS/STARTTLS, HTML templates)
+- **Webhooks** (Discord, Telegram, Slack, ntfy/Gotify)
+- **WebPush** (browser push, works with tab closed)
 
 ### Your Data, Your Machine
 
@@ -140,10 +148,10 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 | Tab | What it shows |
 |-----|---------------|
-| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider & status filters, split-button snap, twin-axis history chart, AI Credits tracking |
+| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude/Cursor/Gemini/Copilot), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider, status & tag filters, split-button snap, twin-axis history chart, activity heatmap, AI Credits tracking |
 | **Subscriptions** | Hybrid card + provider layout with spend summary, search, 26 platform presets, CSV export |
-| **Overview** | Monthly budget vs actual, switch advisor, provider health cards, Codex status, sessions timeline, renewal calendar |
-| **Settings** | Auto-capture, polling interval, notifications, Claude bridge, Codex, backup/restore, command palette (`Ctrl+K`) |
+| **Overview** | Monthly budget vs actual, switch advisor, provider health cards, estimated cost tracking, Git commit costs, token usage analytics, sessions timeline, renewal calendar, JSON/CSV export |
+| **Settings** | Auto-capture (7 providers), polling interval, notifications (4 channels), model pricing, Claude bridge, backup/restore, command palette (`Ctrl+K`) |
 
 ---
 
@@ -169,9 +177,9 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-**9 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status` `quota_forecast`
+**11 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status` `quota_forecast` `token_usage` `git_commit_costs`
 
-Add to your MCP client config (Claude Desktop, Antigravity, etc.):
+**Stdio transport** (local agents):
 ```json
 {
   "mcpServers": {
@@ -183,7 +191,9 @@ Add to your MCP client config (Claude Desktop, Antigravity, etc.):
 }
 ```
 
-Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much am I spending?"*
+**Streamable HTTP transport** (remote agents): `POST /mcp` on the running dashboard server. SSE streaming, session management.
+
+Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much did my last feature branch cost?"*
 
 ---
 
@@ -191,12 +201,14 @@ Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much 
 
 | Feature | Niyantra | Quota trackers (onWatch, CodexBar) | Sub trackers (Wallos) | Account managers (Antigravity-Manager) |
 |---------|----------|-------------------------------|---------------------------|-----------|
-| AI quota monitoring | 3 providers (AG + Codex + Claude) | 9-16+ providers | — | 4+ providers |
+| AI quota monitoring | 7 providers (AG + Codex + Claude + Cursor + Gemini + Copilot + Manual) | 9-16+ providers | — | 4+ providers |
 | Multi-account per provider | ✅ 28+ (passive, safe) | ❌ Single-account | — | ✅ (active switching ⚠️) |
 | Subscription management | 26 AI platforms, renewals, CSV | — | Generic subs | — |
 | Budget forecasting | Monthly budget with projections | — | Basic budget | — |
 | Switch advisor (account routing) | Multi-factor scoring engine | — | — | — |
-| MCP for AI agents | 8 tools over stdio | — | — | — |
+| MCP for AI agents | 11 tools over stdio + HTTP | — | — | — |
+| Notifications | Quad-channel (OS + SMTP + Webhook + WebPush) | — | 10+ channels | — |
+| Token analytics | Per-model cost estimation + git correlation | — | — | — |
 | Renewal calendar | Visual month view | — | Calendar view | — |
 | Activity audit trail | Full provenance on every data point | — | — | — |
 | Zero-daemon default | Manual mode, opt-in auto | Daemon by default | N/A | Daemon |
@@ -204,7 +216,7 @@ Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much 
 | Docker support | ✅ Distroless + Alpine | ✅ | ✅ | — |
 | License | MIT | MIT / GPL-3 | GPL-3 | MIT |
 
-> **Competitive position:** Niyantra scores **24/37 features** in our competitive analysis — leading all 28 tools evaluated across 8 market categories. The closest competitor (onWatch) scores 12/37. See [VISION.md](docs/VISION.md) for full market positioning.
+> **Competitive position:** Niyantra scores **37+ features** in our competitive analysis — leading all 28 tools evaluated across 8 market categories. The closest competitor (onWatch) scores 12/37. See [VISION.md](docs/VISION.md) for full market positioning.
 
 ---
 
@@ -223,7 +235,7 @@ Yes! Niyantra's subscription manager, budget tracking, and renewal calendar work
 
 ### "Is my data sent anywhere?"
 
-No. By default, Niyantra makes HTTP calls purely locally to `127.0.0.1` (your local Antigravity Language Server). There is no telemetry or analytics. **Note:** If you explicitly enable the optional *Codex Capture* feature, your local credentials will securely query OpenAI's authorization servers to monitor external quota balances. For detailed behavior, see [SECURITY.md](docs/SECURITY.md) for the full threat model.
+No. By default, Niyantra makes HTTP calls purely locally to `127.0.0.1` (your local Antigravity Language Server). There is no telemetry or analytics. **Optional provider polling** (Codex, Cursor, Gemini, Copilot) makes HTTPS calls to their respective APIs when explicitly enabled. **Optional notifications** (SMTP, Webhook, WebPush) make outbound calls to configured endpoints. See [SECURITY.md](docs/SECURITY.md) for the full threat model.
 
 ### "How do I update?"
 
@@ -240,7 +252,7 @@ Re-run the install command or download the latest from [Releases](https://github
 | Go stdlib | Everything else -- HTTP, JSON, embed, crypto |
 
 No web frameworks. No ORMs. Chart.js bundled locally from embedded assets.
-Frontend: 27 TypeScript modules (strict mode) bundled by esbuild into a single IIFE.
+Frontend: 30 TypeScript modules (strict mode) bundled by esbuild into a single IIFE.
 
 ## Documentation
 
@@ -249,12 +261,12 @@ Frontend: 27 TypeScript modules (strict mode) bundled by esbuild into a single I
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (31 endpoints) |
-| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v11 (11 tables) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (60 endpoints) |
+| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v18 (18 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
-| [TESTING.md](docs/TESTING.md) | Test cases |
+| [TESTING.md](docs/TESTING.md) | 148 automated tests + manual test cases |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [CHANGELOG.md](CHANGELOG.md) | Version history (v0.1.0 → v0.26.0) |
 
 ## Contributing
 

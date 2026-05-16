@@ -7,7 +7,7 @@ before:
   hooks:
     - go mod tidy
     - go vet ./...
-    - go test ./internal/readiness/ ./internal/advisor/
+    - go test ./...
 
 builds:
   - id: niyantra
