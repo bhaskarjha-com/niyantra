@@ -118,7 +118,7 @@ niyantra serve    # Dashboard shows your real data
 
 ### Know Your Quotas
 
-Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor **Codex/ChatGPT** via OAuth API, track **Claude Code** rate limits + deep JSONL token analytics, track **Cursor** usage via session token API, monitor **Gemini CLI** quota via OAuth, and track **GitHub Copilot** premium interactions via PAT. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. **7 providers** in one unified view.
+Auto-capture Antigravity per-model quotas (Claude, Gemini, GPT) with rolling 5-hour reset detection. Track your native **Google AI Credits** balances continuously. Monitor **Codex/ChatGPT** via OAuth API, track **Claude Code** rate limits + deep JSONL token analytics, track **Cursor** usage via session token API, monitor **Gemini CLI** quota via OAuth, and track **GitHub Copilot** premium interactions via PAT. **Quick Adjust** lets you fine-tune stale values with ±5%/±10% buttons right on the dashboard. **7 providers** in one unified view. **Plugin system** (F18) lets you track any custom AI service via external scripts in any language.
 
 ### Control Your Spending
 
@@ -126,7 +126,7 @@ Track subscriptions across **26+ AI platforms** with renewals, spending breakdow
 
 ### Let AI Help You Code Smarter
 
-**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (11 tools over stdio + Streamable HTTP) lets your AI agent check quotas, analyze spending, and get routing recommendations mid-task — locally or remotely.
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (12 tools over stdio + Streamable HTTP) lets your AI agent check quotas, analyze spending, query plugin data, and get routing recommendations mid-task — locally or remotely.
 
 ### Stay Informed
 
@@ -151,7 +151,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 | **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude/Cursor/Gemini/Copilot), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider, status & tag filters, split-button snap, twin-axis history chart, activity heatmap, AI Credits tracking |
 | **Subscriptions** | Hybrid card + provider layout with spend summary, search, 26 platform presets, CSV export |
 | **Overview** | Monthly budget vs actual, switch advisor, provider health cards, estimated cost tracking, Git commit costs, token usage analytics, sessions timeline, renewal calendar, JSON/CSV export |
-| **Settings** | Auto-capture (7 providers), polling interval, notifications (4 channels), model pricing, Claude bridge, backup/restore, command palette (`Ctrl+K`) |
+| **Settings** | Auto-capture (7 providers), polling interval, notifications (4 channels), plugin management, model pricing, Claude bridge, backup/restore, command palette (`Ctrl+K`) |
 
 ---
 
@@ -177,7 +177,7 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 Niyantra exposes quota intelligence to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
-**11 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status` `quota_forecast` `token_usage` `git_commit_costs`
+**12 tools:** `quota_status` `model_availability` `usage_intelligence` `budget_forecast` `best_model` `analyze_spending` `switch_recommendation` `codex_status` `quota_forecast` `token_usage` `git_commit_costs` `plugin_status`
 
 **Stdio transport** (local agents):
 ```json
@@ -206,7 +206,7 @@ Then ask: *"What's my quota?"* or *"Which account should I use?"* or *"How much 
 | Subscription management | 26 AI platforms, renewals, CSV | — | Generic subs | — |
 | Budget forecasting | Monthly budget with projections | — | Basic budget | — |
 | Switch advisor (account routing) | Multi-factor scoring engine | — | — | — |
-| MCP for AI agents | 11 tools over stdio + HTTP | — | — | — |
+| MCP for AI agents | 12 tools over stdio + HTTP | — | — | — |
 | Notifications | Quad-channel (OS + SMTP + Webhook + WebPush) | — | 10+ channels | — |
 | Token analytics | Per-model cost estimation + git correlation | — | — | — |
 | Renewal calendar | Visual month view | — | Calendar view | — |
@@ -262,9 +262,9 @@ Frontend: 30 TypeScript modules (strict mode) bundled by esbuild into a single I
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
 | [API_SPEC.md](docs/API_SPEC.md) | REST API reference (60 endpoints) |
-| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v18 (18 tables) |
+| [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v19 (19 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
-| [TESTING.md](docs/TESTING.md) | 148 automated tests + manual test cases |
+| [TESTING.md](docs/TESTING.md) | 158 automated tests + manual test cases |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |
 | [CHANGELOG.md](CHANGELOG.md) | Version history (v0.1.0 → v0.26.0) |
 
