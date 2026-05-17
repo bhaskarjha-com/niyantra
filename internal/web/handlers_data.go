@@ -263,6 +263,12 @@ func (s *Server) handleSnapAdjust(w http.ResponseWriter, r *http.Request) {
 		"adjustments": adjustCount,
 	})
 
+	// Reset notification suppression — user manually intervened,
+	// so any "already notified" state is stale. Re-arm all alerts.
+	if s.notifier != nil {
+		s.notifier.ResetAllGuards()
+	}
+
 	writeJSON(w, map[string]interface{}{
 		"message":     "snapshot adjusted",
 		"snapshotId":  req.SnapshotID,

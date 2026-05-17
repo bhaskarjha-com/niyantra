@@ -310,7 +310,9 @@ func (s *Server) handleExportCSV(w http.ResponseWriter, r *http.Request) {
 	defer writer.Flush()
 
 	// Header row
-	// TODO(audit#23): Add Token Limit, Credit Limit, Request Limit columns
+	// N23: Token Limit, Credit Limit, Request Limit columns are omitted
+	// because subscriptions are user-entered, not API-queried. These
+	// fields would require a schema extension — tracked for v2.
 	// for Cursor USD credit billing and Copilot request-based quota systems.
 	writer.Write([]string{
 		"Platform", "Category", "Plan", "Status",

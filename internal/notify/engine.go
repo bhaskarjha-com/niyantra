@@ -255,6 +255,26 @@ func (e *Engine) OnReset(model string) {
 	e.logger.Debug("Notification guard cleared for model", "model", model)
 }
 
+// ResetGuard clears the notification suppression for a specific guard key.
+// Call this after manual user actions (Quick Adjust, config change) that
+// invalidate the "already notified" state.
+func (e *Engine) ResetGuard(guardKey string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.guard, guardKey)
+	e.logger.Debug("Notification guard manually reset", "key", guardKey)
+}
+
+// ResetAllGuards clears all notification suppression timers.
+// Used after significant manual intervention (e.g., Quick Adjust) to
+// re-arm all quota alerts so the user gets fresh notifications.
+func (e *Engine) ResetAllGuards() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.guard = make(map[string]time.Time)
+	e.logger.Info("All notification guards reset")
+}
+
 // SendTest sends a test notification to verify the platform works.
 func (e *Engine) SendTest() error {
 	return Send(

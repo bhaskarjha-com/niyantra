@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/plugin"
 	"github.com/bhaskarjha-com/niyantra/internal/store"
@@ -138,8 +139,17 @@ func (s *Server) handlePluginRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute the plugin
+	runStart := time.Now()
 	result, err := target.Run(r.Context(), s.logger)
+	elapsed := time.Since(runStart)
 	if err != nil {
+		// Log failed test run for observability
+		s.store.LogInfo("ui", "plugin_test_run", "", map[string]interface{}{
+			"pluginId":    pluginID,
+			"success":     false,
+			"error":       err.Error(),
+			"duration_ms": elapsed.Milliseconds(),
+		})
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": err.Error(),
@@ -182,6 +192,18 @@ func (s *Server) handlePluginRun(w http.ResponseWriter, r *http.Request) {
 			persisted = true
 		}
 	}
+
+	// Log successful test run for observability
+	s.store.LogInfo("ui", "plugin_test_run", "", map[string]interface{}{
+		"pluginId":     pluginID,
+		"provider":     result.Data.Provider,
+		"usagePct":     result.Data.UsagePct,
+		"usageDisplay": result.Data.UsageDisplay,
+		"planType":     result.Data.Plan,
+		"success":      true,
+		"persisted":    persisted,
+		"duration_ms":  elapsed.Milliseconds(),
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{

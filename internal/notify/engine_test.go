@@ -197,3 +197,47 @@ func TestGuardTTLExpiry(t *testing.T) {
 		t.Error("expected guard timestamp to be updated after TTL expiry")
 	}
 }
+
+func TestResetGuard(t *testing.T) {
+	e := NewEngine(slog.Default())
+	e.Configure(true, 10)
+
+	// Set guards for multiple models
+	e.mu.Lock()
+	e.guard["model_a"] = time.Now()
+	e.guard["model_b"] = time.Now()
+	e.mu.Unlock()
+
+	// Reset only model_a
+	e.ResetGuard("model_a")
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if !e.guard["model_a"].IsZero() {
+		t.Error("expected model_a guard to be cleared")
+	}
+	if e.guard["model_b"].IsZero() {
+		t.Error("expected model_b guard to remain intact")
+	}
+}
+
+func TestResetAllGuards(t *testing.T) {
+	e := NewEngine(slog.Default())
+	e.Configure(true, 10)
+
+	// Set guards for multiple models
+	e.mu.Lock()
+	e.guard["model_a"] = time.Now()
+	e.guard["model_b"] = time.Now()
+	e.guard["claude_5h"] = time.Now()
+	e.mu.Unlock()
+
+	// Reset all guards
+	e.ResetAllGuards()
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if len(e.guard) != 0 {
+		t.Errorf("expected all guards cleared, got %d remaining", len(e.guard))
+	}
+}

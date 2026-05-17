@@ -140,35 +140,59 @@ func (a *PollingAgent) Run(ctx context.Context) error {
 	}
 }
 
-// poll performs a single capture cycle across all providers.
+// poll performs a single capture cycle across all providers concurrently.
 func (a *PollingAgent) poll(ctx context.Context) {
 	// Check if polling is enabled via config
 	if a.pollingCheck != nil && !a.pollingCheck() {
 		return
 	}
 
+	start := time.Now()
+	var wg sync.WaitGroup
+	// Semaphore: limit to 4 concurrent provider calls to prevent
+	// overwhelming network or triggering upstream rate limits.
+	sem := make(chan struct{}, 4)
+
+	// Helper to run a provider in a goroutine with semaphore limiting
+	run := func(name string, fn func()) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sem <- struct{}{}        // acquire
+			defer func() { <-sem }() // release
+			providerStart := time.Now()
+			fn()
+			a.logger.Debug("Provider poll complete", "provider", name, "elapsed", time.Since(providerStart).Truncate(time.Millisecond))
+		}()
+	}
+
 	// Antigravity: primary provider with backoff management
-	a.pollAntigravity(ctx)
+	run("antigravity", func() { a.pollAntigravity(ctx) })
 
 	// Claude Code bridge: read statusline data if bridge is enabled
-	a.pollClaudeBridge()
+	run("claude", func() { a.pollClaudeBridge() })
 
 	// Codex polling: if codex_capture is enabled
-	a.pollCodex(ctx)
+	run("codex", func() { a.pollCodex(ctx) })
 
 	// Cursor polling: if cursor_capture is enabled
-	a.pollCursor(ctx)
+	run("cursor", func() { a.pollCursor(ctx) })
 
 	// Gemini CLI polling: if gemini_capture is enabled
-	a.pollGemini(ctx)
+	run("gemini", func() { a.pollGemini(ctx) })
 
 	// GitHub Copilot polling: if copilot_capture is enabled
-	a.pollCopilot(ctx)
+	run("copilot", func() { a.pollCopilot(ctx) })
 
 	// F18: External plugin polling
-	a.pollPlugins(ctx)
+	run("plugins", func() { a.pollPlugins(ctx) })
+
+	wg.Wait()
+	elapsed := time.Since(start)
+	a.logger.Info("Poll cycle complete", "elapsed", elapsed.Truncate(time.Millisecond), "providers", 7)
 
 	// Data retention cleanup: delete snapshots older than retention_days
+	// (runs after all providers, not in parallel — it's a single DB operation)
 	a.cleanupOldSnapshots()
 }
 
