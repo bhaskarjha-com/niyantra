@@ -149,6 +149,7 @@ Each section has its own header with provider color coding and can be collapsed/
 **Quota History Chart**: Below the provider sections. Twin Y-axis line chart:
 - Left Y-Axis: 0-100% quota burndown across LLM models
 - Right Y-Axis: absolute AI Credits token balance over time
+- **Event Annotations** (F19): Activity events (config changes, account additions, subscriptions) appear as color-coded markers on the chart timeline. Hover for details.
 - Adapts to dark/light theme automatically
 
 **Activity Heatmap**: GitHub-style 365-day contribution grid showing daily snapshot activity.
@@ -204,6 +205,20 @@ The intelligence hub combining data from all sources.
 
 **Quick Links:**
 - Per-platform dashboard links (deduplicated) for one-click access to provider billing pages
+
+**Shareable Report (F16):**
+- Click **📊 Monthly Report** in the Export card to generate a 1200×630px PNG
+- Includes total spend, top category, provider count, activity trend bars, and streak stats
+- DPR-aware rendering for Retina displays
+
+**Anomaly Detection (F5):**
+- Z-score statistical engine flags cost spikes > 2σ above the 30-day rolling average
+- Dismissible alert cards with severity classification (Warning / Critical)
+- Budget projection shows estimated monthly spend at the anomalous rate
+
+**Sparkline KPIs (F2):**
+- Monthly AI Spend card shows a 7-day trend sparkline with direction indicator
+- Token Analytics KPIs include mini trend lines for at-a-glance monitoring
 
 **Renewal Calendar:**
 - Visual month-view grid with pins on renewal dates
@@ -355,7 +370,7 @@ Each account gets a score (0-100) based on three factors:
 
 ## MCP Server
 
-Niyantra exposes 11 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
+Niyantra exposes 12 tools to AI coding agents via the [Model Context Protocol](https://modelcontextprotocol.io).
 
 ### Setup
 
@@ -379,7 +394,7 @@ Add to your MCP client config:
 
 Connect to `POST /mcp` on the running dashboard server. Supports SSE streaming and session management via `Mcp-Session-Id` header.
 
-### Available Tools (11)
+### Available Tools (12)
 
 | Tool | What you can ask |
 |------|-----------------|
@@ -394,6 +409,7 @@ Connect to `POST /mcp` on the running dashboard server. Supports SSE streaming a
 | `quota_forecast` | "When will I exhaust quota at current rate?" |
 | `token_usage` | "How many tokens did I use today?" |
 | `git_commit_costs` | "What did my last feature branch cost?" |
+| `plugin_status` | "What's the latest data from my plugins?" |
 
 ### Running
 
@@ -519,6 +535,14 @@ Browser push notifications using VAPID (RFC 8292) + RFC 8291 encryption.
 ### Once-Per-Cycle Guard
 
 Notifications fire once per reset cycle, not every poll. All 4 channels fire independently and asynchronously.
+
+### Digest Mode (F8)
+
+Instead of receiving individual alerts for each quota breach, enable **Digest Mode** to batch multiple alerts into a single summary notification:
+- Configurable window (default: 5 minutes)
+- Early flush at 5 accumulated alerts
+- Delivers via all 4 channels simultaneously
+- Thread-safe batch-on-write pattern
 
 ---
 

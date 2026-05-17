@@ -126,7 +126,7 @@ Track subscriptions across **26+ AI platforms** with renewals, spending breakdow
 
 ### Let AI Help You Code Smarter
 
-**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (12 tools over stdio + Streamable HTTP) lets your AI agent check quotas, analyze spending, query plugin data, and get routing recommendations mid-task — locally or remotely.
+**Switch Advisor** ranks your accounts and tells you which one to use right now. **MCP Server** (12 tools over stdio + Streamable HTTP) lets your AI agent check quotas, analyze spending, query plugin data, and get routing recommendations mid-task — locally or remotely. **Anomaly detection** uses Z-score statistical analysis to proactively flag cost spikes.
 
 ### Stay Informed
 
@@ -148,10 +148,10 @@ SQLite database. No cloud. No telemetry. Full provenance audit trail on every sn
 
 | Tab | What it shows |
 |-----|---------------|
-| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude/Cursor/Gemini/Copilot), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider, status & tag filters, split-button snap, twin-axis history chart, activity heatmap, AI Credits tracking |
+| **Quotas** | Provider-sectioned layout (Antigravity/Codex/Claude/Cursor/Gemini/Copilot), per-model progress bars with reset timers, Quick Adjust (±5%/±10%), provider, status & tag filters, split-button snap, twin-axis history chart with event annotations, activity heatmap, AI Credits tracking |
 | **Subscriptions** | Hybrid card + provider layout with spend summary, search, 26 platform presets, CSV export |
-| **Overview** | Monthly budget vs actual, switch advisor, provider health cards, estimated cost tracking, Git commit costs, token usage analytics, sessions timeline, renewal calendar, JSON/CSV export |
-| **Settings** | Auto-capture (7 providers), polling interval, notifications (4 channels), plugin management, model pricing, Claude bridge, backup/restore, command palette (`Ctrl+K`) |
+| **Overview** | Safe to Spend guardrail, anomaly alerts, monthly budget vs actual, switch advisor, provider health cards, sparkline KPIs, estimated cost tracking, Git commit costs, token usage analytics, sessions timeline, renewal calendar, shareable PNG report, JSON/CSV export |
+| **Settings** | Auto-capture (7 providers), polling interval, notifications (4 channels + digest mode), plugin management, model pricing, Claude bridge, backup/restore, command palette (`Ctrl+K`) |
 
 ---
 
@@ -252,7 +252,7 @@ Re-run the install command or download the latest from [Releases](https://github
 | Go stdlib | Everything else -- HTTP, JSON, embed, crypto |
 
 No web frameworks. No ORMs. Chart.js bundled locally from embedded assets.
-Frontend: 30 TypeScript modules (strict mode) bundled by esbuild into a single IIFE.
+Frontend: 34 TypeScript modules (strict mode) bundled by esbuild into a single IIFE.
 
 ## Documentation
 
@@ -261,12 +261,12 @@ Frontend: 30 TypeScript modules (strict mode) bundled by esbuild into a single I
 | **[USER_GUIDE.md](docs/USER_GUIDE.md)** | **Complete feature guide — start here** |
 | [VISION.md](docs/VISION.md) | Product vision, market position, roadmap (Phases 1-16), competitive analysis |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System design, data flow, security model |
-| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (60 endpoints) |
+| [API_SPEC.md](docs/API_SPEC.md) | REST API reference (60+ endpoints) |
 | [DATA_MODEL.md](docs/DATA_MODEL.md) | SQLite schema v19 (19 tables) |
 | [SECURITY.md](docs/SECURITY.md) | What data is accessed, network behavior, threat model |
-| [TESTING.md](docs/TESTING.md) | 170+ automated tests + manual test cases |
+| [TESTING.md](docs/TESTING.md) | 341 automated tests + manual test cases |
 | [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Development setup, code style, PR guidelines |
-| [CHANGELOG.md](CHANGELOG.md) | Version history (v0.1.0 → v0.27.0) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history (v0.1.0 → v0.29.0) |
 
 ## Contributing
 

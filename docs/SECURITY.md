@@ -1,6 +1,6 @@
 # Security Model
 
-> **Updated:** v0.27.0 · 7 providers + plugins · 4 notification channels · 5 security headers · Rate limiting
+> **Updated:** v0.29.0 · 7 providers + plugins · 4 notification channels + digest · 5 security headers · Rate limiting
 
 ## What Niyantra Accesses
 

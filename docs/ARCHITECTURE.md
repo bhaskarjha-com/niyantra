@@ -1,6 +1,6 @@
 # Architecture: Niyantra
 
-> **Updated:** v0.26.1 · Schema v19 · 19 tables · 60+ REST endpoints · 148 tests
+> **Updated:** v0.29.0 · Schema v19 · 19 tables · 60+ REST endpoints · 341 tests
 
 ## System Overview
 
@@ -21,8 +21,8 @@ Application Layer
   advisor/      - switch recommendation engine
   tracker/      - cycle detection + intelligence + sessions
   readiness/    - pure readiness computation (reset-time-corrected)
-  notify/       - quad-channel notifications (OS + SMTP + Webhook + WebPush)
-  forecast/     - cost + TTX forecasting
+  notify/       - quad-channel notifications (OS + SMTP + Webhook + WebPush) + digest batching
+  forecast/     - cost + TTX forecasting + anomaly detection (Z-score)
   costtrack/    - blended model pricing + cost calculation
   tokenusage/   - Claude Code JSONL token analytics
   gitcorr/      - git commit ↔ token usage cost correlation
@@ -39,7 +39,7 @@ Storage Layer
 cmd/niyantra/main.go
   +-- client       (detect Antigravity LS, fetch quotas via Connect RPC)
   +-- store        (SQLite, all persistence — 19 tables, 24 files)
-  +-- web          (HTTP server + dashboard — 19 Go files, 30 TS modules)
+  +-- web          (HTTP server + dashboard — 19 Go files, 34 TS modules)
   |    +-- agent        (polling loop, backoff, graceful shutdown)
   |    +-- tracker      (cycles + sessions)
   |    +-- advisor      (switch engine)
@@ -48,9 +48,9 @@ cmd/niyantra/main.go
   |    +-- cursor       (Cursor Pro quota polling)
   |    +-- gemini       (Gemini CLI OAuth + GCP APIs)
   |    +-- copilot      (GitHub Copilot billing)
-  |    +-- notify       (OS + SMTP + Webhook + WebPush — 4 channels)
+  |    +-- notify       (OS + SMTP + Webhook + WebPush - 4 channels + digest)
   |    +-- costtrack    (blended pricing engine)
-  |    +-- forecast     (TTX + cost forecasting)
+  |    +-- forecast     (TTX + cost forecasting + anomaly detection)
   |    +-- tokenusage   (Claude JSONL token analytics)
   |    +-- gitcorr      (git commit cost correlation)
   |    +-- plugin       (plugin discovery, manifest validation, subprocess exec)
@@ -172,7 +172,7 @@ Provides alert delivery for quota warnings via 4 independent channels:
 | Webhook | `webhook.go` | Pure Go `net/http` — Discord, Telegram, Slack, Generic |
 | WebPush | `webpush.go` | Pure Go VAPID (RFC 8292) + RFC 8291 encryption |
 
-**Engine** (`engine.go`): threshold-gated, once-per-cycle guard, all async channels fire in goroutines.
+**Engine** (`engine.go`): threshold-gated, once-per-cycle guard, all async channels fire in goroutines. **Digest mode** (`digest.go`): batch-on-write pattern collects alerts within a time window and flushes as a single summary.
 
 **Zero dependencies**: WebPush implements HKDF (RFC 5869) from stdlib `crypto/hmac` + `crypto/sha256`. No `x/crypto` import.
 
@@ -206,7 +206,7 @@ Serves a 4-tab dashboard with embedded static assets and a REST API.
 
 60 REST API endpoints organized by domain. Full documentation in `docs/API_SPEC.md`.
 
-Stack: Go embed.FS + TypeScript (strict mode, 30 modules) bundled via esbuild into a single IIFE. Chart.js bundled locally from embedded assets.
+Stack: Go embed.FS + TypeScript (strict mode, 34 modules) bundled via esbuild into a single IIFE. Chart.js bundled locally from embedded assets.
 
 ## 6. Providers (7)
 
@@ -290,6 +290,24 @@ Mark model as notified for this cycle
   |
   v
 Create system_alert + activity_log entry
+```
+
+### Anomaly Detection Flow (Z-score)
+
+```
+GET /api/anomalies triggered by frontend dashboard
+  |
+  v
+handlers_forecast.go collects daily spend from subscriptions + account data
+  |
+  v
+forecast.DetectAnomalies(dailyAmounts, threshold=2.0)
+  |
+  v
+Rolling 30-day mean + stddev → Z-score per day
+  |
+  v
+Return anomalies with severity (warning: 2-3σ, critical: >3σ)
 ```
 
 ## Security Model

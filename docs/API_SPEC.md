@@ -1907,3 +1907,39 @@ curl -X POST http://localhost:9222/mcp \
 
 > **Claude Desktop Config:** To connect Claude Desktop to a remote Niyantra instance, configure the MCP server URL as `http://<host>:9222/mcp` using the Streamable HTTP transport type.
 
+---
+
+### `GET /api/anomalies`
+
+Returns detected cost anomalies using Z-score statistical analysis. Analyzes subscription and account spending history to identify days where spend exceeds 2σ above the rolling 30-day average.
+
+**Response:** `200 OK`
+
+```json
+{
+  "anomalies": [
+    {
+      "date": "2026-05-15",
+      "amount": 45.20,
+      "average": 12.50,
+      "zScore": 2.61,
+      "multiplier": 3.62,
+      "severity": "warning",
+      "budgetProjection": 1356.00
+    }
+  ],
+  "analyzed": true,
+  "dataPoints": 30
+}
+```
+
+**Fields:**
+- `zScore`: Standard deviations above the mean (≥2.0 = warning, ≥3.0 = critical)
+- `multiplier`: How many times the average this day's spend represents
+- `severity`: `"warning"` (2-3σ) or `"critical"` (>3σ)
+- `budgetProjection`: Estimated monthly spend if this rate continues
+
+**Notes:**
+- Requires at least 7 days of data to produce meaningful results
+- Returns empty `anomalies` array if insufficient data or no anomalies detected
+- Uses `internal/forecast/anomaly.go` Z-score engine (zero dependencies)
