@@ -83,10 +83,30 @@ is the documented backup option.
 ### Domain: Single-Origin Architecture
 
 All services hosted under `niyantra.bhaskarjha.dev` (single first-level subdomain).
-PocketBase serves both the API and PWA static files from `pb_public/`. This avoids:
+PocketBase serves the API, landing page, and cloud dashboard from `pb_public/`. This avoids:
 - Second-level subdomain SSL issues (Cloudflare free cert doesn't cover `api.niyantra.*`)
 - CORS configuration (same origin = no cross-origin requests)
 - Extra DNS records (one A record to Oracle Cloud IP)
+
+URL structure:
+- `/` — Landing page (marketing, public)
+- `/app/` — Cloud dashboard SPA (auth required, full CRUD + analytics)
+- `/api/*` — PocketBase REST API (auth required)
+- `/privacy`, `/terms` — Legal pages (public, required for OAuth)
+- `/_/` — PocketBase Admin (admin-only, IP-restricted via Caddy)
+
+### Cloud Dashboard: Full Management Console (~85% of Local)
+
+The cloud dashboard is NOT read-only. It provides:
+- **Full CRUD**: subscriptions, account notes/tags, budget, model pricing, Quick Adjust
+- **Full analytics**: quota cards, heatmap, token usage, cost charts, forecast, advisor
+- **Cloud-exclusive**: cross-machine analytics, fleet overview, scheduled emails, infinite history, data continuity
+- **Local-only** (cannot work remotely): snap capture, plugin execution, MCP, git costs, secret config
+
+PocketBase hooks enable cloud-native features:
+- `onRecordAfterCreate` on snapshot collections → fire quota alerts even when source machine is idle
+- Cron job → weekly AI spend summary email
+- No retention cleanup → infinite historical data (vs. 90-day local default)
 
 ### Schema: v20 Migration
 
@@ -99,10 +119,13 @@ rows uses stdlib `crypto/rand` (no new dependency).
 ### Positive
 
 - Multi-machine sync enables the #1 most-requested feature
-- PWA mobile access with zero additional code (existing sw.js extends)
+- Cloud dashboard is a full ~85% management console, not a read-only viewer
+- 5 cloud-exclusive features (cross-machine analytics, fleet view, scheduled emails, infinite history, data continuity) add genuine Pro tier value
+- PWA mobile access with zero extra framework (existing sw.js extends)
 - Cloud sync is the revenue gate (Free = local, Pro = cloud) — enables sustainability
 - Only 1 new dependency (go-keyring) — consistent with minimal-dep philosophy
 - Data isolation guaranteed by PocketBase row-level security
+- PocketBase hooks enable server-side intelligence (alerts, cron reports) that run 24/7
 
 ### Negative
 
