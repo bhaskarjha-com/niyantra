@@ -23,7 +23,8 @@
 .grid-codex.grid-header,
 .grid-claude.grid-header,
 .grid-cursor.grid-header,
-.grid-gemini.grid-header {
+.grid-gemini.grid-header,
+.grid-copilot.grid-header {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -47,6 +48,15 @@
 .grid-gemini {
   display: grid;
   grid-template-columns: 2fr 80px 120px 100px 80px;
+  align-items: center;
+  gap: 0 8px;
+  padding: 0 16px;
+}
+
+/* Copilot grid: Account | Plan | Premium | Chat | Last Snap | Status */
+.grid-copilot {
+  display: grid;
+  grid-template-columns: 2fr 80px 120px 120px 100px 80px;
   align-items: center;
   gap: 0 8px;
   padding: 0 16px;
@@ -79,6 +89,7 @@
 .provider-section[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
 .provider-section[data-provider="cursor"] { border-left: 3px solid var(--provider-cursor); }
 .provider-section[data-provider="gemini"] { border-left: 3px solid var(--provider-gemini); }
+.provider-section[data-provider="copilot"] { border-left: 3px solid var(--provider-copilot); }
 
 .provider-empty-state {
   text-align: center;
@@ -94,6 +105,7 @@
 .provider-empty-state[data-provider="claude"] { border-left: 3px solid var(--provider-claude); }
 .provider-empty-state[data-provider="cursor"] { border-left: 3px solid var(--provider-cursor); }
 .provider-empty-state[data-provider="gemini"] { border-left: 3px solid var(--provider-gemini); }
+.provider-empty-state[data-provider="copilot"] { border-left: 3px solid var(--provider-copilot); }
 
 .provider-empty-icon {
   font-size: 36px;

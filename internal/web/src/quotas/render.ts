@@ -200,10 +200,11 @@ export function renderAccounts(data: any): void {
   if (data.claudeSnapshot) parts.push('1 Claude');
   if (data.cursorSnapshot) parts.push('1 Cursor');
   if (data.geminiSnapshot) parts.push('1 Gemini');
+  if (data.copilotSnapshot) parts.push('1 Copilot');
   if (countBadge) countBadge.textContent = parts.join(' · ') || '0 accounts';
   if (snapCount) snapCount.textContent = data.snapshotCount ? (data.snapshotCount + ' snapshots') : '';
 
-  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot && !data.geminiSnapshot) {
+  if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot && !data.geminiSnapshot && !data.copilotSnapshot) {
     grid.innerHTML = '<div class="empty-state">' +
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>' +
       '<p>No accounts tracked yet</p>' +
@@ -505,6 +506,12 @@ export function renderAccounts(data: any): void {
       html += renderGeminiProviderSection(data.geminiSnapshot);
     }
   }
+  if (data.copilotSnapshot && (pf === 'all' || pf === 'copilot')) {
+    var cpStatus = getCopilotStatus(data.copilotSnapshot);
+    if (statusVal === 'all' || cpStatus === statusVal) {
+      html += renderCopilotProviderSection(data.copilotSnapshot);
+    }
+  }
 
   // V3: Empty states when a specific provider is selected but has no data
   if (pf === 'antigravity' && acctCount === 0) {
@@ -536,6 +543,12 @@ export function renderAccounts(data: any): void {
       '<span class="provider-empty-icon">✦</span>' +
       '<p>No Gemini CLI data yet</p>' +
       '<p class="empty-hint">Enable Gemini capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
+  }
+  if (pf === 'copilot' && !data.copilotSnapshot) {
+    html += '<div class="provider-empty-state" data-provider="copilot">' +
+      '<span class="provider-empty-icon">🐙</span>' +
+      '<p>No GitHub Copilot data yet</p>' +
+      '<p class="empty-hint">Add a PAT in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
   }
 
   grid.innerHTML = html;
@@ -779,4 +792,54 @@ export function renderGeminiProviderSection(gs: any): string {
     '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
     '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
     '</div>' + modelRows + '</div></div></div>';
+}
+
+export function getCopilotStatus(snap: any): string {
+  var premiumPct = snap.premiumPct || 0;
+  var rem = Math.max(0, 100 - premiumPct);
+  if (rem === 0) return 'empty';
+  if (premiumPct >= 80) return 'low';
+  return 'ready';
+}
+
+export function renderCopilotProviderSection(cp: any): string {
+  // Premium interactions
+  var premiumPct = cp.premiumPct || 0;
+  var premiumRem = Math.max(0, 100 - premiumPct);
+  var premiumCls = premiumRem > 50 ? 'good' : premiumRem > 20 ? 'ok' : premiumRem > 0 ? 'warning' : 'exhausted';
+
+  // Chat usage
+  var chatPct = cp.chatPct || 0;
+  var chatRem = Math.max(0, 100 - chatPct);
+  var chatCls = chatRem > 50 ? 'good' : chatRem > 20 ? 'ok' : chatRem > 0 ? 'warning' : 'exhausted';
+
+  var capturedAgo = cp.capturedAt ? formatTimeAgo(cp.capturedAt) : 'unknown';
+  var dotCls = premiumPct >= 80 ? 'dot-low' : 'dot-ready';
+  var dotText = dotCls === 'dot-ready' ? 'Ready' : 'Low';
+  var displayName = cp.username || cp.email || 'Copilot';
+
+  var cpCollapseClass = collapsedProviders.has('section-copilot') ? ' collapsed' : '';
+  var cpChevron = collapsedProviders.has('section-copilot') ? '\u25b8' : '\u25be';
+
+  return '<div class="provider-section" data-provider="copilot">' +
+    '<div class="provider-header" data-toggle-provider="section-copilot">' +
+    '<div class="provider-header-left">' +
+    '<span class="provider-chevron" id="pchev-section-copilot">' + cpChevron + '</span>' +
+    '<span class="provider-name">\ud83d\udc19 GitHub Copilot</span>' +
+    '<span class="provider-count">1 account</span>' +
+    '</div></div>' +
+    '<div class="provider-body' + cpCollapseClass + '" id="section-copilot">' +
+    '<div class="grid-header grid-copilot">' +
+    '<div>Account</div><div>Plan</div><div>Premium</div><div>Chat</div><div>Last Snap</div><div>Status</div>' +
+    '</div>' +
+    '<div class="account-card"><div class="account-row grid-copilot">' +
+    '<div class="account-info"><div class="account-email">' + esc(displayName) + '</div></div>' +
+    '<div>' + (cp.plan ? '<span class="plan-badge">' + esc(cp.plan) + '</span>' : String.fromCharCode(8212)) + '</div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + premiumCls + '">' + premiumRem.toFixed(0) + '% left</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + premiumCls + '" style="width:' + premiumRem + '%"></div></div></div>' +
+    '<div class="quota-cell"><span class="quota-pct ' + chatCls + '">' + chatRem.toFixed(0) + '% left</span>' +
+    '<div class="quota-minibar"><div class="quota-minibar-fill ' + chatCls + '" style="width:' + chatRem + '%"></div></div></div>' +
+    '<div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div>' +
+    '<div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25cf ' + dotText + '</span></div>' +
+    '</div></div></div></div>';
 }

@@ -1,7 +1,7 @@
 // Niyantra Dashboard — Global State
 // Shared state variables used across all modules.
 
-import type { ServerConfig, QuotaSortState, StatusResponse, GroupColorMap, GroupNameMap } from '../types/api';
+import type { ServerConfig, QuotaSortState, StatusResponse, GroupColorMap, GroupNameMap, PresetEntry } from '../types/api';
 
 export const GROUP_ORDER: string[] = ['claude_gpt', 'gemini_pro', 'gemini_flash'];
 export const GROUP_LABELS: string[] = ['Claude + GPT', 'Gemini Pro', 'Gemini Flash'];
@@ -15,16 +15,16 @@ export const expandedAccounts: Set<number> = new Set();
 export const collapsedProviders: Set<string> = new Set();
 
 // Platform presets (loaded from API)
-export let presetsData: any[] = []; // TODO: type with PresetEntry[]
-export function setPresetsData(data: any[]): void { presetsData = data; }
+export let presetsData: PresetEntry[] = [];
+export function setPresetsData(data: PresetEntry[]): void { presetsData = data; }
 
 // F4: Active tag filter for Quotas tab (null = show all)
 export let activeTagFilter: string | null = null;
 export function setActiveTagFilter(val: string | null): void { activeTagFilter = val; }
 
 // Usage intelligence cache (populated by fetchUsage)
-export let usageDataCache: any = null; // TODO: type properly
-export function setUsageDataCache(data: any): void { usageDataCache = data; }
+export let usageDataCache: Record<string, unknown> | null = null;
+export function setUsageDataCache(data: Record<string, unknown> | null): void { usageDataCache = data; }
 
 // Quota sort state
 export let quotaSortState: QuotaSortState = { column: 'account', direction: 'asc' };

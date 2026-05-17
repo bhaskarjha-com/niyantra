@@ -234,7 +234,7 @@ export interface OverviewResponse {
   readyAccounts: number;
   exhaustedAccounts: number;
   overviewHtml?: string;
-  // TODO: type remaining fields as they're discovered
+  // Extensible: additional fields vary by version and enabled providers
   [key: string]: unknown;
 }
 
