@@ -5,6 +5,8 @@ import { presetsData } from './core/state';
 import type { Subscription } from './types/api';
 import { esc, showToast, currencySymbol, formatDurationSec, formatNumber } from './core/utils';
 import { fetchSubscriptions, createSubscription, updateSubscription, deleteSubscription } from './core/api';
+import { checkOnboardingStep } from './core/onboarding';
+import { emptySubscriptions } from './core/emptyStates';
 
 export function loadSubscriptions(): void {
   var status = (document.getElementById('filter-status') as HTMLInputElement).value;
@@ -26,13 +28,15 @@ export function renderSubscriptions(data: any) {
   summary!.textContent = subs.length + ' subscription' + (subs.length !== 1 ? 's' : '');
 
   if (subs.length === 0) {
-    grid.innerHTML = '<div class="empty-state">' +
-      '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>' +
-      '<p>No subscriptions tracked yet</p>' +
-      '<p class="empty-hint">Click <strong>+ Add</strong> to add your first AI subscription</p>' +
-      '</div>';
+    grid.innerHTML = emptySubscriptions();
+    // Wire up add button in empty state
+    var emptyAddBtn = document.getElementById('empty-add-sub-btn');
+    if (emptyAddBtn) emptyAddBtn.addEventListener('click', function() { openModal(); });
     return;
   }
+
+  // F7-UX: Mark subscription onboarding step as complete
+  checkOnboardingStep('subscription');
 
   // Split subs into auto-tracked provider groups vs manual
   var providerGroups: Record<string, any> = {};

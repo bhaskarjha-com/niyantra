@@ -62,6 +62,43 @@
   padding: 0 16px;
 }
 
+/* ── Per-Model Breakdown (used by Cursor + Gemini providers) ── */
+.cursor-model-breakdown {
+  padding: 12px 16px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.cursor-model-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.5fr) 2fr minmax(70px, auto) auto;
+  align-items: center; gap: 12px;
+  font-size: 13px;
+}
+.cursor-model-name {
+  font-weight: 600; color: var(--accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cursor-model-usage {
+  font-size: 12px; color: var(--text-secondary);
+  text-align: right; font-weight: 500;
+}
+.quota-minibar {
+  height: 7px; background: var(--bg-elevated);
+  border-radius: 4px; overflow: hidden; min-width: 80px;
+}
+.quota-minibar-fill {
+  height: 100%; border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.quota-minibar-fill.good     { background: var(--green); }
+.quota-minibar-fill.ok       { background: var(--amber); }
+.quota-minibar-fill.warning  { background: var(--red); }
+.quota-minibar-fill.exhausted { background: var(--text-muted); }
+.quota-reset {
+  font-size: 11px; color: var(--text-muted); white-space: nowrap;
+}
+
 
 /* ── Category Headers ── */
 

@@ -66,6 +66,8 @@ import { initKeyboardShortcuts } from './advanced/keyboard';
 import { initCommandPalette } from './advanced/palette';
 import { loadSystemAlerts, dismissAlert } from './advanced/alerts';
 import { handleCodexSnap } from './advanced/codex';
+import { renderOnboarding, checkOnboardingStep, autoDetectSteps } from './core/onboarding';
+import { emptyQuotas } from './core/emptyStates';
 
 // ════════════════════════════════════════════
 //  INIT
@@ -88,7 +90,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Tab-change event: domain modules react to tab activation
   document.addEventListener('niyantra:tab-change', function(e) {
     var tab = (e as CustomEvent).detail.tab;
-    if (tab === 'overview') loadOverview();
+    if (tab === 'overview') {
+      loadOverview();
+      checkOnboardingStep('overview');
+    }
     if (tab === 'settings') { loadActivityLog(); loadMode(); loadDataSources(); }
   });
 
@@ -122,8 +127,20 @@ document.addEventListener('DOMContentLoaded', function() {
     populateChartAccountSelect(data);
     loadHistoryChart();
 
+    // F3-UX: Show empty state if no accounts
+    if (!data.accounts || data.accounts.length === 0) {
+      var grid = document.getElementById('account-grid');
+      if (grid) grid.innerHTML = emptyQuotas();
+      // Wire up snap button in empty state
+      var emptySnapBtn = document.getElementById('empty-snap-btn');
+      if (emptySnapBtn) emptySnapBtn.addEventListener('click', handleSnap);
+    }
+
+    // F7-UX: Auto-detect onboarding steps
+    autoDetectSteps(data, serverConfig);
+    renderOnboarding();
+
     // Bug 1 fix: If no codex/claude data on first load, retry after 3s
-    // (first serve often beats the initial codex capture to the DB)
     if (!data.codexSnapshot || !data.claudeSnapshot) {
       setTimeout(function() {
         fetchStatus().then(function(data2) {

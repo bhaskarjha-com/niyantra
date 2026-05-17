@@ -1,6 +1,8 @@
 // Niyantra Dashboard — Activity Heatmap (F6)
 // GitHub-style contribution calendar showing daily snapshot activity across all providers.
 
+import { renderStreakCard } from './streaks';
+
 export function loadHeatmap(): void {
   var container = document.getElementById('heatmap-container');
   if (!container) return;
@@ -180,9 +182,13 @@ function renderHeatmap(container: HTMLElement, data: HeatmapData): void {
     '</div>' +
   '</div>';
 
+  // F4-UX: Streak hero card — rendered above the heatmap grid
+  // (replaces the old statsHTML which showed the same data)
+  var streakHTML = renderStreakCard(data);
+
   container.innerHTML =
+    streakHTML +
     '<h3>Activity</h3>' +
-    statsHTML +
     monthLabelHTML +
     gridHTML +
     '<div class="heatmap-footer">' + legendHTML + '</div>';

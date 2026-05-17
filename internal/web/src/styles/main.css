@@ -37,3 +37,9 @@
 @import './providers-ext.css';
 @import './codex.css';
 @import './sessions.css';
+
+/* UX Enhancement features (F1-F7) */
+@import './ux-features.css';
+@import './sparklines.css';
+@import './onboarding.css';
+@import './token-analytics.css';

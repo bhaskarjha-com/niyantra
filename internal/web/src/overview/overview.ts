@@ -2,7 +2,7 @@
 import { serverConfig, latestQuotaData } from '../core/state';
 import { esc, formatTimeAgo, formatDurationSec } from '../core/utils';
 import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api';
-import { getBudget, openBudgetModal } from './budget';
+import { openBudgetModal } from './budget';
 import { renderServerInsights, loadAdvisorCard } from './insights';
 import { loadCostKPI } from './cost';
 import { loadHeatmap } from './heatmap';
@@ -12,6 +12,9 @@ import { renderClaudeCodeCard, loadClaudeCardData, loadClaudeDeepUsage } from '.
 import { renderSessionsTimeline } from '../advanced/codex';
 import { loadTokenAnalytics } from './tokenAnalytics';
 import { loadGitCosts } from './gitCosts';
+import { renderSafeToSpend, wireSafeToSpendButtons } from './safeToSpend';
+import { renderStreakCard } from './streaks';
+import { renderCountdowns, startCountdownRefresh } from './countdown';
 
 export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
@@ -41,32 +44,16 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   // ── Phase 10: Server-Computed Insights ──
   var insightsHTML = renderServerInsights(serverInsights);
 
-  // ── Budget Status (from usage intelligence) — single source of truth ──
-  var forecastHTML = '';
-  if (usageData && usageData.budgetForecast) {
-    var bf = usageData.budgetForecast;
-    var forecastCls = bf.onTrack ? 'forecast-ok' : 'forecast-over';
-    var forecastIcon = bf.onTrack ? '✅' : '⚠️';
-    var pct = Math.round((bf.currentSpend / bf.monthlyBudget) * 100);
-    var statusMsg = bf.onTrack
-      ? 'On track — $' + bf.currentSpend.toFixed(2) + ' of $' + bf.monthlyBudget.toFixed(2) + ' budget (' + pct + '%)'
-      : 'Over budget — $' + bf.currentSpend.toFixed(2) + ' exceeds $' + bf.monthlyBudget.toFixed(2) + ' by $' +
-        (bf.currentSpend - bf.monthlyBudget).toFixed(2) + ' (' + pct + '%)';
-    forecastHTML = '<div class="overview-card full-width">' +
-      '<h3>Budget Status</h3>' +
-      '<div class="budget-forecast ' + forecastCls + '">' +
-      '<div class="forecast-header">' + forecastIcon + ' ' + statusMsg + '</div>' +
-      '<div class="forecast-details">' +
-      '<span class="forecast-chip">Monthly subs: $' + bf.currentSpend.toFixed(2) + '</span>' +
-      '<span class="forecast-chip">Budget: $' + bf.monthlyBudget.toFixed(2) + '</span>' +
-      '</div></div></div>';
-  } else if (!getBudget()) {
-    forecastHTML = '<div class="overview-card full-width">' +
-      '<div class="budget-forecast forecast-ok">' +
-      '<div class="forecast-header">💰 No monthly budget set</div>' +
-      '<div class="forecast-details"><button class="btn-add-sm" onclick="openBudgetModal()">Set Budget</button></div>' +
-      '</div></div>';
-  }
+  // ── F1-UX: Safe to Spend Guardrail (replaces old budget forecast) ──
+  var safeToSpendHTML = renderSafeToSpend(
+    usageData && usageData.budgetForecast ? usageData.budgetForecast : null,
+    serverConfig['currency'] || 'USD'
+  );
+
+  // ── F6-UX: Reset Countdown Timers ──
+  var countdownContent = renderCountdowns(latestQuotaData);
+  var countdownHTML = countdownContent ? '<div id="countdown-container" style="grid-column:1/-1">' + countdownContent + '</div>' : '';
+  if (latestQuotaData) startCountdownRefresh(latestQuotaData);
 
   // ── Spend + Category merged card ──
   var cats = Object.keys(stats.byCategory);
@@ -188,8 +175,13 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   // F6: Activity Heatmap (async — fetched from /api/history/heatmap) ──
   var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
 
-  // P1: Content order — advisor first (most actionable), then budget, cost KPI, token analytics, git costs, provider health, spend, insights
-  el.innerHTML = advisorHTML + forecastHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  // F4-UX: Streak card — rendered into heatmap container after heatmap loads
+
+  // P1: Content order — safe-to-spend hero first, then countdown, advisor, cost KPI, analytics, heatmap, provider health, spend, insights
+  el.innerHTML = safeToSpendHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+
+  // F1-UX: Wire Safe to Spend buttons (CSP-safe — no inline onclick)
+  wireSafeToSpendButtons(openBudgetModal);
 
   // Async load Claude Code bridge data (only if bridge enabled)
   if (serverConfig['claude_bridge'] === 'true') {
