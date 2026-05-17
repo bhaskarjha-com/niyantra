@@ -10,6 +10,7 @@ import (
 // Engine tracks notification state and prevents spam.
 // Fires at most one notification per model per reset cycle.
 // Supports quad-channel delivery: OS-native + SMTP email (F11) + Webhook (F22) + WebPush (F19).
+// Supports digest batching (F8) to reduce notification fatigue.
 type Engine struct {
 	mu        sync.Mutex
 	enabled   bool
@@ -20,6 +21,7 @@ type Engine struct {
 	smtp      SMTPConfig      // F11: SMTP email delivery settings
 	webhook   WebhookConfig   // F22: Webhook delivery settings
 	webpush   WebPushConfig   // F19: WebPush delivery settings
+	digest    *DigestBatcher   // F8: Digest batching
 
 	getSubscriptions func() []WebPushSubscription // F19: callback to get stored subscriptions
 	onNotify func(model string, remainingPct float64) // callback when notification fires
@@ -117,6 +119,35 @@ func (e *Engine) Enabled() bool {
 	return e.enabled
 }
 
+// ConfigureDigest sets up the digest batcher (F8).
+// enabled: whether to batch alerts; windowSec: batch window in seconds (0 = default 5 min).
+func (e *Engine) ConfigureDigest(enabled bool, windowSec int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.digest == nil {
+		// Create batcher with a flush callback that calls deliver()
+		e.digest = NewDigestBatcher(5*time.Minute, func(title, body string) {
+			e.deliver(title, body)
+		})
+	}
+
+	if windowSec > 0 {
+		e.digest.SetWindow(time.Duration(windowSec) * time.Second)
+	}
+	e.digest.SetEnabled(enabled)
+
+	e.logger.Info("Digest notification mode configured",
+		"enabled", enabled,
+		"window_sec", windowSec)
+}
+
+// DigestEnabled returns whether digest mode is active.
+func (e *Engine) DigestEnabled() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.digest != nil && e.digest.IsEnabled()
+}
 // Threshold returns the current threshold.
 func (e *Engine) Threshold() float64 {
 	e.mu.Lock()
@@ -149,6 +180,30 @@ func (e *Engine) CheckQuota(model string, remainingPct float64) {
 
 	if remainingPct > threshold {
 		return
+	}
+
+	// F8: Route through digest batcher if enabled
+	e.mu.Lock()
+	digest := e.digest
+	e.mu.Unlock()
+
+	if digest != nil {
+		batched := digest.Add(DigestAlert{
+			Model:        model,
+			RemainingPct: remainingPct,
+			Timestamp:     time.Now(),
+		})
+		if batched {
+			// Mark as notified and fire callback, but skip delivery (digest will deliver)
+			e.mu.Lock()
+			e.guard[model] = time.Now()
+			cb := e.onNotify
+			e.mu.Unlock()
+			if cb != nil {
+				cb(model, remainingPct)
+			}
+			return
+		}
 	}
 
 	// Fire notification
@@ -327,4 +382,60 @@ func (e *Engine) SendTestWebPushFromEngine() error {
 	}
 
 	return SendTestWebPush(&cfg, subs)
+}
+
+// deliver sends a formatted notification to all configured channels.
+// Used by the digest batcher to flush batched alerts.
+func (e *Engine) deliver(title, body string) {
+	e.logger.Info("Delivering notification", "title", title)
+
+	// Channel 1: OS-native
+	if err := Send(title, body); err != nil {
+		e.logger.Error("Failed to send OS notification", "error", err)
+	}
+
+	// Channel 2: SMTP
+	e.mu.Lock()
+	smtpCfg := e.smtp
+	e.mu.Unlock()
+
+	if smtpCfg.IsConfigured() {
+		go func() {
+			htmlBody := "<h3>" + title + "</h3><p>" + body + "</p>"
+			if err := SendEmail(&smtpCfg, "Niyantra: "+title, htmlBody); err != nil {
+				e.logger.Error("Failed to send digest SMTP", "error", err)
+			}
+		}()
+	}
+
+	// Channel 3: Webhook
+	e.mu.Lock()
+	webhookCfg := e.webhook
+	e.mu.Unlock()
+
+	if webhookCfg.IsConfigured() {
+		go func() {
+			if err := SendWebhook(&webhookCfg, title, body, 0); err != nil {
+				e.logger.Error("Failed to send digest webhook", "error", err)
+			}
+		}()
+	}
+
+	// Channel 4: WebPush
+	e.mu.Lock()
+	webpushCfg := e.webpush
+	getSubs := e.getSubscriptions
+	e.mu.Unlock()
+
+	if webpushCfg.IsConfigured() && getSubs != nil {
+		go func() {
+			subs := getSubs()
+			payload := FormatDigestPush(title, body)
+			for _, sub := range subs {
+				if err := SendWebPush(&webpushCfg, &sub, payload); err != nil {
+					e.logger.Error("Failed to send digest WebPush", "error", err)
+				}
+			}
+		}()
+	}
 }

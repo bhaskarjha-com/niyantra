@@ -332,3 +332,12 @@ func FormatQuotaAlertPush(model string, remainingPct, threshold float64) []byte 
 	})
 	return payload
 }
+
+// FormatDigestPush creates a JSON payload for digest push notifications (F8).
+func FormatDigestPush(title, body string) []byte {
+	payload, _ := json.Marshal(map[string]string{
+		"title": title,
+		"body":  body,
+	})
+	return payload
+}
