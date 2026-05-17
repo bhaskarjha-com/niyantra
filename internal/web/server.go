@@ -192,12 +192,18 @@ func (s *Server) Shutdown() {
 func (s *Server) ListenAndServe() error {
 	mux := http.NewServeMux()
 
+	// Initialize rate limiter: per-IP token bucket (1-minute window)
+	rl := newRateLimiter(1 * time.Minute)
+	rl.setLimit("snap", 10)    // 10 snap requests/min — prevents upstream API abuse
+	rl.setLimit("mutate", 30)  // 30 config/write requests/min
+	rl.setLimit("import", 2)   // 2 import requests/min — 50MB body limit
+
 	// Operational endpoints (no auth required — registered on inner mux)
 	mux.HandleFunc("GET /healthz", s.handleHealthz)
 
 	// Quota API routes (auto-tracked)
 	mux.HandleFunc("GET /api/status", s.handleStatus)
-	mux.HandleFunc("POST /api/snap", s.handleSnap)
+	mux.HandleFunc("POST /api/snap", rl.rateMiddleware("snap", s.handleSnap))
 	mux.HandleFunc("GET /api/history", s.handleHistory)
 
 	// Subscription API routes (manual tracking)
@@ -212,7 +218,7 @@ func (s *Server) ListenAndServe() error {
 
 	// Config & infrastructure routes (v3)
 	mux.HandleFunc("GET /api/config", s.handleConfigGet)
-	mux.HandleFunc("PUT /api/config", s.handleConfigPut)
+	mux.HandleFunc("PUT /api/config", rl.rateMiddleware("mutate", s.handleConfigPut))
 	mux.HandleFunc("GET /api/activity", s.handleActivity)
 	mux.HandleFunc("GET /api/mode", s.handleMode)
 	mux.HandleFunc("GET /api/usage", s.handleUsage)
@@ -245,19 +251,19 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("GET /api/usage-logs", s.handleUsageLogsGet)
 	mux.HandleFunc("POST /api/usage-logs", s.handleUsageLogsPost)
 	mux.HandleFunc("DELETE /api/usage-logs/{id}", s.handleUsageLogByID)
-	mux.HandleFunc("POST /api/import/json", s.handleImportJSON)
+	mux.HandleFunc("POST /api/import/json", rl.rateMiddleware("import", s.handleImportJSON))
 
 	// Phase 14 routes: Cursor provider
 	mux.HandleFunc("GET /api/cursor/status", s.handleCursorStatus)
-	mux.HandleFunc("POST /api/cursor/snap", s.handleCursorSnap)
+	mux.HandleFunc("POST /api/cursor/snap", rl.rateMiddleware("snap", s.handleCursorSnap))
 
 	// Phase 14 routes: Gemini CLI provider (F15b)
 	mux.HandleFunc("GET /api/gemini/status", s.handleGeminiStatus)
-	mux.HandleFunc("POST /api/gemini/snap", s.handleGeminiSnap)
+	mux.HandleFunc("POST /api/gemini/snap", rl.rateMiddleware("snap", s.handleGeminiSnap))
 
 	// Phase 15 routes: GitHub Copilot provider (F15c)
 	mux.HandleFunc("GET /api/copilot/status", s.handleCopilotStatus)
-	mux.HandleFunc("POST /api/copilot/snap", s.handleCopilotSnap)
+	mux.HandleFunc("POST /api/copilot/snap", rl.rateMiddleware("snap", s.handleCopilotSnap))
 
 	// Phase 13 routes
 	mux.HandleFunc("GET /api/config/pricing", s.handleModelPricingGet)

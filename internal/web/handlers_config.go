@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -90,6 +91,12 @@ func (s *Server) handleConfigPut(w http.ResponseWriter, r *http.Request) {
 	configMap := s.store.ConfigMap()
 	if _, exists := configMap[req.Key]; !exists {
 		jsonError(w, "unknown config key: "+req.Key, http.StatusBadRequest)
+		return
+	}
+
+	// Validate value type against declared schema (prevents malformed values)
+	if validationErr := s.validateConfigValue(req.Key, req.Value); validationErr != "" {
+		jsonError(w, validationErr, http.StatusBadRequest)
 		return
 	}
 
@@ -266,4 +273,48 @@ func (s *Server) loadWebPushConfig() notify.WebPushConfig {
 		PublicKey:  s.store.GetConfig("webpush_vapid_public"),
 		PrivateKey: s.store.GetConfig("webpush_vapid_private"),
 	}
+}
+
+// validateConfigValue checks a config value against its declared type and known ranges.
+// Returns an error message string, or "" if valid.
+func (s *Server) validateConfigValue(key, value string) string {
+	typeMap := s.store.ConfigTypeMap()
+	vt, ok := typeMap[key]
+	if !ok {
+		return "" // unknown type — skip validation
+	}
+
+	switch vt {
+	case "bool":
+		if value != "true" && value != "false" {
+			return fmt.Sprintf("config %q requires bool value (true/false), got %q", key, value)
+		}
+	case "int":
+		v, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Sprintf("config %q requires integer value, got %q", key, value)
+		}
+		switch key {
+		case "poll_interval":
+			if v < 30 || v > 3600 {
+				return fmt.Sprintf("poll_interval must be 30-3600, got %d", v)
+			}
+		case "retention_days":
+			if v < 30 || v > 3650 {
+				return fmt.Sprintf("retention_days must be 30-3650, got %d", v)
+			}
+		}
+	case "float":
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return fmt.Sprintf("config %q requires numeric value, got %q", key, value)
+		}
+		switch key {
+		case "notify_threshold":
+			if v < 5 || v > 50 {
+				return fmt.Sprintf("notify_threshold must be 5-50, got %.0f", v)
+			}
+		}
+	}
+	return ""
 }

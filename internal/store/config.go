@@ -116,3 +116,20 @@ func (s *Store) ConfigMap() map[string]string {
 	}
 	return m
 }
+
+// ConfigTypeMap returns all config as a key→valueType map for type validation.
+func (s *Store) ConfigTypeMap() map[string]string {
+	m := make(map[string]string)
+	rows, err := s.db.Query(`SELECT key, value_type FROM config`)
+	if err != nil {
+		return m
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var k, vt string
+		if err := rows.Scan(&k, &vt); err == nil {
+			m[k] = vt
+		}
+	}
+	return m
+}

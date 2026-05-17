@@ -32,9 +32,6 @@ func (s *Server) basicAuth(next http.Handler) http.Handler {
 	})
 }
 
-// TODO(audit#25): Add per-IP sliding window rate limiter for mutation endpoints
-// (POST /api/snap, POST /api/plugins/{id}/run, PUT /api/config).
-// Low priority while app is localhost-only; implement before public distribution.
 
 // securityMiddleware enforces CORS, Content-Type, and browser security policies.
 func (s *Server) securityMiddleware(next http.Handler) http.Handler {
