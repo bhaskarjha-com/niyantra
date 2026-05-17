@@ -3,6 +3,17 @@
 All notable changes to Niyantra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions map to feature milestones, not semver.
 
+## [0.29.0]
+
+### Added
+- **AI Cost Anomaly Detection (F5)** — Z-score engine (`internal/forecast/anomaly.go`) with rolling 30-day window. Detects spend spikes >2σ above average. Severity classification: warning (2-3σ), critical (>3σ). Budget projection estimates monthly excess. `GET /api/anomalies` endpoint. Frontend alert card with dismiss (localStorage). 8 new tests.
+- **Notification Digest Mode (F8)** — `DigestBatcher` collects multiple quota alerts within a configurable time window (default 5 min) and flushes as a single summary. Batch-on-write pattern with early flush at 5 alerts. Thread-safe via `sync.Mutex` + `time.AfterFunc`. Delivers digests via all 4 channels (OS, SMTP, Webhook, WebPush). `ConfigureDigest()` engine method. 6 new tests.
+- **Sparkline KPI Integration (F2)** — wired existing SVG sparkline renderer into Monthly AI Spend card (7-day trend) and Token Analytics KPI cards (Total Tokens, Est. Cost). Trend direction arrows (↑/↓/→) with semantic coloring.
+
+### Changed
+- Overview content order: Safe to Spend → Anomaly Card → Countdown → Advisor → Cost KPI → Token Analytics → ...
+- CSS: sparkline integration classes (.kpi-with-sparkline, .token-kpi-spark), anomaly card styling (.anomaly-card, .anomaly-item)
+
 ## [0.28.0]
 
 ### Added
