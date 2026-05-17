@@ -9,10 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - **AI Cost Anomaly Detection (F5)** — Z-score engine (`internal/forecast/anomaly.go`) with rolling 30-day window. Detects spend spikes >2σ above average. Severity classification: warning (2-3σ), critical (>3σ). Budget projection estimates monthly excess. `GET /api/anomalies` endpoint. Frontend alert card with dismiss (localStorage). 8 new tests.
 - **Notification Digest Mode (F8)** — `DigestBatcher` collects multiple quota alerts within a configurable time window (default 5 min) and flushes as a single summary. Batch-on-write pattern with early flush at 5 alerts. Thread-safe via `sync.Mutex` + `time.AfterFunc`. Delivers digests via all 4 channels (OS, SMTP, Webhook, WebPush). `ConfigureDigest()` engine method. 6 new tests.
 - **Sparkline KPI Integration (F2)** — wired existing SVG sparkline renderer into Monthly AI Spend card (7-day trend) and Token Analytics KPI cards (Total Tokens, Est. Cost). Trend direction arrows (↑/↓/→) with semantic coloring.
+- **Chart Annotations / Event Markers (F19)** — activity events rendered as visual markers on the history chart timeline. Maps 10+ event types (config changes, account additions, subscriptions, budget, alerts) to color-coded icons. Hover tooltips, auto-limited to 10 visible markers. Filters high-frequency noise (snapshots, polls).
+- **Shareable Monthly Spend Report (F16)** — Canvas-based PNG export (1200×630px). Dark-themed report with hero metrics (total spend, top category), stat cards (providers, snapshots, active days, best streak), 30-day activity trend bars. DPR-aware rendering. Zero dependencies — native Canvas API. Download via "📊 Monthly Report" button in Export card.
 
 ### Changed
 - Overview content order: Safe to Spend → Anomaly Card → Countdown → Advisor → Cost KPI → Token Analytics → ...
-- CSS: sparkline integration classes (.kpi-with-sparkline, .token-kpi-spark), anomaly card styling (.anomaly-card, .anomaly-item)
+- CSS: 3 new stylesheets (anomaly, annotations, sparkline integration)
+- Export card: added Monthly Report PNG button alongside CSV/JSON
 
 ## [0.28.0]
 
