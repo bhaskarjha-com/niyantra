@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════
+   F1-UX: Safe to Spend Guardrail
+   F4-UX: Usage Streak Hero Card
+   F6-UX: Reset Countdown Chips
+   ═══════════════════════════════════════════ */
+
+/* ── Safe to Spend Card ── */
+.safe-to-spend-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  backdrop-filter: var(--backdrop-blur);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  grid-column: 1 / -1;
+}
+.safe-to-spend-card.healthy { border-color: var(--green); box-shadow: 0 0 20px rgba(52, 211, 153, 0.08); }
+.safe-to-spend-card.warning { border-color: var(--amber); box-shadow: 0 0 20px rgba(251, 191, 36, 0.08); }
+.safe-to-spend-card.over    { border-color: var(--red); box-shadow: 0 0 20px rgba(248, 113, 113, 0.08); }
+
+.sts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.sts-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+.sts-edit {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 14px; padding: 6px 10px; opacity: 0.7;
+  transition: opacity 0.2s, border-color 0.2s, background 0.2s;
+}
+.sts-edit:hover { opacity: 1; border-color: var(--accent); background: var(--accent-glow); }
+
+.sts-amount { font-size: 48px; font-weight: 700; margin: 4px 0 16px; line-height: 1; }
+.safe-to-spend-card.healthy .sts-amount { color: var(--green); }
+.safe-to-spend-card.warning .sts-amount { color: var(--amber); }
+.safe-to-spend-card.over .sts-amount    { color: var(--red); }
+
+.sts-bar-container {
+  width: 100%; height: 6px; background: var(--bg-elevated);
+  border-radius: 3px; margin-bottom: 12px; overflow: hidden;
+}
+.sts-bar-fill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sts-bar-fill.healthy { background: var(--green); }
+.sts-bar-fill.warning { background: var(--amber); }
+.sts-bar-fill.over    { background: var(--red); }
+
+.sts-details {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: var(--text-secondary);
+}
+.sts-budget { color: var(--text-muted); }
+
+.safe-to-spend-card.no-budget { padding: 32px; }
+.safe-to-spend-card.no-budget .sts-icon { font-size: 32px; margin-bottom: 8px; }
+.safe-to-spend-card.no-budget .sts-label { color: var(--text-secondary); margin-bottom: 16px; font-size: 13px; }
+
+/* ── Streak Hero Card ── */
+.streak-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  backdrop-filter: var(--backdrop-blur);
+}
+.streak-main { flex: 0 0 auto; text-align: center; min-width: 90px; }
+.streak-number {
+  font-size: 42px; font-weight: 800; line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.2);
+}
+.streak-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+.streak-stats {
+  display: flex; gap: 24px; flex: 1;
+  justify-content: center;
+}
+.streak-stat { text-align: center; }
+.streak-stat-val {
+  display: block; font-size: 20px; font-weight: 700;
+  color: var(--text);
+}
+.streak-stat-label {
+  display: block; font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;
+}
+
+/* ── Countdown Chips ── */
+.countdown-strip {
+  display: flex; gap: 8px; align-items: center;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+}
+.countdown-title {
+  font-size: 11px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+}
+.countdown-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 4px 10px; font-size: 12px;
+  transition: border-color 0.2s;
+}
+.countdown-chip:hover { border-color: var(--border-hover); }
+.countdown-provider { color: var(--text-secondary); }
+.countdown-time { font-weight: 600; color: var(--amber); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 600px) {
+  .streak-card { flex-direction: column; text-align: center; }
+  .streak-stats { gap: 16px; }
+  .sts-amount { font-size: 36px; }
+  .sts-details { flex-direction: column; gap: 4px; }
+}

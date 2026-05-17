@@ -1,0 +1,13 @@
+/* ═══════════════════════════════════════════
+   F2-UX: Sparkline Micro-Charts
+   ═══════════════════════════════════════════ */
+
+.sparkline-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+.sparkline-svg { vertical-align: middle; flex-shrink: 0; }
+.sparkline-arrow { font-size: 10px; font-weight: 700; line-height: 1; }
