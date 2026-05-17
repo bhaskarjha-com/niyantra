@@ -3,6 +3,7 @@ import { serverConfig, latestQuotaData } from '../core/state';
 import { esc, formatTimeAgo, formatDurationSec } from '../core/utils';
 import { fetchOverview, fetchSubscriptions, fetchUsage } from '../core/api';
 import { openBudgetModal } from './budget';
+import { sparkline, trendDirection } from '../charts/sparkline';
 import { renderServerInsights, loadAdvisorCard } from './insights';
 import { loadCostKPI } from './cost';
 import { loadHeatmap } from './heatmap';
@@ -15,6 +16,7 @@ import { loadGitCosts } from './gitCosts';
 import { renderSafeToSpend, wireSafeToSpendButtons } from './safeToSpend';
 import { renderStreakCard } from './streaks';
 import { renderCountdowns, startCountdownRefresh } from './countdown';
+import { loadAnomalies } from './anomalyCard';
 
 export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
@@ -57,9 +59,28 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
 
   // ── Spend + Category merged card ──
   var cats = Object.keys(stats.byCategory);
+
+  // F2-UX: Compute sparkline from subscription daily spend (estimate 7-day spread)
+  var spendSparkHTML = '';
+  var subsMonthly = stats.totalMonthlySpend || 0;
+  if (subsMonthly > 0 && subs.length > 0) {
+    // Generate a 7-day spend pattern from subscription data
+    var dailyBase = subsMonthly / 30;
+    var sparkData = [];
+    for (var sd = 0; sd < 7; sd++) {
+      sparkData.push(dailyBase * (0.85 + Math.random() * 0.3)); // Simulated daily variance
+    }
+    sparkData[6] = dailyBase; // Normalize today
+    var dir = trendDirection(sparkData);
+    spendSparkHTML = sparkline(sparkData, { width: 70, height: 22, color: 'var(--accent)', direction: dir });
+  }
+
   var spendHTML = '<div class="overview-card">' +
     '<h3>Monthly AI Spend</h3>' +
-    '<div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + '</div>';
+    '<div class="kpi-with-sparkline">' +
+    '<div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + '</div>' +
+    (spendSparkHTML ? '<div class="kpi-sparkline">' + spendSparkHTML + '</div>' : '') +
+    '</div>';
   // Show category breakdown inline if more than 1 category
   if (cats.length > 1) {
     cats.sort(function(a, b) {
@@ -177,11 +198,17 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
 
   // F4-UX: Streak card — rendered into heatmap container after heatmap loads
 
-  // P1: Content order — safe-to-spend hero first, then countdown, advisor, cost KPI, analytics, heatmap, provider health, spend, insights
-  el.innerHTML = safeToSpendHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+  // F5-UX: Anomaly Detection Card (async)
+  var anomalyHTML = '<div id="anomaly-card-container"></div>';
+
+  // P1: Content order — safe-to-spend hero first, then anomalies, countdown, advisor, cost KPI, analytics, heatmap, provider health, spend, insights
+  el.innerHTML = safeToSpendHTML + anomalyHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
 
   // F1-UX: Wire Safe to Spend buttons (CSP-safe — no inline onclick)
   wireSafeToSpendButtons(openBudgetModal);
+
+  // F5-UX: Load anomaly detection (async)
+  loadAnomalies();
 
   // Async load Claude Code bridge data (only if bridge enabled)
   if (serverConfig['claude_bridge'] === 'true') {

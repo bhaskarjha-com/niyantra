@@ -1,5 +1,6 @@
 // Niyantra Dashboard — Token Usage Analytics (F13)
 // Renders KPI cards, model distribution donut, and daily burn chart.
+import { sparkline, trendDirection } from '../charts/sparkline';
 
 export function loadTokenAnalytics(): void {
   var container = document.getElementById('token-analytics-container');
@@ -54,10 +55,22 @@ function renderTokenAnalytics(container: HTMLElement, data: any, days: number): 
   }
   rangeHTML += '</div>';
 
-  // ── KPI Cards ──
+  // ── KPI Cards (with sparklines from daily data) ──
+  var tokenSparkData: number[] = [];
+  var costSparkData: number[] = [];
+  if (dailyData.length >= 3) {
+    var sparkSlice = dailyData.slice(-7);
+    for (var si = 0; si < sparkSlice.length; si++) {
+      tokenSparkData.push(sparkSlice[si].totalTokens || 0);
+      costSparkData.push(sparkSlice[si].costUSD || 0);
+    }
+  }
+  var tokenSpark = tokenSparkData.length >= 3 ? sparkline(tokenSparkData, { width: 50, height: 18, color: '#6366f1', direction: trendDirection(tokenSparkData) }) : '';
+  var costSpark = costSparkData.length >= 3 ? sparkline(costSparkData, { width: 50, height: 18, color: '#f59e0b', direction: trendDirection(costSparkData) }) : '';
+
   var kpiHTML = '<div class="token-kpi-row">';
-  kpiHTML += buildKpiCard('Total Tokens', formatTokens(totals.totalTokens), '📊');
-  kpiHTML += buildKpiCard('Est. Cost', '$' + (totals.estimatedCostUSD || 0).toFixed(2), '💰');
+  kpiHTML += buildKpiCard('Total Tokens', formatTokens(totals.totalTokens), '📊', tokenSpark);
+  kpiHTML += buildKpiCard('Est. Cost', '$' + (totals.estimatedCostUSD || 0).toFixed(2), '💰', costSpark);
   kpiHTML += buildKpiCard('Active Days', String(kpis.daysActive || 0), '📅');
   kpiHTML += buildKpiCard('Avg/Day', formatTokens(kpis.avgTokensPerDay || 0), '📈');
   kpiHTML += buildKpiCard('Cache Rate', Math.round((kpis.cacheHitRate || 0) * 100) + '%', '⚡');
@@ -174,10 +187,11 @@ function renderTokenAnalytics(container: HTMLElement, data: any, days: number): 
   }
 }
 
-function buildKpiCard(label: string, value: string, icon: string): string {
+function buildKpiCard(label: string, value: string, icon: string, spark?: string): string {
   return '<div class="token-kpi-card">' +
     '<div class="token-kpi-icon">' + icon + '</div>' +
     '<div class="token-kpi-value">' + value + '</div>' +
+    (spark ? '<div class="token-kpi-spark">' + spark + '</div>' : '') +
     '<div class="token-kpi-label">' + label + '</div>' +
     '</div>';
 }

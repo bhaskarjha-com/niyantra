@@ -115,3 +115,16 @@
   .sts-amount { font-size: 36px; }
   .sts-details { flex-direction: column; gap: 4px; }
 }
+
+/* ── F2-UX: Sparkline Integration ── */
+.kpi-with-sparkline {
+  display: flex; align-items: center; gap: 12px;
+}
+.kpi-sparkline {
+  display: flex; align-items: center; gap: 4px;
+}
+.kpi-sparkline svg { display: block; }
+.token-kpi-spark {
+  margin: 4px auto 2px;
+}
+.token-kpi-spark svg { display: block; margin: 0 auto; }
