@@ -1,13 +1,13 @@
 # Testing Guide: Niyantra
 
-> **Updated:** v0.26.0 · Schema v18 · 148 tests across 13 files in 10 packages
+> **Updated:** v0.27.0 · Schema v19 · 170+ tests across 16 files in 10 packages
 
 ## Automated Test Suite
 
 ### Running Tests
 
 ```bash
-# Full suite (all 148 tests)
+# Full suite (all 170+ tests)
 go test ./... -count=1 -v
 
 # With race detection
@@ -30,24 +30,31 @@ go vet ./...
 | 3 | `costtrack` | `costtrack_test.go` | 14 | Blended pricing, group cost, account aggregate, currency formatting |
 | 4 | `forecast` | `forecast_test.go` | 10 | TTX forecasting, burn rate, trend calculation, edge cases |
 | 5 | `mcpserver` | `mcpserver_test.go` | 2 | Tool registration, response formatting |
-| 6 | `notify` | `engine_test.go` | 8 | Guard, OnReset, OnNotify callback, disabled/threshold skip |
+| 6 | `notify` | `engine_test.go` | 10 | Guard, OnReset, OnNotify, threshold, TTL expiry, ResetGuard, ResetAllGuards |
 | 7 | `notify` | `smtp_test.go` | 8 | Config validation, recipients, message build, HTML templates |
 | 8 | `notify` | `webhook_test.go` | 12 | Discord/Slack/Generic delivery via httptest, severity, escaping |
 | 9 | `notify` | `webpush_test.go` | 14 | VAPID key gen, HKDF, base64 decode, full send via httptest |
-| 10 | `readiness` | `readiness_test.go` | 18 | Threshold, grouping, staleness, reset inference, edge cases |
-| 11 | `store` | `store_test.go` | 20 | Migration v1→v18, config CRUD, retention, Quick Adjust, heatmap |
-| 12 | `tracker` | `tracker_test.go` | 2 | Multi-account contamination, concurrent safety |
-| 13 | `web` | `server_test.go` | 7 | CORS, Content-Type, body limits, localhost binding, preflight |
-| | **TOTAL** | **13 files** | **148** | |
+| 10 | `plugin` | `plugin_test.go` | 4 | Plugin discovery, manifest parsing |
+| 11 | `readiness` | `readiness_test.go` | 18 | Threshold, grouping, staleness, reset inference, edge cases |
+| 12 | `store` | `store_test.go` | 20 | Migration v1→v19, config CRUD, retention, Quick Adjust, heatmap |
+| 13 | `store` | `import_test.go` | 16 | Full import parity (7 providers), dedup, version check, time parsing |
+| 14 | `tracker` | `tracker_test.go` | 2 | Multi-account contamination, concurrent safety |
+| 15 | `web` | `server_test.go` | 22 | CORS, CSP, Content-Type, body limits, auth, preflight, security headers |
+| 16 | `web` | `ratelimit_test.go` | 5 | Rate limit enforcement, window reset, IP isolation, cleanup |
+| 17 | `web` | `config_validation_test.go` | 5 | Bool/int/float type validation, range checks, unknown key handling |
+| 18 | `web` | `handlers_config_test.go` | 4 | Sensitive key classification, config masking, plugin pattern masking |
+| | **TOTAL** | **18 files** | **170+** | |
 
 ### Test Patterns
 
 All tests use Go's standard `testing` package — no third-party test frameworks.
 
 - **httptest**: Used in `smtp_test.go`, `webhook_test.go`, `webpush_test.go`, `server_test.go` to simulate HTTP servers
-- **In-memory SQLite**: `store_test.go` creates fresh databases per test
-- **Table-driven tests**: Used extensively in `readiness_test.go`, `costtrack_test.go`, `forecast_test.go`
+- **In-memory SQLite**: `store_test.go`, `import_test.go`, `config_validation_test.go` create fresh databases per test
+- **Table-driven tests**: Used extensively in `readiness_test.go`, `costtrack_test.go`, `forecast_test.go`, `config_validation_test.go`
 - **Crypto validation**: `webpush_test.go` generates real P-256 keys and validates VAPID JWT structure
+- **Round-trip testing**: `import_test.go` tests full export→import cycle across all 7 provider types
+
 
 ---
 
@@ -262,7 +269,7 @@ Complete feature checklist for manual verification. Each section has step-by-ste
 - [ ] Preloaded defaults for common models
 
 ### 5.11 About Section
-- [ ] Shows "Schema v18 · 26 presets · Mode: Manual/Auto · X active sources"
+- [ ] Shows "Schema v19 · 26 presets · Mode: Manual/Auto · X active sources"
 
 ---
 
@@ -406,9 +413,9 @@ niyantra restore <file>  # Restore from backup
 ## 12. Data Integrity
 
 ### 12.1 Database Migration
-- [ ] Delete `~/.niyantra/niyantra.db` → restart → v18 schema created from scratch
-- [ ] `PRAGMA user_version` returns `18`
-- [ ] All 18 tables exist
+- [ ] Delete `~/.niyantra/niyantra.db` → restart → v19 schema created from scratch
+- [ ] `PRAGMA user_version` returns `19`
+- [ ] All 19 tables exist
 
 ### 12.2 Config Masking
 - [ ] `GET /api/config` returns `"configured"` for:
@@ -462,6 +469,8 @@ niyantra restore <file>  # Restore from backup
 - [ ] `--auth user:pass` → dashboard requires HTTP basic auth
 - [ ] Unauthenticated request → 401
 - [ ] CORS headers set correctly (X-Content-Type-Options, CSP, XSS-Protection)
+- [ ] Rate limiting: 10 snap requests in 1 minute OK, 11th returns 429 with Retry-After
+- [ ] Config type validation: `poll_interval=banana` returns 400 Bad Request
 - [ ] Environment variables work: NIYANTRA_PORT, NIYANTRA_BIND, NIYANTRA_DB, NIYANTRA_AUTH
 - [ ] `/healthz` returns 200 with version and uptime (no auth required)
 
@@ -499,4 +508,4 @@ niyantra restore <file>  # Restore from backup
 
 **Tester:** _______________  
 **Date:** _______________  
-**Build:** `niyantra.exe` v0.26.0 from commit _______________
+**Build:** `niyantra.exe` v0.27.0 from commit _______________

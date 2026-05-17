@@ -3,33 +3,38 @@
 All notable changes to Niyantra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions map to feature milestones, not semver.
 
-## [0.26.1] - 2026-05-17
+## [0.27.0]
+
+### Added
+- **Rate limiting middleware** — per-IP token bucket rate limiter on all mutation endpoints. Three tiers: `snap` (10/min), `mutate` (30/min), `import` (2/min). Returns `429 Too Many Requests` with `Retry-After` header. Zero external dependencies — uses `sync.Mutex` + background cleanup goroutine.
+- **Config type validation** — `PUT /api/config` validates values against declared schema types (`bool`, `int`, `float`) with range enforcement: `poll_interval` 30-3600, `retention_days` 30-3650, `notify_threshold` 5-50. Rejects malformed input with `400 Bad Request`.
+- **Copilot Quota UI** — GitHub Copilot now renders on the Quotas tab with Premium and Chat dual usage bars, plan badge, status dot, and provider accent color (`#6e40c9`). Header badge counts Copilot. Provider/status filter includes Copilot.
+- **Full import parity** — `POST /api/import/json` now imports all 7 provider snapshot types (Antigravity + Claude + Codex + Cursor + Gemini + Copilot + Plugin) with ±500ms dedup per provider. `ImportResult` extended with per-provider counters.
+- **Parallel polling** — auto-capture agent now runs all 7 providers concurrently via `sync.WaitGroup` with semaphore(4) concurrency limiter. Poll cycle time reduced from O(sum) to O(max). Per-provider elapsed time logged at debug level.
+- **Notification TTL reset** — `ResetGuard()` and `ResetAllGuards()` methods on the notification engine. Quick Adjust now calls `ResetAllGuards()` after successful adjustment, re-arming all quota alerts immediately.
+- **Plugin test observability** — plugin test runs (`POST /api/plugins/{id}/run`) now log structured activity events via `LogInfo()` for both success and failure, including duration, provider, usage data, and persistence status.
+- **28 new tests** — 16 import tests, 5 config validation tests, 5 rate limiter tests, 2 notification guard reset tests.
 
 ### Security
 - **MCP endpoint hardened** — now enforces `--auth` basic auth and rejects cross-origin browser requests (Origin validation)
 - **Activity log masking** — sensitive config values (PAT, passwords, VAPID keys) are masked with `***` in change logs
 - **Config key validation** — `PUT /api/config` rejects unknown keys to prevent arbitrary data injection
+- **Rate limiting** — all snap, config mutation, and import endpoints rate-limited per IP
 
 ### Fixed
 - **JSON export** — now includes all 7 provider snapshot tables (Codex, Cursor, Gemini, Copilot, Plugin) + pretty-printed output
 - **Notification guard** — uses 6h TTL expiry instead of permanent suppression for non-Antigravity providers
-- **Config sync** — Cursor and Gemini capture toggles now correctly update `data_sources` table
-- **Quick Adjust** — uses direct `GetSnapshotByID` instead of O(N) scan; added `io.LimitReader` body limit
-- **Retention cleanup** — plugin snapshots and token usage records now cleaned up by retention policy
-- **Plugin test runs** — results are now persisted to `plugin_snapshots` table
-- **Account lookup** — `GET /api/accounts/{id}` uses direct `GetAccountByID` instead of loading all accounts
+- **Quick Adjust** — uses direct `GetSnapshotByID` instead of O(N) scan; added `io.LimitReader` body limit; re-arms notification alerts
+- **Config validation** — `notify_threshold` range check moved from `int` to `float` case to match schema declaration
 - **Copilot status** — now included in unified `/api/status` response (parity with 4 other providers)
-- **WebPush endpoint** — unsubscribe route renamed from `DELETE /subscribe` to `DELETE /unsubscribe`
-- **Heatmap streak** — fixed edge case bug in streak calculation; removed dead code
-- **Git costs** — requires explicit `repo` parameter (CWD fallback removed for Docker reliability)
-- **UI** — WebPush settings correctly nested inside Notifications section; About shows real schema version
-- **Migration v14** — uses `getUserVersion()` consistently with all other migrations
-- **Plugin error format** — standardized to `jsonError()` helper
+- **Stale TODOs** — removed completed TODO for rate limiting; converted 2 remaining TODOs to design notes (N23, N24); eliminated all TypeScript `any` types
 
 ### Changed
-- 129 tests across 13 files in 10 packages (+1 new `TestGuardTTLExpiry`)
+- 170+ tests across 18 files in 10 packages (+28 new tests from hardening sprint)
+- Poll cycle architecture: sequential → concurrent with semaphore(4)
+- Import architecture: Antigravity-only → all 7 providers with per-provider counters
 
-## [0.26.0] - 2026-05-16
+## [0.26.0]
 
 ### Added
 - **WebPush notifications (F19)** — browser push via VAPID (RFC 8292) + RFC 8291 encryption. Zero `x/crypto` dependency — HKDF implemented from stdlib `crypto/hmac` + `crypto/sha256`. Service Worker (`sw.js`) with subscribe/unsubscribe/test UI in Settings.
@@ -53,7 +58,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Schema v16 → v19 (4 migrations)
 - 148 total tests across 13 files in 10 packages
 
-## [0.25.0] - 2026-05-16
+## [0.25.0]
 
 ### Added
 - **GitHub Copilot provider (F15c)** — 7th tracked provider. PAT-based auth, GitHub billing API polling. Frontend settings with PAT input (masked in API).
@@ -62,7 +67,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
   - `GET /api/copilot/status`, `POST /api/copilot/snap`
 - **Streamable HTTP MCP (F14)** — expose all 11 MCP tools over `POST /mcp` endpoint. SSE streaming, session management via `Mcp-Session-Id` header. Enables remote agent access.
 
-## [0.24.0] - 2026-05-14
+## [0.24.0]
 
 ### Added
 - **Git commit correlation (F16)** — AI cost per commit. Correlates git log timestamps with Claude Code JSONL sessions (±30 min window). Branch-level cost aggregation. `git_commit_costs` MCP tool.
@@ -75,20 +80,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Fixed
 - Fuzzy model ID matching for cost estimation (partial name match instead of exact)
 
-## [0.23.0] - 2026-05-14
+## [0.23.0]
 
 ### Added
 - **Docker deployment (F21)** — multi-stage Dockerfile (builder → distroless / Alpine). `docker-compose.yml` with volume persistence. Multi-arch support (linux/amd64, linux/arm64). `niyantra healthcheck` command for Docker health probes.
   - Makefile targets: `make docker`, `make docker-shell`, `make docker-run`
 
-## [0.22.0] - 2026-05-13
+## [0.22.0]
 
 ### Added
 - **Gemini CLI provider (F15b)** — OAuth credential discovery from `~/.config/gemini/`, 2-step API (loadCodeAssist + retrieveUserQuota). Full-stack: backend `internal/gemini/` + frontend settings + Quotas rendering.
   - `gemini_snapshots` table (schema v12)
   - `GET /api/gemini/status`, `POST /api/gemini/snap`
 
-## [0.21.0] - 2026-05-13
+## [0.21.0]
 
 ### Added
 - **Cursor provider (F15a)** — session token detection from filesystem, HTTP API polling to `cursor.com/api/usage`. Supports legacy request-based and new USD credit-based billing models.
@@ -99,7 +104,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Fixed
 - Cursor API client rewritten based on deep-dive analysis of actual API endpoints and auth flow
 
-## [0.20.0] - 2026-05-12
+## [0.20.0]
 
 ### Added
 - **Claude Code deep tracking (F15d)** — full JSONL session parser for per-turn token analytics (input/output/cache). Model-aware cost estimation. New `internal/claude/` package refactored from `claudebridge/`.
@@ -107,17 +112,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - **Activity heatmap (F6)** — GitHub-style 365-day contribution grid. Color intensity reflects daily snapshot count. Configurable lookback via `heatmap_lookback_days` config key (schema v14).
   - `GET /api/heatmap`
 
-## [0.19.0] - 2026-05-12
+## [0.19.0]
 
 ### Changed
 - **CSS modularization** — monolithic `style.css` split into 22 domain CSS files bundled via esbuild. `make css`, `make css-prod`, `make css-watch` targets.
 
-## [0.18.0] - 2026-05-12
+## [0.18.0]
 
 ### Changed
 - **Frontend TypeScript migration** — 27 strict-mode TypeScript modules. IIFE-bundled via esbuild. Zero `@ts-nocheck` directives. `make js`, `make js-prod`, `make js-watch` targets.
 
-## [0.17.0] - 2026-05-12
+## [0.17.0]
 
 ### Changed
 - **Backend hardening** — monolithic 2,076-line `server.go` refactored into 11 focused files:
@@ -135,7 +140,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - **Environment variable configuration** — `NIYANTRA_PORT`, `NIYANTRA_BIND`, `NIYANTRA_DB`, `NIYANTRA_AUTH` (CLI flags take precedence)
 - **`--bind` flag** — configurable bind address for Docker deployments (default: `127.0.0.1`)
 
-## [0.16.0] - 2026-05-12
+## [0.16.0]
 
 ### Added
 - **Account notes + tags** — per-account metadata: predefined tag palette (work, personal, primary, backup, shared, test, dev) + custom freeform tags, inline note editor (schema v10)
@@ -158,7 +163,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Schema version: v9 → v11 (accounts table gains `notes`, `tags`, `pinned_group`, `credit_renewal_day`)
 - PATCH `/api/accounts/:id/meta` endpoint for account metadata updates (notes, tags, pinnedGroup, creditRenewalDay)
 
-## [0.15.0] - 2026-05-09
+## [0.15.0]
 
 ### Added
 - **Quick Adjust** — manual quota correction at group and model level:
@@ -187,7 +192,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Changed
 - Advisor now detects "All Ready" state and shows "Stay" recommendation when health > 80%
 
-## [0.14.0] - 2026-04-30
+## [0.14.0]
 
 ### Added
 - **Provider-sectioned Quotas** — Antigravity, Codex, Claude Code shown in dedicated collapsible sections with provider-specific headers and color coding
@@ -208,7 +213,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Time-ago columns replace absolute timestamps in quota rows
 - Dynamic advisor labels update based on current quota context
 
-## [0.13.0] - 2026-04-20
+## [0.13.0]
 
 ### Added
 - Real-time Google AI Credits monitoring embedded directly into the operation dashboard.
@@ -222,7 +227,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Replaced the static legacy "✦ 500" prompt credits indicator with live, color-coded AI Credit metrics pulled directly from the `GetUserStatus` API (`userTier.availableCredits`).
 - Fully restructured storage `Snapshot` pipeline capturing the `OriginalRawJSON` buffer dynamically inline, preventing internal schema mapping dropouts.
 
-## [0.12.0] - 2026-04-19
+## [0.12.0]
 
 ### Added
 - MIT License for open-source release
@@ -247,7 +252,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - VISION.md updated with market position, competitor landscape, use-case stories
 - CONTRIBUTING.md rewritten with full project layout (12 packages), Make targets, testing section
 
-## [0.11.0] - 2026-04-18
+## [0.11.0]
 
 ### Added
 - Codex/ChatGPT integration with OAuth polling and multi-quota tracking (5h, 7d, code review)
@@ -257,7 +262,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - `codex_status` MCP tool (total: 8 MCP tools)
 - Schema v7: `codex_snapshots`, `usage_sessions`, `usage_logs` tables
 
-## [0.10.0] - 2026-04-17
+## [0.10.0]
 
 ### Added
 - Smart switch advisor with multi-factor scoring (remaining%, burn rate, reset time)
@@ -267,7 +272,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - `analyze_spending` and `switch_recommendation` MCP tools
 - Schema v6: `system_alerts` table
 
-## [0.9.0] - 2026-04-16
+## [0.9.0]
 
 ### Added
 - Claude Code statusline bridge (rate limit monitoring)
@@ -276,13 +281,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Command palette (`Ctrl+K` with fuzzy search)
 - Schema v5: `claude_snapshots` table
 
-## [0.8.0] - 2026-04-15
+## [0.8.0]
 
 ### Added
 - MCP server over stdio with 5 tools (quota, models, usage, budget, best_model)
 - Official MCP Go SDK integration
 
-## [0.7.0] - 2026-04-14
+## [0.7.0]
 
 ### Added
 - Per-model reset cycle detection (3 methods: time-diff, fraction-jump, explicit reset)
@@ -290,7 +295,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Budget burn rate alerts
 - Schema v4: `antigravity_reset_cycles` table
 
-## [0.6.0] - 2026-04-13
+## [0.6.0]
 
 ### Added
 - Auto-capture polling agent with ticker loop
@@ -298,7 +303,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Exponential backoff on failure
 - Graceful shutdown
 
-## [0.5.0] - 2026-04-12
+## [0.5.0]
 
 ### Added
 - Settings tab with server-level config
@@ -306,21 +311,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Keyboard shortcuts
 - PWA manifest
 
-## [0.4.0] - 2026-04-11
+## [0.4.0]
 
 ### Added
 - Chart.js quota history visualization
 - Budget threshold configuration
 - Smart insights engine
 
-## [0.3.0] - 2026-04-10
+## [0.3.0]
 
 ### Added
 - Schema v3: `config`, `activity_log`, `data_sources` tables
 - Snapshot provenance (capture_method, capture_source, source_id)
 - Activity log with structured event tracking
 
-## [0.2.0] - 2026-04-09
+## [0.2.0]
 
 ### Added
 - Subscription CRUD with 26 platform presets
@@ -328,7 +333,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - CSV export
 - Schema v2: `subscriptions` table
 
-## [0.1.0] - 2026-04-08
+## [0.1.0]
 
 ### Added
 - Initial release

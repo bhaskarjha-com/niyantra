@@ -1,6 +1,6 @@
 # Security Model
 
-> **Updated:** v0.26.1 · 7 providers + plugins · 4 notification channels · 5 security headers
+> **Updated:** v0.27.0 · 7 providers + plugins · 4 notification channels · 5 security headers · Rate limiting
 
 ## What Niyantra Accesses
 
@@ -92,6 +92,31 @@ All HTTP responses include the following security headers:
 Optional HTTP basic auth via `--auth user:pass` flag or `NIYANTRA_AUTH` environment variable. No session tokens, no cookies. The auth is per-request and not persisted.
 
 **LAN Exposure Warning:** If `--bind 0.0.0.0` is used without `--auth`, Niyantra prints a visible warning to stderr advising the user to enable authentication before exposing the dashboard to the network.
+
+## Rate Limiting
+
+Per-IP in-memory token bucket rate limiter protects all mutation endpoints from abuse:
+
+| Tier | Endpoints | Limit | Window |
+|------|-----------|-------|--------|
+| `snap` | `POST /api/snap`, `POST /api/snap/all` | 10 requests | 1 minute |
+| `mutate` | `PUT /api/config`, `PATCH /api/snap/adjust` | 30 requests | 1 minute |
+| `import` | `POST /api/import/json` | 2 requests | 1 minute |
+
+When exceeded: `429 Too Many Requests` with `Retry-After` header. Zero external dependencies — uses `sync.Mutex` + background cleanup goroutine (stale buckets cleaned every 10 minutes).
+
+## Config Type Validation
+
+`PUT /api/config` validates values against their declared schema types before persistence:
+
+| Type | Validation |
+|------|-----------|
+| `bool` | Only `"true"` or `"false"` accepted |
+| `int` | Must parse as integer; range-checked per key (`poll_interval`: 30-3600, `retention_days`: 30-3650) |
+| `float` | Must parse as float; range-checked per key (`notify_threshold`: 5-50) |
+| `string` | No validation (passthrough) |
+
+Rejects malformed input with `400 Bad Request` and a descriptive error message.
 
 ## Data Storage
 
