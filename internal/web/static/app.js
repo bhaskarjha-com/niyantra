@@ -1,6 +1,4490 @@
-"use strict";(()=>{var fe=["claude_gpt","gemini_pro","gemini_flash"],Kt=["Claude + GPT","Gemini Pro","Gemini Flash"],Tt={claude_gpt:"#D97757",gemini_pro:"#10B981",gemini_flash:"#3B82F6"},Te={claude_gpt:"Claude + GPT",gemini_pro:"Gemini Pro",gemini_flash:"Gemini Flash"},Ce=new Set,Z=new Set,oe=[];function Vt(e){oe=e}var de=null;function Qe(e){de=e}var He=null;function Yt(e){He=e}var ce={column:"account",direction:"asc"},j=null;function Xt(e){j=e}var se={};var Lt=!1;function Ke(e){Lt=e}function Ye(e){if(e=Math.floor(e),e<=0)return"now";var t=Math.floor(e/3600),a=Math.floor(e%3600/60);return t>=24?Math.floor(t/24)+"d "+t%24+"h":t>0?t+"h "+a+"m":a===0?"<1m":a+"m"}function Zt(e){return e>=1e3?(e/1e3).toFixed(e%1e3===0?0:1)+"k":Math.round(e).toString()}function Xe(e){return e>=1e6?(e/1e6).toFixed(1)+"M":e>=1e3?(e/1e3).toFixed(e%1e3===0?0:1)+"k":e.toString()}function xt(e){var t={USD:"$",EUR:"\u20AC",GBP:"\xA3",INR:"\u20B9",CAD:"C$",AUD:"A$"};return t[e]||e+" "}function d(e){if(!e)return"";var t=document.createElement("div");return t.textContent=e,t.innerHTML.replace(/"/g,"&quot;").replace(/'/g,"&#39;")}function v(e,t){var a=document.getElementById("toast");a&&(a.textContent=e,a.className="toast "+t+" visible",a.hidden=!1,setTimeout(function(){a.classList.remove("visible"),setTimeout(function(){a.hidden=!0},300)},3e3))}var Ve=null;function Ze(){Ve=new Date,It()}function It(){var e=document.getElementById("last-updated");if(!(!e||!Ve)){var t=Math.floor((new Date().getTime()-Ve.getTime())/1e3),a;t<10?a="just now":t<60?a=t+"s ago":t<3600?a=Math.floor(t/60)+"m ago":a=Math.floor(t/3600)+"h ago",e.textContent="Updated "+a,e.title=Ve.toLocaleTimeString()}}function V(e){if(!e)return"never";var t=new Date(e),a=new Date,n=Math.floor((a.getTime()-t.getTime())/1e3);return n<60?"just now":n<3600?Math.floor(n/60)+"m ago":n<86400?Math.floor(n/3600)+"h ago":Math.floor(n/86400)+"d ago"}function ea(e){return e>=3600?Math.floor(e/3600)+"h":Math.floor(e/60)+"m"}function Mt(e){if(!e||e<=0)return"0m";var t=Math.floor(e/3600),a=Math.floor(e%3600/60);return t>0?t+"h "+a+"m":a+"m"}function re(){return fetch("/api/status").then(function(e){if(!e.ok)throw new Error("Failed to fetch status");return e.json()})}function ta(){return fetch("/api/snap",{method:"POST"}).then(function(e){return e.json().then(function(t){if(!e.ok)throw new Error(t.error||"Snap failed");return t})})}function et(e,t){var a=new URLSearchParams;e&&a.set("status",e),t&&a.set("category",t);var n="/api/subscriptions"+(a.toString()?"?"+a:"");return fetch(n).then(function(r){return r.json()})}function aa(e){return fetch("/api/subscriptions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(e)}).then(function(t){return t.json().then(function(a){if(!t.ok)throw new Error(a.error||"Create failed");return a})})}function na(e,t){return fetch("/api/subscriptions/"+e,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(t)}).then(function(a){return a.json().then(function(n){if(!a.ok)throw new Error(n.error||"Update failed");return n})})}function ra(e){return fetch("/api/subscriptions/"+e,{method:"DELETE"}).then(function(t){return t.json().then(function(a){if(!t.ok)throw new Error(a.error||"Delete failed");return a})})}function ia(){return fetch("/api/overview").then(function(e){return e.json()})}function oa(){return fetch("/api/presets").then(function(e){return e.json()})}function tt(e){var t="/api/usage";return e&&(t+="?account="+e),fetch(t).then(function(a){return a.json()}).then(function(a){return Yt(a),a})}function sa(){var e=localStorage.getItem("niyantra-theme");e?document.documentElement.setAttribute("data-theme",e):window.matchMedia("(prefers-color-scheme: light)").matches&&document.documentElement.setAttribute("data-theme","light");var t=document.getElementById("theme-btn");t&&t.addEventListener("click",function(){var a=document.documentElement.getAttribute("data-theme"),n=a==="light"?"dark":"light";document.documentElement.setAttribute("data-theme",n),localStorage.setItem("niyantra-theme",n),document.dispatchEvent(new CustomEvent("niyantra:theme-change",{detail:{theme:n}}))})}function la(){var e=document.querySelectorAll(".tab-btn");e.forEach(function(t){t.addEventListener("click",function(){var a=t.getAttribute("data-tab");a&&ee(a)})})}function ee(e){var t=document.querySelectorAll(".tab-btn");t.forEach(function(r){r.classList.remove("active")});var a=document.querySelector('.tab-btn[data-tab="'+e+'"]');a&&a.classList.add("active"),document.querySelectorAll(".tab-panel").forEach(function(r){r.classList.remove("active")});var n=document.getElementById("panel-"+e);n&&n.classList.add("active"),document.dispatchEvent(new CustomEvent("niyantra:tab-change",{detail:{tab:e}}))}var kt=null;function ca(e){kt=e}function Le(){kt&&re().then(kt)}function ua(e,t){if(!e)return"";var a=Math.round(e.remainingPercent),n="good";return e.isExhausted||a===0?n="exhausted":a<20?n="warning":a<50&&(n="ok"),' <span class="pinned-badge '+n+'" title="Pinned: '+d(e.displayName||t)+'">\u2605 '+d(e.displayName||Te[t]||t)+": "+a+"%</span>"}function Ln(e,t){Be(e,{pinnedGroup:t}).then(function(){v("\u2B50 Pinned "+(Te[t]||t),"success"),Le()})}function xn(e){Be(e,{pinnedGroup:""}).then(function(){v("\u2606 Unpinned \u2014 will show first group","info"),Le()})}function In(e){if(!e||e<1||e>31)return-1;var t=new Date,a=t.getFullYear(),n=t.getMonth(),r=t.getDate(),i=r<e?n:n+1,o=new Date(a,i,e),s=Math.ceil((o.getTime()-t.getTime())/(1e3*60*60*24));return s<0?0:s}function va(e,t){if(!t||t<1)return'<span class="credit-renewal-set" data-renewal-edit="'+e+'" title="Set credit renewal day">\u21BB set</span>';var a=In(t),n=a===0?"today":a===1?"1d":a+"d";return'<span class="credit-renewal" data-renewal-edit="'+e+'" data-renewal-day="'+t+'" title="Credits renew on day '+t+" (\u21BB "+n+')">\u21BB '+n+"</span>"}function Mn(e){var t=document.querySelector(".renewal-picker");t&&t.remove();var a=e.getAttribute("data-renewal-edit"),n=parseInt(e.getAttribute("data-renewal-day"))||0,r=document.createElement("div");r.className="renewal-picker",r.innerHTML='<div class="renewal-picker-label">Credit Renewal Day</div><input type="number" class="renewal-picker-input" min="1" max="31" value="'+(n||"")+'" placeholder="1\u201331"><div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>',e.closest(".credits-cell").appendChild(r);var i=r.querySelector("input");i.focus(),i.select();function o(){var s=parseInt(i.value)||0;s>31&&(s=31),s<0&&(s=0),r.remove(),Be(a,{creditRenewalDay:s}).then(function(){s>0?v("\u21BB Renewal day set to "+s,"success"):v("\u21BB Renewal day cleared","info"),Le()})}i.addEventListener("keydown",function(s){s.key==="Enter"&&(s.preventDefault(),o()),s.key==="Escape"&&(s.preventDefault(),r.remove())}),i.addEventListener("blur",function(){setTimeout(function(){r.parentNode&&o()},150)})}var kn=["work","personal","primary","backup","shared","test","dev"];function pa(e){for(var t=(e.tags||"").split(",").filter(function(r){return r.trim()}),a='<span class="account-tags" data-account-id="'+e.accountId+'">',n=0;n<t.length;n++)a+='<span class="tag-chip" data-tag="'+d(t[n].trim())+'">'+d(t[n].trim())+'<span class="tag-remove" data-remove-tag="'+d(t[n].trim())+'" data-account-id="'+e.accountId+'" title="Remove tag">\u2715</span></span>';return a+="</span>",a+='<button class="tag-add-btn" data-tag-add="'+e.accountId+'" title="Add tag">+</button>',a}function ma(e){return e.notes?'<span class="account-note" data-note-edit="'+e.accountId+'" data-current-note="'+d(e.notes)+'" title="'+d(e.notes)+' \u2014 click to edit">\u{1F4DD} '+d(e.notes)+"</span>":'<span class="account-note-empty" data-note-edit="'+e.accountId+'" data-current-note="">+ note</span>'}function Be(e,t){return fetch("/api/accounts/"+e+"/meta",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(t)}).then(function(a){return a.json()})}function da(e,t){if(t=t.trim().toLowerCase().replace(/[^a-z0-9_-]/g,""),!!t){var a=document.querySelector('.account-tags[data-account-id="'+e+'"]'),n=[];a&&a.querySelectorAll(".tag-chip").forEach(function(r){n.push(r.getAttribute("data-tag"))}),!(n.indexOf(t)>=0)&&(n.push(t),Be(e,{tags:n.join(",")}).then(function(){v('\u{1F3F7}\uFE0F Tag "'+t+'" added',"success"),Le()}))}}function fa(e,t){var a=document.querySelector('.account-tags[data-account-id="'+e+'"]'),n=[];a&&a.querySelectorAll(".tag-chip").forEach(function(r){var i=r.getAttribute("data-tag");i!==t&&n.push(i)}),Be(e,{tags:n.join(",")}).then(function(){v("\u{1F3F7}\uFE0F Tag removed","success"),Le()})}function Sn(e){Fe();var t=e.getAttribute("data-tag-add"),a=e.closest(".account-meta");if(a){var n=[],r=a.querySelector(".account-tags");r&&r.querySelectorAll(".tag-chip").forEach(function(s){n.push(s.getAttribute("data-tag"))});var i=document.createElement("div");i.className="tag-picker",i.id="active-tag-picker",i.innerHTML='<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20"><div class="tag-picker-hint">Enter to add</div><div class="tag-picker-presets">'+kn.map(function(s){var l=n.indexOf(s)>=0?" active":"";return'<button class="tag-preset'+l+'" data-preset-tag="'+s+'">'+s+"</button>"}).join("")+"</div>",a.appendChild(i);var o=i.querySelector(".tag-picker-input");o.focus(),i.addEventListener("click",function(s){s.stopPropagation()}),o.addEventListener("keydown",function(s){if(s.key==="Enter"){s.preventDefault();var l=o.value.trim();l&&(da(t,l),Fe())}s.key==="Escape"&&Fe()}),i.querySelectorAll(".tag-preset").forEach(function(s){s.addEventListener("click",function(l){l.stopPropagation();var c=s.getAttribute("data-preset-tag");s.classList.contains("active")?fa(t,c):da(t,c),Fe()})}),setTimeout(function(){document.addEventListener("click",ga)},10)}}function Fe(){var e=document.getElementById("active-tag-picker");e&&e.remove(),document.removeEventListener("click",ga)}function ga(e){var t=document.getElementById("active-tag-picker");t&&!t.contains(e.target)&&Fe()}function wn(e){var t=e.getAttribute("data-note-edit"),a=e.getAttribute("data-current-note")||"",n=document.createElement("span");n.className="note-inline-editor",n.innerHTML='<input type="text" class="note-inline-input" value="'+d(a)+'" placeholder="Add a note..." maxlength="100">',e.replaceWith(n);var r=n.querySelector(".note-inline-input");r.focus(),r.select(),n.addEventListener("click",function(o){o.stopPropagation()});function i(){var o=r.value.trim();Be(t,{notes:o}).then(function(){o&&v("\u{1F4DD} Note saved","success"),Le()})}r.addEventListener("keydown",function(o){o.key==="Enter"&&(o.preventDefault(),i()),o.key==="Escape"&&Le()}),r.addEventListener("blur",i)}function ha(){var e=document.getElementById("account-grid");e&&e.addEventListener("click",function(t){var a=t.target.closest("[data-remove-tag]");if(a){t.stopPropagation(),t.preventDefault(),fa(a.getAttribute("data-account-id"),a.getAttribute("data-remove-tag"));return}var n=t.target.closest("[data-tag-add]");if(n){t.stopPropagation(),t.preventDefault(),Sn(n);return}var r=t.target.closest("[data-note-edit]");if(r){t.stopPropagation(),t.preventDefault(),wn(r);return}var i=t.target.closest("[data-pin-group]");if(i){t.stopPropagation(),t.preventDefault();var o=i.getAttribute("data-pin-account"),s=i.getAttribute("data-pin-group");i.classList.contains("pinned")?xn(o):Ln(o,s);return}var l=t.target.closest("[data-renewal-edit]");if(l){t.stopPropagation(),t.preventDefault(),Mn(l);return}})}function ya(e,t){if(!e.groups)return-1;for(var a=0;a<e.groups.length;a++)if(e.groups[a].groupKey===t)return e.groups[a].remainingPercent;return-1}function ba(e){return e.aiCredits&&e.aiCredits.length>0?e.aiCredits[0].creditAmount:-1}function St(e){var t=e.groups||[];if(t.length===0)return!1;for(var a=0;a<t.length;a++)if(!t[a].isExhausted&&t[a].remainingPercent>0)return!1;return!0}function Ea(e){var t=e.fiveHourPct||0,a=e.sevenDayPct||0,n=Math.max(0,100-t),r=Math.max(0,100-a);return n===0&&r===0?"empty":t>=80||a>=80?"low":"ready"}function Cn(e){var t=ce.column,a=ce.direction;return e.slice().sort(function(n,r){var i,o;switch(t){case"account":i=n.email,o=r.email;break;case"claude_gpt":case"gemini_pro":case"gemini_flash":i=ya(n,t),o=ya(r,t);break;case"credits":i=ba(n),o=ba(r);break;case"lastsnap":i=n.lastSeen?new Date(n.lastSeen).getTime():0,o=r.lastSeen?new Date(r.lastSeen).getTime():0;break;case"status":i=n.isReady?1:0,o=r.isReady?1:0;break;default:i=n.email,o=r.email;break}if(i===o)return 0;var s=i>o?1:-1;return a==="asc"?s:-s})}function Hn(e){var t=document.getElementById("quota-search"),a=document.getElementById("quota-filter-status"),n=t?t.value.toLowerCase():"",r=a?a.value:"all";return e.filter(function(i){var o=!n||i.email.toLowerCase().includes(n)||(i.planName||"").toLowerCase().includes(n),s=!0;r==="ready"?s=i.isReady:r==="low"?s=!i.isReady&&!St(i):r==="empty"&&(s=St(i));var l=!0;if(de){var c=(i.tags||"").split(",").map(function(p){return p.trim().toLowerCase()});l=c.indexOf(de)>=0}return o&&s&&l})}function Bn(e){for(var t={},a=e.accounts||[],n=0;n<a.length;n++)for(var r=(a[n].tags||"").split(","),i=0;i<r.length;i++){var o=r[i].trim().toLowerCase();o&&(t[o]=(t[o]||0)+1)}return t}function Ta(e){var t=document.getElementById("tag-filter-strip");if(t){var a=Bn(e),n=Object.keys(a).sort();if(n.length===0){de&&Qe(null),t.innerHTML="";return}de&&n.indexOf(de)<0&&Qe(null);var r='<span class="tag-filter-label">\u{1F3F7}\uFE0F Filter:</span>',i=de?"":" active",o=(e.accounts||[]).length;r+='<button class="tag-filter-chip'+i+'" data-tag-filter="">All <span class="tag-filter-count">'+o+"</span></button>";for(var s=0;s<n.length;s++){var l=n[s],c=de===l?" active":"";r+='<button class="tag-filter-chip'+c+'" data-tag-filter="'+d(l)+'">'+d(l)+' <span class="tag-filter-count">'+a[l]+"</span></button>"}t.innerHTML=r}}function La(e){var t=e.target.closest(".tag-filter-chip");if(t){var a=t.getAttribute("data-tag-filter");Qe(a||null),j&&(Ta(j),Y(j))}}function Y(e){Xt(e);var t=document.getElementById("account-grid"),a=document.getElementById("account-count"),n=document.getElementById("snap-count");if(t){Ta(e);var r=(e.accounts||[]).length,i=[];if(r>0&&i.push(r+" Antigravity"),e.codexSnapshot&&i.push("1 Codex"),e.claudeSnapshot&&i.push("1 Claude"),e.cursorSnapshot&&i.push("1 Cursor"),e.geminiSnapshot&&i.push("1 Gemini"),e.copilotSnapshot&&i.push("1 Copilot"),a&&(a.textContent=i.join(" \xB7 ")||"0 accounts"),n&&(n.textContent=e.snapshotCount?e.snapshotCount+" snapshots":""),r===0&&!e.codexSnapshot&&!e.claudeSnapshot&&!e.cursorSnapshot&&!e.geminiSnapshot&&!e.copilotSnapshot){t.innerHTML='<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><p>No accounts tracked yet</p><p class="empty-hint">Click <strong>Snap Now</strong> to capture your first snapshot</p></div>';return}var o=document.getElementById("quota-filter-provider"),s=o?o.value:"all",l="";if(r>0&&(s==="all"||s==="antigravity")){var c=Hn(e.accounts),p=Cn(c),m=Z.has("section-antigravity")?" collapsed":"",g=Z.has("section-antigravity")?"\u25B8":"\u25BE";l+='<div class="provider-section" data-provider="antigravity"><div class="provider-header" data-toggle-provider="section-antigravity"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">'+g+'</span><span class="provider-name">Antigravity</span><span class="provider-count">'+r+" account"+(r!==1?"s":"")+'</span></div></div><div class="provider-body'+m+'" id="section-antigravity">',l+='<div class="grid-header"><div class="grid-col-account sortable" data-sort="account">Account <span class="sort-indicator"></span></div>';for(var T=0;T<fe.length;T++)l+='<div class="grid-col-group sortable" data-sort="'+fe[T]+'">'+(Kt[T]||fe[T])+' <span class="sort-indicator"></span></div>';l+='<div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div><div class="grid-col-snap sortable" data-sort="lastsnap">Last Snap <span class="sort-indicator"></span></div><div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div></div>';for(var h=0;h<p.length;h++){var u=p[h],x="acc-"+u.accountId,b=Ce.has(x),f="",E={};if(u.models)for(var M=0;M<u.models.length;M++){var C=u.models[M],L=C.groupKey||"claude_gpt";E[L]||(E[L]=[]),E[L].push(C.label||C.modelId)}for(var I=u.pinnedGroup||(u.groups&&u.groups.length>0?u.groups[0].groupKey:"claude_gpt"),S=null,B=u.groups||[],U=0;U<B.length;U++)if(B[U].groupKey===I){S=B[U];break}for(var A=0;A<fe.length;A++){for(var w=fe[A],q=null,B=u.groups||[],F=0;F<B.length;F++)if(B[F].groupKey===w){q=B[F];break}if(!q){f+='<div class="quota-cell"><span class="quota-pct">\u2014</span></div>';continue}var P=Math.round(q.remainingPercent),D="good";q.isExhausted||P===0?D="exhausted":P<20?D="warning":P<50&&(D="ok");var N="";q.timeUntilResetSec>0&&(N='<span class="quota-reset">\u21BB '+Ye(q.timeUntilResetSec)+"</span>");var J=D,W=(E[w]||[]).join("|||"),R='<span class="group-adjust" data-snap-id="'+u.latestSnapshotId+'" data-group-key="'+w+'" data-group-labels="'+d(W)+'" data-current-pct="'+P+'"><button class="gadj-btn" data-delta="-5" title="\u22125% all models in group">\u22125</button><button class="gadj-btn" data-delta="5" title="+5% all models in group">+5</button></span>',G="";if(e.forecasts&&e.forecasts[u.accountId]){for(var K=e.forecasts[u.accountId],te=0;te<K.length;te++)if(K[te].groupKey===w&&K[te].ttxLabel){var me=K[te].severity||"safe",y=K[te].ttxLabel;y&&y!==""&&me!=="none"&&(G='<span class="ttx-badge ttx-'+me+'" title="Time to exhaustion at current burn rate">'+d(y)+"</span>");break}}var _="";if(P<95&&e.estimatedCosts&&e.estimatedCosts[u.accountId]){var H=e.estimatedCosts[u.accountId];if(H.groups){for(var k=0;k<H.groups.length;k++)if(H.groups[k].groupKey===w&&H.groups[k].hasData){var Q=H.groups[k].estimatedCost||0;if(Q<.01)break;var $=H.groups[k].costLabel||"\u2014",X="cost-low";Q>=10?X="cost-high":Q>=3&&(X="cost-medium");var le="Estimated cost this cycle";H.groups[k].hourlyLabel&&(le+=" ("+H.groups[k].hourlyLabel+")"),_='<span class="cost-badge '+X+'" title="'+le+'">'+d($)+"</span>";break}}}f+='<div class="quota-cell"><span class="quota-pct '+D+'">'+P+'%</span><div class="quota-minibar"><div class="quota-minibar-fill '+J+'" style="width:'+P+'%"></div></div>'+R+N+G+_+"</div>"}var Re="dot-ready",ut="Ready";St(u)?(Re="dot-empty",ut="Empty"):u.isReady||(Re="dot-low",ut="Low");var _e='<div class="credits-cell" style="position:relative">';if(u.aiCredits&&u.aiCredits.length>0){var vt=u.aiCredits[0].creditAmount,rn=vt>500?"good":vt>100?"ok":"warning";_e+='<span class="credit-amount '+rn+'" title="AI Credits">\u2726 '+Zt(vt)+"</span>",_e+=va(u.accountId,u.creditRenewalDay)}else _e+='<span class="credit-amount muted">\u2014</span>';_e+="</div>";var Ut="";if(u.models&&u.models.length>0){for(var Ge={},pt=0;pt<u.models.length;pt++){var ae=u.models[pt],mt=ae.groupKey||"claude_gpt";Ge[mt]||(Ge[mt]=[]),Ge[mt].push(ae)}for(var ft="",gt=0;gt<fe.length;gt++){var Se=fe[gt],Je=Ge[Se];if(!(!Je||Je.length===0)){var ht=I===Se,on=ht?"pin-star pinned":"pin-star",sn=ht?"Pinned \u2014 click to unpin":"Click to pin this group",ln=ht?"\u2605":"\u2606";ft+='<div class="model-group-header"><button class="'+on+'" data-pin-group="'+Se+'" data-pin-account="'+u.accountId+'" title="'+sn+'">'+ln+'</button><span class="model-group-name" style="color:'+(Tt[Se]||"var(--text-secondary)")+'">'+(Te[Se]||Se)+"</span></div>";for(var yt=0;yt<Je.length;yt++){var ae=Je[yt],we=Math.round(ae.remainingPercent),qe="good";ae.isExhausted||we===0?qe="exhausted":we<20?qe="warning":we<50&&(qe="ok");var dn=Tt[ae.groupKey]||"#94a3b8",cn=ae.resetSeconds>0?"\u21BB "+Ye(ae.resetSeconds):"",We="";if(He&&He.models)for(var bt=0;bt<He.models.length;bt++){var Ee=He.models[bt];if(Ee.modelId===ae.modelId&&Ee.hasIntelligence){var un=(Ee.currentRate*100).toFixed(1)+"%/hr";if(We+='<span class="rate-badge" title="Current consumption rate">'+un+"</span>",Ee.projectedUsage>0){var Et=Math.round(Ee.projectedUsage*100),vn=Et>95?"proj-danger":Et>80?"proj-warn":"proj-ok";We+='<span class="proj-badge '+vn+'" title="Projected usage at reset">\u2192'+Et+"%</span>"}if(Ee.projectedExhaustion){var pn=new Date(Ee.projectedExhaustion),$e=Math.round((pn.getTime()-Date.now())/6e4);$e>0&&(We+='<span class="exhaust-badge" title="Projected exhaustion time">\u26A0 '+($e>60?Math.round($e/60)+"h":$e+"m")+"</span>")}break}}var mn='<span class="adjust-controls" data-snap-id="'+u.latestSnapshotId+'" data-model-label="'+d(ae.label||ae.modelId)+'" data-current-pct="'+we+'"><button class="adj-btn" data-delta="-10" title="\u221210%">\u221210</button><button class="adj-btn" data-delta="-5" title="\u22125%">\u22125</button><button class="adj-btn" data-delta="5" title="+5%">+5</button><button class="adj-btn" data-delta="10" title="+10%">+10</button></span>';ft+='<div class="model-row"><div class="model-indicator" style="background:'+dn+'"></div><span class="model-label">'+d(ae.label||ae.modelId)+'</span><div class="model-bar-track"><div class="model-bar-fill '+qe+'" style="width:'+we+'%"></div></div><span class="model-pct '+qe+'">'+we+"%</span>"+mn+'<span class="model-reset">'+cn+"</span>"+We+"</div>"}}}var fn=b?" is-expanded":"";Ut='<div class="model-details'+fn+'" id="'+x+'">'+ft+'<div class="account-actions"><button class="btn-clear-snaps" data-clear-account="'+u.accountId+'" data-clear-email="'+d(u.email)+'" title="Delete all snapshots for this account">Clear Snapshots</button><button class="btn-delete-account" data-delete-account="'+u.accountId+'" data-delete-email="'+d(u.email)+'" title="Remove account and all its data">Remove Account</button></div></div>'}var gn=b?"chevron expanded":"chevron",Gt="";u.isReady||(Gt=' style="opacity:0.6"'),l+='<div class="account-card"'+Gt+'><div class="account-row" data-toggle="'+x+'"><div class="account-info"><div class="account-email"><span class="'+gn+'" id="chev-'+x+'">\u25B8</span> '+d(u.email)+ua(S,I)+'</div><div class="account-meta" style="position:relative">'+(u.planName?'<span class="plan-badge">'+d(u.planName)+"</span>":"")+pa(u)+ma(u)+"</div></div>"+f+_e+'<div class="snap-cell"><span class="snap-ago">'+d(u.stalenessLabel)+'</span></div><div style="text-align:center"><span class="health-dot '+Re+'">\u25CF '+ut+"</span></div></div>"+Ut+"</div>"}l+="</div></div>"}var Jt=document.getElementById("quota-filter-status"),ie=Jt?Jt.value:"all";if(e.codexSnapshot&&(s==="all"||s==="codex")){var hn=Ea(e.codexSnapshot);(ie==="all"||hn===ie)&&(l+=An(e.codexSnapshot))}if(e.claudeSnapshot&&(s==="all"||s==="claude")){var yn=Ea(e.claudeSnapshot);(ie==="all"||yn===ie)&&(l+=Pn(e.claudeSnapshot))}if(e.cursorSnapshot&&(s==="all"||s==="cursor")){var bn=Dn(e.cursorSnapshot);(ie==="all"||bn===ie)&&(l+=Rn(e.cursorSnapshot))}if(e.geminiSnapshot&&(s==="all"||s==="gemini")){var En=_n(e.geminiSnapshot);(ie==="all"||En===ie)&&(l+=qn(e.geminiSnapshot))}if(e.copilotSnapshot&&(s==="all"||s==="copilot")){var Tn=Fn(e.copilotSnapshot);(ie==="all"||Tn===ie)&&(l+=Nn(e.copilotSnapshot))}s==="antigravity"&&r===0&&(l+='<div class="provider-empty-state" data-provider="antigravity"><span class="provider-empty-icon">\u26A1</span><p>No Antigravity accounts detected</p><p class="empty-hint">Open Windsurf and log in to start tracking quotas</p></div>'),s==="codex"&&!e.codexSnapshot&&(l+='<div class="provider-empty-state" data-provider="codex"><span class="provider-empty-icon">\u{1F916}</span><p>No Codex snapshots yet</p><p class="empty-hint">Install Codex CLI and click <strong>Snap Now</strong> to capture</p></div>'),s==="claude"&&!e.claudeSnapshot&&(l+='<div class="provider-empty-state" data-provider="claude"><span class="provider-empty-icon">\u{1F52E}</span><p>No Claude Code data yet</p><p class="empty-hint">Enable the Claude bridge in <strong>Settings</strong></p></div>'),s==="cursor"&&!e.cursorSnapshot&&(l+='<div class="provider-empty-state" data-provider="cursor"><span class="provider-empty-icon">\u{1F5B1}\uFE0F</span><p>No Cursor data yet</p><p class="empty-hint">Enable Cursor capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>'),s==="gemini"&&!e.geminiSnapshot&&(l+='<div class="provider-empty-state" data-provider="gemini"><span class="provider-empty-icon">\u2726</span><p>No Gemini CLI data yet</p><p class="empty-hint">Enable Gemini capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>'),s==="copilot"&&!e.copilotSnapshot&&(l+='<div class="provider-empty-state" data-provider="copilot"><span class="provider-empty-icon">\u{1F419}</span><p>No GitHub Copilot data yet</p><p class="empty-hint">Add a PAT in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>'),t.innerHTML=l,t.querySelectorAll(".provider-header[data-toggle-provider]").forEach(function(Wt){Wt.addEventListener("click",function(){var ze=Wt.dataset.toggleProvider,$t=document.getElementById(ze),zt=document.getElementById("pchev-"+ze);if($t){var Qt=$t.classList.toggle("collapsed");zt&&(zt.textContent=Qt?"\u25B8":"\u25BE"),Qt?Z.add(ze):Z.delete(ze)}})})}}function An(e){var t=e.fiveHourPct||0,a=Math.max(0,100-t),n=a>50?"good":a>20?"ok":a>0?"warning":"exhausted",r=e.fiveHourReset?Ae(e.fiveHourReset):"",i=e.sevenDayPct?e.sevenDayPct:0,o=Math.max(0,100-i),s=o>50?"good":o>20?"ok":o>0?"warning":"exhausted",l=e.sevenDayReset?Ae(e.sevenDayReset):"",c=e.capturedAt?V(e.capturedAt):"unknown",p=t>=80||i>=80?"dot-low":"dot-ready",m=p==="dot-ready"?"Ready":"Low",g=e.email||(e.accountId&&e.accountId.length>12?e.accountId.substring(0,6)+".."+e.accountId.slice(-6):e.accountId||"Codex"),T=e.creditsBalance!==null&&e.creditsBalance!==void 0?e.creditsBalance.toFixed(2):"\u2014",h=Z.has("section-codex")?" collapsed":"",u=Z.has("section-codex")?"\u25B8":"\u25BE";return'<div class="provider-section" data-provider="codex"><div class="provider-header" data-toggle-provider="section-codex"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-codex">'+u+'</span><span class="provider-name">\u{1F916} Codex / ChatGPT</span><span class="provider-count">1 account</span></div></div><div class="provider-body'+h+'" id="section-codex"><div class="grid-header grid-codex"><div>Account</div><div>Plan</div><div>5-Hour</div><div>7-Day</div><div>Credits</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-codex"><div class="account-info"><div class="account-email">'+d(g)+"</div></div><div>"+(e.planType?'<span class="plan-badge">'+d(e.planType)+"</span>":"\u2014")+'</div><div class="quota-cell"><span class="quota-pct '+n+'">'+a.toFixed(0)+'%</span><div class="quota-minibar"><div class="quota-minibar-fill '+n+'" style="width:'+a+'%"></div></div>'+(r?'<span class="quota-reset">\u21BB '+r+"</span>":"")+'</div><div class="quota-cell"><span class="quota-pct '+s+'">'+o.toFixed(0)+'%</span><div class="quota-minibar"><div class="quota-minibar-fill '+s+'" style="width:'+o+'%"></div></div>'+(l?'<span class="quota-reset">\u21BB '+l+"</span>":"")+'</div><div class="credits-cell"><span class="credit-amount">'+T+'</span></div><div class="snap-cell"><span class="snap-ago">'+c+'</span></div><div style="text-align:center"><span class="health-dot '+p+'">\u25CF '+m+"</span></div></div></div></div></div>"}function Pn(e){var t=e.fiveHourPct||0,a=Math.max(0,100-t),n=a>50?"good":a>20?"ok":a>0?"warning":"exhausted",r=e.sevenDayPct?e.sevenDayPct:0,i=Math.max(0,100-r),o=i>50?"good":i>20?"ok":i>0?"warning":"exhausted",s=e.capturedAt?V(e.capturedAt):"unknown",l=t>=80||r>=80?"dot-low":"dot-ready",c=l==="dot-ready"?"Ready":"Low",p=Z.has("section-claude")?" collapsed":"",m=Z.has("section-claude")?"\u25B8":"\u25BE";return'<div class="provider-section" data-provider="claude"><div class="provider-header" data-toggle-provider="section-claude"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-claude">'+m+'</span><span class="provider-name">\u{1F517} Claude Code</span><span class="provider-count">1 account \xB7 Bridge</span></div></div><div class="provider-body'+p+'" id="section-claude"><div class="grid-header grid-claude"><div>Source</div><div>5-Hour</div><div>7-Day</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-claude"><div class="account-info"><div class="account-email">'+d(e.source||"statusline")+'</div></div><div class="quota-cell"><span class="quota-pct '+n+'">'+a.toFixed(0)+'%</span><div class="quota-minibar"><div class="quota-minibar-fill '+n+'" style="width:'+a+'%"></div></div></div><div class="quota-cell"><span class="quota-pct '+o+'">'+i.toFixed(0)+'%</span><div class="quota-minibar"><div class="quota-minibar-fill '+o+'" style="width:'+i+'%"></div></div></div><div class="snap-cell"><span class="snap-ago">'+s+'</span></div><div style="text-align:center"><span class="health-dot '+l+'">\u25CF '+c+"</span></div></div></div></div></div>"}function Ae(e){if(!e)return"";var t=new Date(e),a=new Date,n=(t.getTime()-a.getTime())/1e3;return n<=0?"now":Ye(n)}function Dn(e){var t=e.usagePct||0,a=Math.max(0,100-t);return a===0?"empty":t>=80?"low":"ready"}function Rn(e){var t=e.usagePct||0,a=Math.max(0,100-t),n=a>50?"good":a>20?"ok":a>0?"warning":"exhausted",r=e.capturedAt?V(e.capturedAt):"unknown",i=t>=80?"dot-low":"dot-ready",o=i==="dot-ready"?"Ready":"Low",s=e.email||"Cursor",l=e.premiumUsed!==void 0?e.premiumUsed:"\u2014",c=e.premiumLimit!==void 0?e.premiumLimit:"\u2014",p=Z.has("section-cursor")?" collapsed":"",m=Z.has("section-cursor")?"\u25B8":"\u25BE",g="";if(e.modelsJson&&e.modelsJson!=="{}")try{var T=typeof e.modelsJson=="string"?JSON.parse(e.modelsJson):e.modelsJson,h=Object.keys(T);if(h.length>0){g='<div class="cursor-model-breakdown">';for(var u=0;u<h.length;u++){var x=h[u],b=T[x],f=b.numRequests||0,E=b.maxRequestUsage||0,M=E>0?f/E*100:0,C=Math.max(0,100-M),L=C>50?"good":C>20?"ok":C>0?"warning":"exhausted";g+='<div class="cursor-model-row"><span class="cursor-model-name">'+d(x)+'</span><div class="quota-minibar"><div class="quota-minibar-fill '+L+'" style="width:'+C+'%"></div></div><span class="cursor-model-usage">'+f+"/"+E+"</span></div>"}g+="</div>"}}catch{}return'<div class="provider-section" data-provider="cursor"><div class="provider-header" data-toggle-provider="section-cursor"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-cursor">'+m+'</span><span class="provider-name">\u{1F5B1}\uFE0F Cursor</span><span class="provider-count">1 account</span></div></div><div class="provider-body'+p+'" id="section-cursor"><div class="grid-header grid-cursor"><div>Account</div><div>Plan</div><div>Premium Used</div><div>Usage</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-cursor"><div class="account-info"><div class="account-email">'+d(s)+"</div></div><div>"+(e.planType?'<span class="plan-badge">'+d(e.planType)+"</span>":"\u2014")+'</div><div class="quota-cell"><span class="quota-pct '+n+'">'+l+" / "+c+'</span><div class="quota-minibar"><div class="quota-minibar-fill '+n+'" style="width:'+a+'%"></div></div></div><div class="quota-cell"><span class="quota-pct '+n+'">'+a.toFixed(0)+'% left</span></div><div class="snap-cell"><span class="snap-ago">'+r+'</span></div><div style="text-align:center"><span class="health-dot '+i+'">\u25CF '+o+"</span></div></div>"+g+"</div></div></div>"}function _n(e){var t=e.overallPct||0,a=Math.max(0,100-t);return a===0?"empty":t>=80?"low":"ready"}function qn(e){var t=e.overallPct||0,a=Math.max(0,100-t),n=a>50?"good":a>20?"ok":a>0?"warning":"exhausted",r=e.capturedAt?V(e.capturedAt):"unknown",i=t>=80?"dot-low":"dot-ready",o=i==="dot-ready"?"Ready":"Low",s=e.email||"Gemini CLI",l=Z.has("section-gemini")?" collapsed":"",c=Z.has("section-gemini")?"\u25B8":"\u25BE",p="";if(e.modelsJson&&e.modelsJson!=="[]")try{var m=typeof e.modelsJson=="string"?JSON.parse(e.modelsJson):e.modelsJson;if(Array.isArray(m)&&m.length>0){p='<div class="cursor-model-breakdown">';for(var g=0;g<m.length;g++){var T=m[g],h=T.usedPct||0,u=Math.max(0,100-h),x=u>50?"good":u>20?"ok":u>0?"warning":"exhausted",b=T.resetTime?Ae(T.resetTime):"",f=T.tier||T.modelId||"unknown";p+='<div class="cursor-model-row"><span class="cursor-model-name">'+d(T.modelId||f)+'</span><div class="quota-minibar"><div class="quota-minibar-fill '+x+'" style="width:'+u+'%"></div></div><span class="cursor-model-usage">'+u.toFixed(0)+"% left</span>"+(b?'<span class="quota-reset">\u21BB '+b+"</span>":"")+"</div>"}p+="</div>"}}catch{}return'<div class="provider-section" data-provider="gemini"><div class="provider-header" data-toggle-provider="section-gemini"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-gemini">'+c+'</span><span class="provider-name">\u2728 Gemini CLI</span><span class="provider-count">1 account</span></div></div><div class="provider-body'+l+'" id="section-gemini"><div class="grid-header grid-gemini"><div>Account</div><div>Tier</div><div>Usage</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-gemini"><div class="account-info"><div class="account-email">'+d(s)+"</div></div><div>"+(e.tier?'<span class="plan-badge">'+d(e.tier)+"</span>":"\u2014")+'</div><div class="quota-cell"><span class="quota-pct '+n+'">'+a.toFixed(0)+'% left</span><div class="quota-minibar"><div class="quota-minibar-fill '+n+'" style="width:'+a+'%"></div></div></div><div class="snap-cell"><span class="snap-ago">'+r+'</span></div><div style="text-align:center"><span class="health-dot '+i+'">\u25CF '+o+"</span></div></div>"+p+"</div></div></div>"}function Fn(e){var t=e.premiumPct||0,a=Math.max(0,100-t);return a===0?"empty":t>=80?"low":"ready"}function Nn(e){var t=e.premiumPct||0,a=Math.max(0,100-t),n=a>50?"good":a>20?"ok":a>0?"warning":"exhausted",r=e.chatPct||0,i=Math.max(0,100-r),o=i>50?"good":i>20?"ok":i>0?"warning":"exhausted",s=e.capturedAt?V(e.capturedAt):"unknown",l=t>=80?"dot-low":"dot-ready",c=l==="dot-ready"?"Ready":"Low",p=e.username||e.email||"Copilot",m=Z.has("section-copilot")?" collapsed":"",g=Z.has("section-copilot")?"\u25B8":"\u25BE";return'<div class="provider-section" data-provider="copilot"><div class="provider-header" data-toggle-provider="section-copilot"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-copilot">'+g+'</span><span class="provider-name">\u{1F419} GitHub Copilot</span><span class="provider-count">1 account</span></div></div><div class="provider-body'+m+'" id="section-copilot"><div class="grid-header grid-copilot"><div>Account</div><div>Plan</div><div>Premium</div><div>Chat</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-copilot"><div class="account-info"><div class="account-email">'+d(p)+"</div></div><div>"+(e.plan?'<span class="plan-badge">'+d(e.plan)+"</span>":"\u2014")+'</div><div class="quota-cell"><span class="quota-pct '+n+'">'+a.toFixed(0)+'% left</span><div class="quota-minibar"><div class="quota-minibar-fill '+n+'" style="width:'+a+'%"></div></div></div><div class="quota-cell"><span class="quota-pct '+o+'">'+i.toFixed(0)+'% left</span><div class="quota-minibar"><div class="quota-minibar-fill '+o+'" style="width:'+i+'%"></div></div></div><div class="snap-cell"><span class="snap-ago">'+s+'</span></div><div style="text-align:center"><span class="health-dot '+l+'">\u25CF '+c+"</span></div></div></div></div></div>"}function xa(){var e=document.getElementById("account-grid");e&&e.addEventListener("click",function(t){var a=t.target.closest("[data-clear-account]");if(a){t.stopPropagation();var n=a.getAttribute("data-clear-account"),r=a.getAttribute("data-clear-email");confirm("Clear all snapshots for "+r+`?
+// GENERATED FILE — do not edit. Source: internal/web/src/
+"use strict";
+(() => {
+  // internal/web/src/core/state.ts
+  var GROUP_ORDER = ["claude_gpt", "gemini_pro", "gemini_flash"];
+  var GROUP_LABELS = ["Claude + GPT", "Gemini Pro", "Gemini Flash"];
+  var GROUP_COLORS = { claude_gpt: "#D97757", gemini_pro: "#10B981", gemini_flash: "#3B82F6" };
+  var GROUP_NAMES = { claude_gpt: "Claude + GPT", gemini_pro: "Gemini Pro", gemini_flash: "Gemini Flash" };
+  var expandedAccounts = /* @__PURE__ */ new Set();
+  var collapsedProviders = /* @__PURE__ */ new Set();
+  var presetsData = [];
+  function setPresetsData(data) {
+    presetsData = data;
+  }
+  var activeTagFilter = null;
+  function setActiveTagFilter(val) {
+    activeTagFilter = val;
+  }
+  var usageDataCache = null;
+  function setUsageDataCache(data) {
+    usageDataCache = data;
+  }
+  var quotaSortState = { column: "account", direction: "asc" };
+  var latestQuotaData = null;
+  function setLatestQuotaData(data) {
+    latestQuotaData = data;
+  }
+  var serverConfig = {};
+  var snapInProgress = false;
+  function setSnapInProgress(val) {
+    snapInProgress = val;
+  }
 
-The account will remain but all quota history will be deleted. This cannot be undone.`)&&fetch("/api/accounts/"+n+"/snapshots",{method:"DELETE"}).then(function(R){return R.json()}).then(function(R){v("\u2705 Cleared "+(R.snapshotsDeleted||0)+" snapshots for "+r,"success"),re().then(Y),document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"))}).catch(function(R){v("\u274C "+R.message,"error")});return}var i=t.target.closest("[data-delete-account]");if(i){t.stopPropagation();var o=i.getAttribute("data-delete-account"),s=i.getAttribute("data-delete-email");confirm("Remove account "+s+`?
+  // internal/web/src/core/utils.ts
+  function formatSeconds(seconds) {
+    seconds = Math.floor(seconds);
+    if (seconds <= 0) return "now";
+    var h = Math.floor(seconds / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    if (h >= 24) return Math.floor(h / 24) + "d " + h % 24 + "h";
+    if (h > 0) return h + "h " + m + "m";
+    if (m === 0) return "<1m";
+    return m + "m";
+  }
+  function formatCredits(n) {
+    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
+    return Math.round(n).toString();
+  }
+  function formatNumber(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + "k";
+    return n.toString();
+  }
+  function currencySymbol(code) {
+    var map = { USD: "$", EUR: "\u20AC", GBP: "\xA3", INR: "\u20B9", CAD: "C$", AUD: "A$" };
+    return map[code] || code + " ";
+  }
+  function esc(s) {
+    if (!s) return "";
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function showToast(msg, type) {
+    var el = document.getElementById("toast");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "toast " + type + " visible";
+    el.hidden = false;
+    setTimeout(function() {
+      el.classList.remove("visible");
+      setTimeout(function() {
+        el.hidden = true;
+      }, 300);
+    }, 3e3);
+  }
+  var lastUpdateTime = null;
+  function updateTimestamp() {
+    lastUpdateTime = /* @__PURE__ */ new Date();
+    refreshTimestampDisplay();
+  }
+  function refreshTimestampDisplay() {
+    var el = document.getElementById("last-updated");
+    if (!el || !lastUpdateTime) return;
+    var sec = Math.floor(((/* @__PURE__ */ new Date()).getTime() - lastUpdateTime.getTime()) / 1e3);
+    var label;
+    if (sec < 10) label = "just now";
+    else if (sec < 60) label = sec + "s ago";
+    else if (sec < 3600) label = Math.floor(sec / 60) + "m ago";
+    else label = Math.floor(sec / 3600) + "h ago";
+    el.textContent = "Updated " + label;
+    el.title = lastUpdateTime.toLocaleTimeString();
+  }
+  function formatTimeAgo(isoStr) {
+    if (!isoStr) return "never";
+    var d = new Date(isoStr);
+    var now = /* @__PURE__ */ new Date();
+    var sec = Math.floor((now.getTime() - d.getTime()) / 1e3);
+    if (sec < 60) return "just now";
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+    return Math.floor(sec / 86400) + "d ago";
+  }
+  function formatPollInterval(seconds) {
+    if (seconds >= 3600) return Math.floor(seconds / 3600) + "h";
+    return Math.floor(seconds / 60) + "m";
+  }
+  function formatDurationSec(sec) {
+    if (!sec || sec <= 0) return "0m";
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor(sec % 3600 / 60);
+    if (h > 0) return h + "h " + m + "m";
+    return m + "m";
+  }
 
-This will permanently delete the account and ALL associated data (snapshots, cycles, codex data). This cannot be undone.`)&&fetch("/api/accounts/"+o,{method:"DELETE"}).then(function(R){return R.json()}).then(function(R){v("\u2705 Removed "+s+" ("+(R.totalDeleted||0)+" records deleted)","success"),Ce.delete("acc-"+o),re().then(Y),document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"))}).catch(function(R){v("\u274C "+R.message,"error")});return}var l=t.target.closest(".gadj-btn");if(l){t.stopPropagation();var c=l.closest(".group-adjust");if(!c)return;var p=parseInt(c.getAttribute("data-snap-id"),10),m=c.getAttribute("data-group-key"),g=c.getAttribute("data-group-labels"),T=parseFloat(c.getAttribute("data-current-pct")),h=parseFloat(l.getAttribute("data-delta")),u=Math.max(0,Math.min(100,T+h)),x=c.closest(".quota-cell");if(x){var b=x.querySelector(".quota-pct"),f=x.querySelector(".quota-minibar-fill");b&&(b.textContent=Math.round(u)+"%",b.className="quota-pct "+(u<=0?"exhausted":u<20?"warning":u<50?"ok":"good")),f&&(f.style.width=u+"%",f.className="quota-minibar-fill "+(u<=0?"exhausted":u<20?"warning":u<50?"ok":"good"))}c.setAttribute("data-current-pct",String(u));for(var E=g.split("|||").filter(function(R){return R.length>0}),M=[],C=0;C<E.length;C++)M.push({label:E[C],remainingPercent:u});if(M.length===0)return;fetch("/api/snap/adjust",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({snapshotId:p,adjustments:M})}).then(function(R){return R.json()}).then(function(R){if(R.error){v("\u274C "+R.error,"error");return}var G=Te[m]||m;v("\u270E "+G+" \u2192 "+Math.round(u)+"% ("+M.length+" models)","info"),re().then(Y)}).catch(function(R){v("\u274C "+R.message,"error")});return}var L=t.target.closest(".adj-btn");if(L){t.stopPropagation();var I=L.closest(".adjust-controls");if(!I)return;var S=parseInt(I.getAttribute("data-snap-id"),10),B=I.getAttribute("data-model-label"),U=parseFloat(I.getAttribute("data-current-pct")),A=parseFloat(L.getAttribute("data-delta")),w=Math.max(0,Math.min(100,U+A)),P=I.closest(".model-row");if(P){var q=P.querySelector(".model-pct"),F=P.querySelector(".model-bar-fill");q&&(q.textContent=Math.round(w)+"%",q.className="model-pct "+(w<=0?"exhausted":w<20?"warning":w<50?"ok":"good")),F&&(F.style.width=w+"%",F.className="model-bar-fill "+(w<=0?"exhausted":w<20?"warning":w<50?"ok":"good"))}I.setAttribute("data-current-pct",String(w)),fetch("/api/snap/adjust",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({snapshotId:S,adjustments:[{label:B,remainingPercent:w}]})}).then(function(G){return G.json()}).then(function(G){if(G.error){v("\u274C "+G.error,"error");return}v("\u270E Adjusted "+B+" \u2192 "+Math.round(w)+"%","info"),re().then(Y)}).catch(function(G){v("\u274C "+G.message,"error")});return}if(!(t.target.closest("[data-tag-add]")||t.target.closest("[data-remove-tag]")||t.target.closest("[data-note-edit]")||t.target.closest("[data-pin-group]")||t.target.closest("[data-renewal-edit]")||t.target.closest(".tag-picker")||t.target.closest(".tag-chip"))){var P=t.target.closest(".account-row[data-toggle]");if(P){var D=P.getAttribute("data-toggle"),N=document.getElementById(D),J=document.getElementById("chev-"+D);if(N){var W=!N.classList.contains("is-expanded");N.classList.toggle("is-expanded",W),W?Ce.add(D):Ce.delete(D),J&&J.classList.toggle("expanded",W)}}}})}function Ia(){var e=document.getElementById("quota-search"),t=document.getElementById("quota-filter-status");e&&e.addEventListener("input",function(){j&&Y(j)}),t&&t.addEventListener("change",function(){j&&Y(j)});var a=document.getElementById("quota-filter-provider");a&&a.addEventListener("change",function(){j&&Y(j)});var n=document.getElementById("account-grid");n&&n.addEventListener("click",function(i){var o=i.target.closest(".sortable");if(o){var s=o.dataset.sort;ce.column===s?ce.direction=ce.direction==="asc"?"desc":"asc":(ce.column=s,ce.direction="asc"),j&&Y(j)}});var r=document.getElementById("tag-filter-strip");r&&r.addEventListener("click",La)}function ge(){var e=document.getElementById("filter-status").value,t=document.getElementById("filter-category").value;et(e,t).then(function(a){jn(a)}).catch(function(a){console.error("Failed to load subscriptions:",a)})}function jn(e){var t=document.getElementById("subs-grid"),a=document.getElementById("subs-summary");if(t){var n=e.subscriptions||[];if(a.textContent=n.length+" subscription"+(n.length!==1?"s":""),n.length===0){t.innerHTML='<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><p>No subscriptions tracked yet</p><p class="empty-hint">Click <strong>+ Add</strong> to add your first AI subscription</p></div>';return}for(var r={},i=[],o=0,s=0;s<n.length;s++){var l=n[s],c=0;if(l.costAmount>0&&(l.billingCycle==="yearly"?c=l.costAmount/12:c=l.costAmount),o+=c,l.autoTracked){var p=l.platform||"Unknown";r[p]||(r[p]={items:[],total:0}),r[p].items.push(l),r[p].total+=c}else i.push(l)}for(var m=Object.keys(r),g=n.length-i.length,T=xt(n[0]?n[0].costCurrency:"USD"),h='<div class="spend-summary-card"><div class="spend-hero"><div class="spend-amount">'+T+o.toFixed(2)+'<span class="spend-period">/mo</span></div><div class="spend-label">Total Monthly Spend</div></div><div class="spend-breakdown">',u={Antigravity:"\u26A1",Codex:"\u{1F916}",Claude:"\u{1F52E}"},x=0;x<m.length;x++){var b=m[x],f=u[b]||"\u{1F4E6}",E=r[b].total;h+='<span class="spend-chip">'+f+" "+d(b)+" <strong>"+T+E.toFixed(2)+"</strong></span>"}if(i.length>0){for(var M=0,C=0;C<i.length;C++)i[C].costAmount>0&&(M+=i[C].billingCycle==="yearly"?i[C].costAmount/12:i[C].costAmount);M>0&&(h+='<span class="spend-chip">\u{1F4CB} Manual <strong>'+T+M.toFixed(2)+"</strong></span>")}h+='</div><div class="spend-meta">'+g+" auto-tracked \xB7 "+i.length+" manual</div></div>";for(var L=0;L<m.length;L++){var I=m[L],S=r[I],B=S.items,U=u[I]||"\u{1F4E6}",A="sub-provider-"+I.replace(/\s+/g,"-").toLowerCase(),w=I.toLowerCase().replace(/[^a-z]/g,"");h+='<div class="provider-section" data-provider="'+w+'"><div class="provider-header" data-toggle-provider="'+A+'"><div class="provider-header-left"><span class="provider-chevron" id="pchev-'+A+'">\u25BE</span> <span class="provider-icon">'+U+'</span><span class="provider-name">'+d(I)+'</span><span class="provider-count">'+B.length+" account"+(B.length!==1?"s":"")+'</span></div><span class="provider-spend">'+T+S.total.toFixed(2)+'/mo</span></div><div class="provider-body" id="'+A+'"><div class="subs-card-grid">';for(var q=0;q<B.length;q++)h+=Ma(B[q]);h+="</div></div></div>"}if(i.length>0){for(var F={},P=0;P<i.length;P++){var D=i[P].category||"other";F[D]||(F[D]=[]),F[D].push(i[P])}var N=["coding","chat","api","image","audio","productivity","other"];h+='<div class="sub-section-label">Manual Subscriptions ('+i.length+")</div>",h+='<div class="subs-card-grid">';for(var J=0;J<N.length;J++){var W=F[N[J]];if(!(!W||W.length===0))for(var R=0;R<W.length;R++)h+=Ma(W[R])}h+="</div>"}else m.length>0&&(h+='<div class="sub-section-label">Manual Subscriptions</div><div class="manual-empty"><p>No manual subscriptions tracked.</p><p class="empty-hint">Click <strong>+ Add</strong> to track Claude Pro, Cursor, or other AI tools.</p></div>');t.innerHTML=h,t.querySelectorAll(".provider-header").forEach(function(G){G.addEventListener("click",function(){var K=G.dataset.toggleProvider,te=document.getElementById(K),me=document.getElementById("pchev-"+K);if(te){var y=te.classList.toggle("collapsed");me&&(me.textContent=y?"\u25B8":"\u25BE")}})})}}function Ma(e){var t="";if(e.costAmount>0){var a=xt(e.costCurrency);t='<div class="sub-card-cost">'+a+e.costAmount.toFixed(2)+' <span class="cycle">/'+d(e.billingCycle)+"</span></div>"}else e.billingCycle==="payg"&&(t='<div class="sub-card-cost">Pay-as-you-go</div>');var n="",r=[];if(e.tokenLimit>0&&r.push(Xe(e.tokenLimit)+" tokens/"+d(e.limitPeriod)),e.creditLimit>0&&r.push(Xe(e.creditLimit)+" credits/"+d(e.limitPeriod)),e.requestLimit>0&&r.push(Xe(e.requestLimit)+" requests/"+d(e.limitPeriod)),r.length>0){n='<div class="sub-card-limits">';for(var i=0;i<r.length;i++)n+='<span class="sub-limit-chip">'+r[i]+"</span>";n+="</div>"}var o='<span class="sub-status-badge '+d(e.status)+'">'+d(e.status)+"</span>";o+='<span class="sub-cat-badge">'+d(e.category)+"</span>",e.autoTracked&&(o+='<span class="sub-auto-badge">AUTO</span>');var s="";e.daysUntilTrialEnd!==void 0&&e.daysUntilTrialEnd!==null&&(e.daysUntilTrialEnd<=0?s='<span class="trial-countdown">Trial expired!</span>':e.daysUntilTrialEnd<=7&&(s='<span class="trial-countdown">Trial ends in '+e.daysUntilTrialEnd+"d</span>"));var l="";if(e.nextRenewal&&e.daysUntilRenewal!==void 0){var c=e.daysUntilRenewal<=7?"soon":"";e.daysUntilRenewal<0&&(c="overdue"),l='<span class="sub-renewal-tag '+c+'">Renews: '+e.nextRenewal+" ("+e.daysUntilRenewal+"d)</span>"}var p="";(e.url||e.statusPageUrl)&&(p='<div class="sub-card-links">',e.url&&(p+='<a href="'+d(e.url)+'" target="_blank" rel="noopener">\u{1F517} Dashboard</a>'),e.statusPageUrl&&(p+='<a href="'+d(e.statusPageUrl)+'" target="_blank" rel="noopener">\u{1F7E2} Status</a>'),p+="</div>");var m="";e.notes&&(m='<div class="sub-card-notes">'+d(e.notes)+"</div>");var g=[];e.email&&g.push(d(e.email)),e.planName&&g.push(d(e.planName));var T=g.length>0?'<div class="sub-card-meta">'+g.join(" \xB7 ")+"</div>":"",h,u;e.autoTracked&&e.email?(h=d(e.email),u='<span class="sub-card-platform-badge">'+d(e.platform)+(e.planName?" \xB7 "+d(e.planName):"")+"</span>"):(h=d(e.platform),u=""),e.autoTracked&&(o=o.replace(/<span[^>]*>AUTO<\/span>/i,""));for(var x=(e.platform||"")+(e.email||"")+e.id,b=0,f=0;f<x.length;f++)b=(b+x.charCodeAt(f)*31)%360;var E="border-left: 3px solid hsl("+b+", 60%, 55%)";return'<div class="sub-card" data-sub-id="'+e.id+'" style="'+E+'"><div class="sub-card-header"><div class="sub-card-title">'+h+'</div><div class="sub-card-badges">'+s+o+"</div></div>"+(u?'<div class="sub-card-subtitle">'+u+"</div>":"")+T+t+n+m+p+l+'<div class="sub-card-actions"><button class="btn-edit-card" data-edit-id="'+e.id+'">Edit</button><button class="btn-delete-card" data-delete-id="'+e.id+'" data-delete-name="'+d(e.platform)+'">Delete</button></div></div>'}function ka(){var e=document.getElementById("modal-overlay"),t=document.getElementById("modal-close"),a=document.getElementById("modal-cancel"),n=document.getElementById("modal-save");document.getElementById("add-sub-btn").addEventListener("click",function(){Me()}),document.getElementById("add-sub-btn-2").addEventListener("click",function(){Me()}),t.addEventListener("click",xe),a.addEventListener("click",xe),e.addEventListener("click",function(r){r.target===e&&xe()}),n.addEventListener("click",Gn),document.getElementById("f-platform").addEventListener("input",function(){for(var r=this.value,i=0;i<oe.length;i++)if(oe[i].platform===r){On(oe[i]);break}}),document.getElementById("subs-grid").addEventListener("click",function(r){var i=r.target.closest("[data-edit-id]");if(i){var o=parseInt(i.getAttribute("data-edit-id"));Un(o);return}var s=r.target.closest("[data-delete-id]");if(s){var l=parseInt(s.getAttribute("data-delete-id")),c=s.getAttribute("data-delete-name");Jn(l,c)}}),document.getElementById("delete-close").addEventListener("click",Ie),document.getElementById("delete-cancel").addEventListener("click",Ie),document.getElementById("delete-overlay").addEventListener("click",function(r){r.target.id==="delete-overlay"&&Ie()}),document.getElementById("filter-status").addEventListener("change",ge),document.getElementById("filter-category").addEventListener("change",ge)}function Me(e){var t=document.getElementById("modal-overlay"),a=document.getElementById("modal-title");e?(a.textContent="Edit Subscription",document.getElementById("f-id").value=e.id||"",document.getElementById("f-platform").value=e.platform||"",document.getElementById("f-category").value=e.category||"other",document.getElementById("f-status").value=e.status||"active",document.getElementById("f-email").value=e.email||"",document.getElementById("f-plan").value=e.planName||"",document.getElementById("f-cost").value=e.costAmount||"",document.getElementById("f-currency").value=e.costCurrency||"USD",document.getElementById("f-cycle").value=e.billingCycle||"monthly",document.getElementById("f-token-limit").value=e.tokenLimit||"",document.getElementById("f-credit-limit").value=e.creditLimit||"",document.getElementById("f-request-limit").value=e.requestLimit||"",document.getElementById("f-limit-period").value=e.limitPeriod||"monthly",document.getElementById("f-renewal").value=e.nextRenewal||"",document.getElementById("f-trial-ends").value=e.trialEndsAt||"",document.getElementById("f-url").value=e.url||"",document.getElementById("f-notes").value=e.notes||"",document.getElementById("f-status-page-url").value=e.statusPageUrl||"",document.getElementById("f-auto-tracked").value=e.autoTracked?"1":"0",document.getElementById("f-account-id").value=e.accountId||"0"):(a.textContent="Add Subscription",document.getElementById("sub-modal").querySelectorAll("input, select, textarea").forEach(function(n){if(n.type==="hidden"){n.value="";return}if(n.tagName==="SELECT"){n.selectedIndex=0;return}n.value=""}),document.getElementById("f-currency").value="USD",document.getElementById("f-cycle").value="monthly",document.getElementById("f-category").value="coding",document.getElementById("f-limit-period").value="monthly"),t.hidden=!1,document.getElementById("f-platform").focus()}function xe(){document.getElementById("modal-overlay").hidden=!0}function On(e){document.getElementById("f-category").value=e.category||"other",document.getElementById("f-cost").value=e.costAmount||"",document.getElementById("f-cycle").value=e.billingCycle||"monthly",document.getElementById("f-token-limit").value=e.tokenLimit||"",document.getElementById("f-credit-limit").value=e.creditLimit||"",document.getElementById("f-request-limit").value=e.requestLimit||"",document.getElementById("f-limit-period").value=e.limitPeriod||"monthly",document.getElementById("f-url").value=e.url||"",document.getElementById("f-notes").value=e.notes||"",document.getElementById("f-status-page-url").value=e.statusPageUrl||""}function Un(e){fetch("/api/subscriptions/"+e).then(function(t){return t.json()}).then(function(t){Me(t)}).catch(function(t){v("\u274C "+t.message,"error")})}function Gn(){var e=document.getElementById("f-id").value,t={platform:document.getElementById("f-platform").value.trim(),category:document.getElementById("f-category").value,status:document.getElementById("f-status").value,email:document.getElementById("f-email").value.trim(),planName:document.getElementById("f-plan").value.trim(),costAmount:parseFloat(document.getElementById("f-cost").value)||0,costCurrency:document.getElementById("f-currency").value,billingCycle:document.getElementById("f-cycle").value,tokenLimit:parseInt(document.getElementById("f-token-limit").value)||0,creditLimit:parseInt(document.getElementById("f-credit-limit").value)||0,requestLimit:parseInt(document.getElementById("f-request-limit").value)||0,limitPeriod:document.getElementById("f-limit-period").value,nextRenewal:document.getElementById("f-renewal").value,trialEndsAt:document.getElementById("f-trial-ends").value,url:document.getElementById("f-url").value.trim(),notes:document.getElementById("f-notes").value.trim(),statusPageUrl:document.getElementById("f-status-page-url").value,autoTracked:document.getElementById("f-auto-tracked").value==="1",accountId:parseInt(document.getElementById("f-account-id").value)||0};if(!t.platform){v("\u274C Platform name is required","error");return}var a=document.getElementById("modal-save");a.disabled=!0,a.textContent="Saving...";var n=e?na(parseInt(e),t):aa(t);n.then(function(r){v("\u2705 "+(e?"Updated":"Created")+": "+t.platform,"success"),xe(),ge()}).catch(function(r){v("\u274C "+r.message,"error")}).finally(function(){a.disabled=!1,a.textContent="Save Subscription"})}var wt=null;function Jn(e,t){wt=e,document.getElementById("delete-name").textContent=t,document.getElementById("delete-overlay").hidden=!1,document.getElementById("delete-confirm").onclick=function(){ra(wt).then(function(){v("\u2705 Deleted: "+t,"success"),Ie(),ge()}).catch(function(a){v("\u274C "+a.message,"error")})}}function Ie(){document.getElementById("delete-overlay").hidden=!0,wt=null}function Sa(){var e=document.getElementById("search-subs");e&&e.addEventListener("input",function(){var t=e.value.toLowerCase().trim(),a=document.querySelectorAll(".sub-card"),n=document.querySelectorAll(".sub-category-label");a.forEach(function(r){var i=r.textContent.toLowerCase();r.style.display=i.indexOf(t)>=0?"":"none"}),n.forEach(function(r){for(var i=r.nextElementSibling,o=!1;i&&!i.classList.contains("sub-category-label");)i.classList.contains("sub-card")&&i.style.display!=="none"&&(o=!0),i=i.nextElementSibling;r.style.display=o?"":"none"})})}function Ct(){return parseFloat(se.budget_monthly||"0")}function Ht(e){se.budget_monthly=e.toString(),O("budget_monthly",e.toString())}function O(e,t){return fetch("/api/config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:e,value:t})}).then(function(a){return a.json()}).then(function(a){a.config}).catch(function(a){console.error("Config update failed:",a)})}function wa(){return fetch("/api/config").then(function(e){return e.json()}).then(function(e){e.config&&e.config.forEach(function(t){se[t.key]=t.value})})}function Ca(){document.getElementById("budget-close").addEventListener("click",ke),document.getElementById("budget-cancel").addEventListener("click",ke),document.getElementById("budget-overlay").addEventListener("click",function(e){e.target.id==="budget-overlay"&&ke()}),document.getElementById("budget-save").addEventListener("click",function(){var e=parseFloat(document.getElementById("f-budget").value)||0;Ht(e),ke(),v("\u2705 Budget set to $"+e.toFixed(0)+"/mo","success");var t=document.getElementById("panel-overview");t&&t.classList.contains("active")&&document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"))})}function at(){document.getElementById("f-budget").value=String(Ct()||""),document.getElementById("budget-overlay").hidden=!1}function ke(){document.getElementById("budget-overlay").hidden=!0}function Ha(e){if(!e||e.length===0)return"";for(var t='<div class="insight-panel"><h3>\u{1F9E0} Intelligence Insights</h3><div class="insight-list">',a={renewal_imminent:"\u{1F534}",trial_expiring:"\u23F3",unused_subscription:"\u{1F4A4}",spending_anomaly:"\u{1F4C8}",category_overlap:"\u{1F501}",annual_savings:"\u{1F4A1}",budget_exceeded:"\u{1F6A8}"},n=0;n<e.length;n++){var r=e[n],i=a[r.type]||"\u{1F4A1}",o=r.severity==="critical"?"critical":r.severity==="warning"?"warning":"info";t+='<div class="insight-item '+o+'"><span class="insight-item-icon">'+i+'</span><div class="insight-item-content"><div class="insight-item-title">'+d(r.type.replace(/_/g," "))+'</div><div class="insight-item-msg">'+d(r.message)+"</div></div></div>"}return t+="</div></div>",t}var nt=localStorage.getItem("niyantra_advisor_group")||"claude_gpt";function Ba(){var e=document.getElementById("advisor-card-container");if(e){if(!j||!j.accounts||j.accounts.length<2){e.innerHTML="";return}Aa(e,nt)}}function Aa(e,t){for(var a=j.accounts,n=[],r=0;r<a.length;r++){for(var i=a[r],o=i.groups||[],s=null,l=0;l<o.length;l++)if(o[l].groupKey===t){s=Math.round(o[l].remainingPercent);break}if(s===null)if(t==="all"){for(var c=0,p=0;p<o.length;p++)c+=o[p].remainingPercent;s=o.length>0?Math.round(c/o.length):0}else s=0;var m=!1;if(i.lastSeen){var g=Date.now()-new Date(i.lastSeen).getTime();m=g>6*3600*1e3}n.push({email:i.email,pct:s,stale:m,label:i.stalenessLabel||""})}n.sort(function(P,D){return D.pct-P.pct});var T={claude_gpt:"Claude + GPT",gemini_pro:"Gemini Pro",gemini_flash:"Gemini Flash",all:"All Models (avg)"},h=n[0],u=n[n.length-1],x=n.every(function(P){return P.pct>80}),b=x?"\u2705":h.pct>20?"\u26A1":"\u23F3",f=x?"ALL READY":h.pct>20?"SWITCH":"WAIT",E=h.email.split("@")[0]+"@...",M='<div class="advisor-card"><h3>\u26A1 Antigravity Account Advisor</h3><div class="advisor-group-select"><label>Optimize for:</label><select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px"><option value="claude_gpt"'+(t==="claude_gpt"?" selected":"")+'>Claude + GPT</option><option value="gemini_pro"'+(t==="gemini_pro"?" selected":"")+'>Gemini Pro</option><option value="gemini_flash"'+(t==="gemini_flash"?" selected":"")+'>Gemini Flash</option><option value="all"'+(t==="all"?" selected":"")+">All Models (avg)</option></select></div>",C=x?"stay":h.pct>20?"switch":"wait";M+='<div class="advisor-action '+C+'">'+b+" "+f+'</div><div class="advisor-reason">'+(x?"All accounts have healthy quotas \u2014 no switch needed":"Best: "+d(h.email)+" ("+h.pct+"% "+d(T[t]||t)+" remaining)")+(h.stale?" \u26A0\uFE0F stale data":"")+"</div>",M+='<div class="advisor-scores">';for(var L=Math.min(n.length,5),I=0;I<n.length;I++){var S=n[I],B=I===0,U=S.pct>50?"good":S.pct>20?"ok":"low",A=S.stale?' <span class="stale-icon" title="Data '+d(S.label)+'">\u26A0</span>':"",w=I>=L?' style="display:none" data-advisor-extra':"";M+='<div class="advisor-score-row'+(B?" best":"")+'"'+w+'><span class="advisor-score-email" title="'+d(S.email)+'">'+d(S.email)+'</span><div class="advisor-score-bar"><div class="advisor-score-fill '+U+'" style="width:'+S.pct+'%"></div></div><span class="advisor-score-val">'+S.pct+"%"+A+"</span></div>"}n.length>L&&(M+='<button class="advisor-show-all" id="advisor-toggle-all">Show all '+n.length+" accounts</button>"),M+="</div></div>",e.innerHTML=M;var q=document.getElementById("advisor-group-filter");q&&q.addEventListener("change",function(){nt=q.value,localStorage.setItem("niyantra_advisor_group",nt),Aa(e,nt)});var F=document.getElementById("advisor-toggle-all");F&&F.addEventListener("click",function(){var P=e.querySelectorAll("[data-advisor-extra]"),D=F.textContent.indexOf("Hide")>=0;P.forEach(function(N){N.style.display=D?"none":""}),F.textContent=D?"Show all "+n.length+" accounts":"Hide extras"})}function Pa(){var e=document.getElementById("cost-kpi-container");e&&fetch("/api/cost").then(function(t){return t.json()}).then(function(t){if(!t||!t.accounts||t.accounts.length===0){e.innerHTML="";return}var a=t.totalCost||0;if(a<.01){e.innerHTML="";return}var n=t.totalLabel||"$0.00",r='<div class="cost-kpi-card overview-card"><h3>Estimated Spend (Current Cycle)</h3><div class="cost-kpi-amount">'+d(n)+'</div><div class="cost-kpi-label">Estimated cost based on quota consumption \xD7 model pricing</div>',i=!1,o='<div class="cost-kpi-breakdown">';if(t.accounts&&t.accounts.length>0)for(var s=0;s<t.accounts.length;s++){var l=t.accounts[s];if(l.totalCost>=.01){i=!0;var c=l.email;c&&c.length>20&&(c=c.split("@")[0]+"@\u2026"),o+='<span class="cost-kpi-chip" title="'+d(l.email)+'">'+d(c)+": "+d(l.totalLabel)+"</span>"}}o+="</div>",i&&(r+=o),r+="</div>",e.innerHTML=r}).catch(function(t){console.error("Cost KPI fetch failed:",t),e.innerHTML=""})}function Da(){var e=document.getElementById("heatmap-container");e&&fetch("/api/history/heatmap?days=365").then(function(t){return t.json()}).then(function(t){if(!t){e.innerHTML="";return}Wn(e,t)}).catch(function(t){console.error("Heatmap fetch failed:",t),e.innerHTML=""})}function Wn(e,t){for(var a=t.days||[],n=t.maxCount||1,r={},i=0;i<a.length;i++)r[a[i].date]=a[i];var o=new Date,s=new Date(o);s.setDate(s.getDate()-364);var l=s.getDay();s.setDate(s.getDate()-l);for(var c=Math.ceil((o.getTime()-s.getTime())/(1e3*60*60*24))+1,p=Math.ceil(c/7),m=[],g=-1,T=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],h="",u=0;u<p;u++)for(var x=0;x<7;x++){var b=new Date(s);if(b.setDate(s.getDate()+u*7+x),b>o){h+='<div class="heatmap-cell heatmap-empty"></div>';continue}var f=zn(b),E=r[f],M=E?E.count:0,C=$n(M,n),L=b.getMonth();L!==g&&x===0&&(m.push({label:T[L],col:u}),g=L);var I=Qn(b)+": ";if(M===0)I+="No activity";else if(I+=M+" snapshot"+(M!==1?"s":""),E){var S=[];E.antigravity>0&&S.push(E.antigravity+" AG"),E.claude>0&&S.push(E.claude+" Claude"),E.codex>0&&S.push(E.codex+" Codex"),E.cursor>0&&S.push(E.cursor+" Cursor"),E.gemini>0&&S.push(E.gemini+" Gemini"),E.copilot>0&&S.push(E.copilot+" Copilot"),S.length>0&&(I+=" ("+S.join(", ")+")")}h+='<div class="heatmap-cell heatmap-level-'+C+'" data-date="'+f+'" data-count="'+M+'" aria-label="'+I+'" title="'+I+'"></div>'}var B='<div class="heatmap-month-labels" style="grid-template-columns: 28px repeat('+p+', 1fr)">';B+="<div></div>";for(var U=-2,A=0;A<m.length;A++)m[A].col>U+2&&(B+='<div class="heatmap-month" style="grid-column: '+(m[A].col+2)+'">'+m[A].label+"</div>",U=m[A].col);B+="</div>";var w='<div class="heatmap-stats"><span class="heatmap-stat"><span class="heatmap-stat-value">'+t.totalSnapshots+'</span><span class="heatmap-stat-label">snapshots</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">'+t.activeDays+'</span><span class="heatmap-stat-label">active days</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">'+t.streak+'d</span><span class="heatmap-stat-label">current streak</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">'+t.longestStreak+'d</span><span class="heatmap-stat-label">longest streak</span></span></div>',q='<div class="heatmap-legend"><span class="heatmap-legend-label">Less</span><div class="heatmap-cell heatmap-level-0 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-1 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-2 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-3 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-4 heatmap-legend-cell"></div><span class="heatmap-legend-label">More</span></div>',F='<div class="heatmap-day-labels"><div></div><div class="heatmap-day-label">Mon</div><div></div><div class="heatmap-day-label">Wed</div><div></div><div class="heatmap-day-label">Fri</div><div></div></div>',P='<div class="heatmap-scroll"><div class="heatmap-body">'+F+'<div class="heatmap-grid" style="grid-template-columns: repeat('+p+', 1fr)">'+h+"</div></div></div>";e.innerHTML="<h3>Activity</h3>"+w+B+P+'<div class="heatmap-footer">'+q+"</div>"}function $n(e,t){if(e===0)return 0;if(t<=1)return 4;var a=e/t;return a<=.25?1:a<=.5?2:a<=.75?3:4}function zn(e){var t=e.getFullYear(),a=(e.getMonth()+1).toString().padStart(2,"0"),n=e.getDate().toString().padStart(2,"0");return t+"-"+a+"-"+n}function Qn(e){var t=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],a=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];return a[e.getDay()]+", "+t[e.getMonth()]+" "+e.getDate()+", "+e.getFullYear()}var rt=new Date;function Ra(e,t){var a=document.getElementById("renewal-calendar-container");if(a){var n={};if(e)for(var r=0;r<e.length;r++){var i=e[r],o=i.nextRenewal;n[o]||(n[o]=[]);var s="other";if(t){for(var l=0;l<t.length;l++)if(t[l].platform===i.platform&&t[l].category){s=t[l].category;break}}n[o].push({platform:i.platform,category:s,daysUntil:i.daysUntil})}var c=rt.getFullYear(),p=rt.getMonth(),m=new Date,g=m.getFullYear()+"-"+String(m.getMonth()+1).padStart(2,"0")+"-"+String(m.getDate()).padStart(2,"0"),T=["January","February","March","April","May","June","July","August","September","October","November","December"],h=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],u=new Date(c,p,1).getDay(),x=new Date(c,p+1,0).getDate(),b=new Date(c,p,0).getDate(),f='<div class="calendar-container"><div class="calendar-header"><h3>\u{1F4C5} Renewal Calendar</h3><div class="calendar-nav"><button class="calendar-nav-btn" onclick="calendarNav(-1)">\u2039</button><span class="calendar-month-label">'+T[p]+" "+c+'</span><button class="calendar-nav-btn" onclick="calendarNav(1)">\u203A</button></div></div>';f+='<div class="calendar-weekdays">';for(var E=0;E<7;E++)f+='<div class="calendar-weekday">'+h[E]+"</div>";f+="</div>",f+='<div class="calendar-grid">';for(var M=u-1;M>=0;M--)f+='<div class="calendar-day other-month"><span class="calendar-day-num">'+(b-M)+"</span></div>";for(var C=1;C<=x;C++){o=c+"-"+String(p+1).padStart(2,"0")+"-"+String(C).padStart(2,"0");var L=o===g,I=L?"calendar-day today":"calendar-day",S=n[o];if(f+='<div class="'+I+'"',S&&S.length>0){var B=S.map(function(W){return W.platform}).join(", ");f+=' title="'+d(B)+'"'}if(f+=">",f+='<span class="calendar-day-num">'+C+"</span>",S&&S.length>0){f+='<div class="calendar-pins">';for(var U=0;U<Math.min(S.length,4);U++)f+='<span class="calendar-pin '+d(S[U].category)+'"></span>';f+="</div>"}f+="</div>"}var A=u+x,w=7-A%7;if(w<7)for(var q=1;q<=w;q++)f+='<div class="calendar-day other-month"><span class="calendar-day-num">'+q+"</span></div>";f+="</div>";var F={};for(var P in n)for(var D=0;D<n[P].length;D++)F[n[P][D].category]=!0;var N=Object.keys(F);if(N.length>0){f+='<div class="calendar-legend">';for(var J=0;J<N.length;J++)f+='<div class="calendar-legend-item"><span class="calendar-legend-dot '+d(N[J])+'"></span>'+d(N[J])+"</div>";f+="</div>"}f+="</div>",a.innerHTML=f}}function _a(e){rt.setMonth(rt.getMonth()+e);var t=document.getElementById("renewal-calendar-container");t&&document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"))}function At(){fetch("/api/claude/status").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("claude-bridge-status");if(t){var a=e.bridgeEnabled,n=e.installed;if(!a){t.style.display="none";return}var r="";n?e.bridgeFresh?(r='<span class="claude-bridge-dot"></span> Bridge active',e.snapshot&&(r+=" \xB7 5h: "+e.snapshot.fiveHourPct.toFixed(1)+"% used")):e.snapshot?r='<span class="claude-bridge-dot stale"></span> Last data: '+V(e.snapshot.capturedAt):r='<span class="claude-bridge-dot off"></span> Waiting for Claude Code statusline data...':r="\u26A0\uFE0F Claude Code not detected (~/.claude/ not found)",t.innerHTML=r,t.style.display=""}}).catch(function(){})}function Fa(){return'<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div><div id="claude-deep-usage" class="claude-deep-section"></div></div>'}function Na(){fetch("/api/claude/status").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("claude-card-body");if(t){if(!e.snapshot){t.innerHTML='<div class="empty-hint">No Claude Code data yet. Start a Claude Code session to see rate limits.</div>';return}var a=e.snapshot,n="",r=qa(a.fiveHourPct),i=a.fiveHourReset?"\u21BB "+Ae(a.fiveHourReset):"";if(n+='<div class="claude-meter"><span class="claude-meter-label">5-Hour</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:'+a.fiveHourPct+"%;background:"+r+'"></div></div><span class="claude-meter-pct" style="color:'+r+'">'+a.fiveHourPct.toFixed(1)+'%</span><span class="claude-meter-reset">'+i+"</span></div>",a.sevenDayPct!==void 0){var o=qa(a.sevenDayPct),s=a.sevenDayReset?"\u21BB "+Ae(a.sevenDayReset):"";n+='<div class="claude-meter"><span class="claude-meter-label">7-Day</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:'+a.sevenDayPct+"%;background:"+o+'"></div></div><span class="claude-meter-pct" style="color:'+o+'">'+a.sevenDayPct.toFixed(1)+'%</span><span class="claude-meter-reset">'+s+"</span></div>"}var l=e.bridgeFresh?"":"stale",c=V(a.capturedAt);n+='<div class="claude-bridge-badge"><span class="claude-bridge-dot '+l+'"></span>Bridge '+(e.bridgeFresh?"active":"stale")+" \xB7 Last: "+c+"</div>",t.innerHTML=n}}).catch(function(){})}function qa(e){return e>=80?"var(--red)":e>=50?"var(--amber)":"var(--green)"}function ja(){fetch("/api/claude/usage?days=30").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("claude-deep-usage");if(t){if(!e||!e.days||e.days.length===0){t.innerHTML='<div class="empty-hint">No Claude Code session data found. Start coding with Claude Code to see token analytics.</div>';return}var a="";a+='<div class="claude-deep-stats">',a+='<div class="claude-deep-stat"><span class="claude-deep-value">'+Bt(e.totalTokens)+'</span><span class="claude-deep-label">tokens (30d)</span></div>',a+='<div class="claude-deep-stat"><span class="claude-deep-value">$'+(e.totalCost||0).toFixed(2)+'</span><span class="claude-deep-label">est. cost</span></div>',a+='<div class="claude-deep-stat"><span class="claude-deep-value">'+(e.totalSessions||0)+'</span><span class="claude-deep-label">sessions</span></div>',a+='<div class="claude-deep-stat"><span class="claude-deep-value">'+((e.cacheHitRate||0)*100).toFixed(0)+'%</span><span class="claude-deep-label">cache hit</span></div>',a+="</div>";var n=e.totalInput||0,r=e.totalOutput||0,i=n+r;if(i>0){var o=(n/i*100).toFixed(0),s=(r/i*100).toFixed(0);a+='<div class="claude-token-bar"><div class="claude-token-in" style="width:'+o+'%"><span>In '+Bt(n)+'</span></div><div class="claude-token-out" style="width:'+s+'%"><span>Out '+Bt(r)+"</span></div></div>"}e.topModel&&(a+='<div class="claude-deep-meta"><span class="claude-deep-chip">\u{1F3C6} '+e.topModel+"</span></div>"),t.innerHTML=a}}).catch(function(){})}function Bt(e){return e>=1e6?(e/1e6).toFixed(1)+"M":e>=1e3?(e/1e3).toFixed(1)+"K":e.toString()}function it(){var e=document.getElementById("codex-status-settings");e&&fetch("/api/codex/status").then(function(t){return t.json()}).then(function(t){if(e.style.display="",!t.installed){e.innerHTML='<span style="color:var(--text-muted)">\u26A0\uFE0F Codex CLI not detected. Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> and run <code>codex auth</code> to enable.</span>';return}var a=t.tokenExpired?'<span style="color:var(--warning)">\u26A0\uFE0F Token expired \u2014 will auto-refresh on next poll</span>':'<span style="color:var(--success)">\u2705 Token valid (expires '+(t.tokenExpiresIn||"?")+")</span>",n=t.email||(t.accountId&&t.accountId.length>12?t.accountId.substring(0,6)+"\u2026"+t.accountId.slice(-6):t.accountId||"unknown");e.innerHTML="\u{1F916} Codex detected \xB7 Account: <strong>"+d(n)+"</strong><br>"+a,t.snapshot&&(e.innerHTML+="<br>Latest: <strong>"+t.snapshot.fiveHourPct.toFixed(1)+'%</strong> used (5h) \xB7 <span style="color:var(--text-muted)">'+V(t.snapshot.capturedAt)+"</span>")}).catch(function(){e.style.display="none"})}function ot(){v("\u{1F916} Capturing Codex snapshot...","info"),fetch("/api/codex/snap",{method:"POST"}).then(function(e){return e.json()}).then(function(e){if(e.error){v("\u274C "+e.error,"error");return}v("\u{1F916} Codex snapshot captured! Plan: "+(e.plan||"unknown"),"success"),it(),document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"))}).catch(function(){v("\u274C Codex snap failed","error")})}function Oa(e){fetch("/api/sessions?limit=10").then(function(t){return t.json()}).then(function(t){if(!(!t.sessions||t.sessions.length===0)){var a='<div class="overview-card sessions-card">';a+='<div class="card-header"><h3>\u23F1\uFE0F Usage Sessions</h3>',a+='<span class="card-count">'+t.count+" sessions</span>",a+="</div>",a+='<div class="card-body">',a+='<div class="session-timeline">';for(var n=0;n<t.sessions.length;n++){var r=t.sessions[n],i=!r.endedAt,o=i?Mt(Math.floor((Date.now()-new Date(r.startedAt).getTime())/1e3)):Mt(r.durationSec),s=r.provider==="codex"?"\u{1F916}":r.provider==="claude"?"\u{1F52E}":"\u26A1";a+='<div class="session-item'+(i?" active":"")+'">',a+='<div class="session-dot'+(i?" pulse":"")+'"></div>',a+='<div class="session-content">',a+='<div class="session-top">',a+='<span class="session-provider">'+s+" "+d(r.provider)+"</span>",a+='<span class="session-duration">'+o+"</span>",a+="</div>",a+='<div class="session-bottom">',a+='<span class="session-time">'+V(r.startedAt)+"</span>",a+='<span class="session-snaps">'+r.snapCount+" snaps</span>",i&&(a+='<span class="session-active-badge">LIVE</span>'),a+="</div>",a+="</div></div>"}a+="</div></div></div>";var l=e.querySelector(".codex-card"),c=e.querySelector(".sessions-card");c?c.outerHTML=a:l?l.insertAdjacentHTML("afterend",a):e.insertAdjacentHTML("afterbegin",a)}}).catch(function(){})}function Ua(){var e=document.getElementById("token-analytics-container");if(e){var t=document.getElementById("token-range-selector"),a=30;t&&(a=parseInt(t.value)||30),fetch("/api/token-usage?days="+a).then(function(n){return n.json()}).then(function(n){Ga(e,n,a)}).catch(function(n){console.error("Token analytics fetch failed:",n),e.innerHTML='<div class="token-analytics-empty">Failed to load token analytics</div>'})}}function Ga(e,t,a){if(!t||!t.totals||t.totals.totalTokens===0){e.innerHTML='<div class="overview-card full-width token-analytics-card"><h3>\u{1F525} Token Usage Analytics</h3><div class="token-analytics-empty"><p>No token usage data available yet.</p><p style="font-size:12px;color:var(--text-secondary)">Use Claude Code to generate token usage data. Session files are parsed from <code>~/.claude/projects/</code>.</p></div></div>';return}for(var n=t.totals,r=t.kpis||{},i=t.byModel||[],o=t.byDay||[],s=[{value:"7",label:"7d"},{value:"30",label:"30d"},{value:"90",label:"90d"},{value:"365",label:"1y"}],l='<div class="token-range-bar">',c=0;c<s.length;c++){var p=s[c],m=String(a)===p.value?" token-range-active":"";l+='<button class="token-range-btn'+m+'" data-days="'+p.value+'">'+p.label+"</button>"}l+="</div>";var g='<div class="token-kpi-row">';g+=Ne("Total Tokens",he(n.totalTokens),"\u{1F4CA}"),g+=Ne("Est. Cost","$"+(n.estimatedCostUSD||0).toFixed(2),"\u{1F4B0}"),g+=Ne("Active Days",String(r.daysActive||0),"\u{1F4C5}"),g+=Ne("Avg/Day",he(r.avgTokensPerDay||0),"\u{1F4C8}"),g+=Ne("Cache Rate",Math.round((r.cacheHitRate||0)*100)+"%","\u26A1"),g+="</div>";var T='<div class="token-breakdown-chips">';T+='<span class="token-chip token-chip-input">Input: '+he(n.inputTokens)+"</span>",T+='<span class="token-chip token-chip-output">Output: '+he(n.outputTokens)+"</span>",T+='<span class="token-chip token-chip-cache">Cache: '+he(n.cacheTokens)+"</span>",n.sessions>0&&(T+='<span class="token-chip token-chip-sessions">Sessions: '+n.sessions+"</span>"),T+="</div>";var h="";if(i.length>0){h='<div class="token-section">',h+="<h4>Model Distribution</h4>",h+='<div class="token-model-bars">';for(var u=["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444"],x=i.slice(0,7),b=0;b<x.length;b++){var f=x[b],E=u[b%u.length],M=f.percentage||0,C=f.costUSD>0?" \xB7 $"+f.costUSD.toFixed(2):"";h+='<div class="token-model-row"><div class="token-model-header"><span class="token-model-name" style="color:'+E+'">'+Kn(f.model)+'</span><span class="token-model-stats">'+he(f.totalTokens)+" ("+M.toFixed(1)+"%)"+C+'</span></div><div class="token-model-bar-track"><div class="token-model-bar-fill" style="width:'+M+"%;background:"+E+'"></div></div></div>'}h+="</div></div>"}var L="";if(o.length>0){L='<div class="token-section">',L+="<h4>Daily Token Burn</h4>",L+='<div class="token-daily-chart">';for(var I=0,S=0;S<o.length;S++)o[S].totalTokens>I&&(I=o[S].totalTokens);var B=o;B.length>60&&(B=B.slice(B.length-60));for(var U=0;U<B.length;U++){var A=B[U],w=I>0?Math.max(2,A.totalTokens/I*100):2,q=A.totalTokens>0?A.inputTokens/A.totalTokens*w:0,F=w-q,P=A.date.substring(5);L+='<div class="token-bar-col" title="'+A.date+": "+he(A.totalTokens)+" tokens, $"+(A.costUSD||0).toFixed(2)+'"><div class="token-bar-stack" style="height:'+w+'%"><div class="token-bar-output" style="height:'+F+'%"></div><div class="token-bar-input" style="height:'+q+'%"></div></div><span class="token-bar-label">'+P+"</span></div>"}L+="</div>",L+='<div class="token-chart-legend"><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-input-color)"></span>Input</span><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-output-color)"></span>Output</span></div>',L+="</div>"}var D="";r.peakDay&&(D='<div class="token-peak-badge">\u{1F525} Peak: '+r.peakDay+" \u2014 "+he(r.peakDayTokens)+" tokens</div>"),e.innerHTML='<div class="overview-card full-width token-analytics-card"><div class="token-analytics-header"><h3>\u{1F525} Token Usage Analytics</h3>'+l+"</div>"+g+T+D+h+L+"</div>";for(var N=e.querySelectorAll(".token-range-btn"),J=0;J<N.length;J++)N[J].addEventListener("click",function(){for(var W=this.getAttribute("data-days")||"30",R=e.querySelectorAll(".token-range-btn"),G=0;G<R.length;G++)R[G].classList.remove("token-range-active");this.classList.add("token-range-active"),fetch("/api/token-usage?days="+W).then(function(K){return K.json()}).then(function(K){Ga(e,K,parseInt(W))})})}function Ne(e,t,a){return'<div class="token-kpi-card"><div class="token-kpi-icon">'+a+'</div><div class="token-kpi-value">'+t+'</div><div class="token-kpi-label">'+e+"</div></div>"}function he(e){return e>=1e9?(e/1e9).toFixed(1)+"B":e>=1e6?(e/1e6).toFixed(1)+"M":e>=1e3?(e/1e3).toFixed(1)+"K":String(e)}function Kn(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function Wa(){var e=document.getElementById("git-costs-container");e&&fetch("/api/git-costs?days=30").then(function(t){return t.json()}).then(function(t){Vn(e,t)}).catch(function(t){console.error("Git costs fetch failed:",t),e.innerHTML=""})}function Vn(e,t){if(!t||!t.commits||t.commits.length===0){e.innerHTML='<div class="overview-card full-width git-costs-card"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><div class="git-costs-empty"><p>No git commit data available.</p><p style="font-size:12px;color:var(--text-secondary)">Ensure you are running Niyantra from within a git repository, or pass <code>?repo=/path</code> to the API.</p></div></div>';return}var a=t.totals||{},n=t.commits||[],r=t.branches||[],i=a.totalTokens>0,o='<div class="git-kpi-row">';o+=st("Commits",String(a.commitCount||0),"\u{1F4DD}"),o+=st("AI Cost","$"+(a.costUSD||0).toFixed(2),"\u{1F4B0}"),o+=st("Avg/Commit","$"+(a.avgPerCommit||0).toFixed(2),"\u{1F4CA}"),o+=st("Top Branch",Ja(a.topBranch||"\u2014",18),"\u{1F33F}"),o+="</div>",i||(o+='<div class="git-no-ai-banner">No Claude Code session data found in the commit time windows. AI costs will appear when commits overlap with Claude Code usage.</div>');var s="";if(n.length>0&&i){s='<div class="git-section">',s+="<h4>Cost per Commit</h4>",s+='<div class="git-commit-chart">';for(var l=0,c=0;c<n.length;c++)n[c].costUSD>l&&(l=n[c].costUSD);var p=n;p.length>40&&(p=p.slice(0,40));for(var m=0;m<p.length;m++){var g=p[m],T=l>0?Math.max(3,g.costUSD/l*100):3,h=g.costUSD>0?"var(--accent)":"var(--border)";s+='<div class="git-bar-col" title="'+Rt(g.shortHash)+": "+Rt(g.message)+`
-$`+g.costUSD.toFixed(2)+" \xB7 "+Pt(g.totalTokens)+' tokens"><div class="git-bar" style="height:'+T+"%;background:"+h+'"></div><span class="git-bar-hash">'+g.shortHash+"</span></div>"}s+="</div></div>"}var u="";if(r.length>0&&i){u='<div class="git-section">',u+="<h4>Branch Costs</h4>",u+='<div class="git-branch-table">',u+='<div class="git-branch-header"><span>Branch</span><span>Commits</span><span>Tokens</span><span>Cost</span><span>Avg</span></div>';for(var x=r.slice(0,10),b=0;b<x.length;b++){var f=x[b];f.costUSD===0&&f.totalTokens===0||(u+='<div class="git-branch-row"><span class="git-branch-name">'+Dt(Ja(f.name,30))+'</span><span class="git-branch-val">'+f.commits+'</span><span class="git-branch-val">'+Pt(f.totalTokens)+'</span><span class="git-branch-cost">$'+f.costUSD.toFixed(2)+'</span><span class="git-branch-val">$'+f.avgPerCommit.toFixed(2)+"</span></div>")}u+="</div></div>"}var E='<div class="git-section">';E+="<h4>Recent Commits</h4>",E+='<div class="git-commits-list">';for(var M=n.slice(0,15),C=0;C<M.length;C++){var L=M[C],I=L.costUSD>0?'<span class="git-cost-badge">$'+L.costUSD.toFixed(2)+"</span>":'<span class="git-cost-badge git-cost-zero">\u2014</span>',S=L.totalTokens>0?'<span class="git-token-badge">'+Pt(L.totalTokens)+"</span>":"";E+='<div class="git-commit-item"><span class="git-commit-hash">'+L.shortHash+'</span><span class="git-commit-msg">'+Dt(L.message)+'</span><div class="git-commit-meta">'+S+I+"</div></div>"}E+="</div></div>",e.innerHTML='<div class="overview-card full-width git-costs-card"><div class="git-costs-header"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><span class="git-repo-path" title="'+Rt(t.repoPath||"")+'">'+Dt(Yn(t.repoPath||""))+"</span></div>"+o+s+u+E+"</div>"}function st(e,t,a){return'<div class="git-kpi-card"><div class="git-kpi-icon">'+a+'</div><div class="git-kpi-value">'+t+'</div><div class="git-kpi-label">'+e+"</div></div>"}function Pt(e){return e>=1e6?(e/1e6).toFixed(1)+"M":e>=1e3?(e/1e3).toFixed(1)+"K":String(e)}function Ja(e,t){return e.length>t?e.substring(0,t-1)+"\u2026":e}function Yn(e){var t=e.replace(/\\/g,"/").split("/");return t.length>2?"\u2026/"+t.slice(-2).join("/"):e}function Dt(e){return e.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}function Rt(e){return e.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}function _t(){Promise.all([ia(),et("",""),tt()]).then(function(e){var t=e[0],a=e[1],n=e[2];Xn(t,a.subscriptions||a||[],n)}).catch(function(e){console.error("Failed to load overview:",e)})}function Xn(e,t,a){var n=document.getElementById("overview-content");if(n){var r=e.stats||{totalMonthlySpend:0,totalAnnualSpend:0,byCategory:{},byStatus:{}},i=e.renewals||[],o=e.quickLinks||[],s=e.quotaSummary,l=e.insights||[],c='<div id="advisor-card-container"></div>',p=Ha(l),m="";if(a&&a.budgetForecast){var g=a.budgetForecast,T=g.onTrack?"forecast-ok":"forecast-over",h=g.onTrack?"\u2705":"\u26A0\uFE0F",u=Math.round(g.currentSpend/g.monthlyBudget*100),x=g.onTrack?"On track \u2014 $"+g.currentSpend.toFixed(2)+" of $"+g.monthlyBudget.toFixed(2)+" budget ("+u+"%)":"Over budget \u2014 $"+g.currentSpend.toFixed(2)+" exceeds $"+g.monthlyBudget.toFixed(2)+" by $"+(g.currentSpend-g.monthlyBudget).toFixed(2)+" ("+u+"%)";m='<div class="overview-card full-width"><h3>Budget Status</h3><div class="budget-forecast '+T+'"><div class="forecast-header">'+h+" "+x+'</div><div class="forecast-details"><span class="forecast-chip">Monthly subs: $'+g.currentSpend.toFixed(2)+'</span><span class="forecast-chip">Budget: $'+g.monthlyBudget.toFixed(2)+"</span></div></div></div>"}else Ct()||(m='<div class="overview-card full-width"><div class="budget-forecast forecast-ok"><div class="forecast-header">\u{1F4B0} No monthly budget set</div><div class="forecast-details"><button class="btn-add-sm" onclick="openBudgetModal()">Set Budget</button></div></div></div>');var b=Object.keys(r.byCategory),f='<div class="overview-card"><h3>Monthly AI Spend</h3><div class="overview-big-number">$'+r.totalMonthlySpend.toFixed(2)+"</div>";if(b.length>1){b.sort(function(le,Re){return(r.byCategory[Re].monthlySpend||0)-(r.byCategory[le].monthlySpend||0)});for(var E=0;E<b.length;E++){var M=r.byCategory[b[E]];f+='<div class="overview-category-row"><span class="overview-category-name">'+d(b[E])+'<span class="overview-category-count">'+M.count+' subs</span></span><span class="overview-category-spend">$'+M.monthlySpend.toFixed(2)+"/mo</span></div>"}}else if(b.length===1){var C=r.byCategory[b[0]];f+='<div class="overview-big-label">'+C.count+" "+b[0]+" subscription"+(C.count!==1?"s":"")+"</div>"}f+="</div>";var L=Fa(),I="";i.length>0&&(I='<div id="renewal-calendar-container" class="overview-card full-width"></div>');var S="";if(o.length>0){for(var B={},U=0;U<o.length;U++){var A=o[U];B[A.platform]||(B[A.platform]=A)}var w=Object.keys(B);if(w.length>1||w.length===1&&w[0]!=="Antigravity"){S='<div class="overview-card full-width"><h3>Quick Links</h3><div class="quick-links-grid">';for(var q=0;q<w.length;q++){var F=B[w[q]];S+='<a class="quick-link" href="'+d(F.url)+'" target="_blank" rel="noopener">\u{1F517} '+d(F.platform)+"</a>"}S+="</div></div>"}}var P='<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a></div></div>',D='<div class="overview-card full-width"><h3>Provider Health</h3>';if(D+='<div class="provider-health-grid">',j&&j.accounts&&j.accounts.length>0){for(var N=j.accounts,J=0,W=0;W<N.length;W++)N[W].isReady&&J++;var R=Math.round(J/N.length*100),G=R>=80?"health-good":R>=50?"health-warn":"health-bad";D+='<div class="provider-health-row"><span class="ph-name">\u26A1 Antigravity</span><span class="ph-count">'+N.length+' accounts</span><span class="ph-bar"><span class="ph-fill '+G+'" style="width:'+R+'%"></span></span><span class="ph-stat '+G+'">'+J+"/"+N.length+" ready</span></div>"}if(j&&j.codexSnapshot){var K=j.codexSnapshot,te=K.status==="healthy"?"health-good":"health-bad",me=K.email||"Codex account";D+='<div class="provider-health-row"><span class="ph-name">\u{1F916} Codex</span><span class="ph-count">'+d(me)+'</span><span class="ph-bar"><span class="ph-fill '+te+'" style="width:'+(100-(K.sevenDayPct||0))+'%"></span></span><span class="ph-stat '+te+'">'+d(K.planType||"free")+"</span></div>"}if(j&&j.claudeSnapshot){var y=j.claudeSnapshot,_=y.status==="healthy"?"health-good":"health-bad";D+='<div class="provider-health-row"><span class="ph-name">\u{1F52E} Claude Code</span><span class="ph-count">Bridge</span><span class="ph-bar"><span class="ph-fill '+_+'" style="width:'+(100-(y.fiveHourPct||0))+'%"></span></span><span class="ph-stat '+_+'">'+(y.status||"\u2014")+"</span></div>"}D+="</div></div>";var H='<div id="cost-kpi-container"></div>',k='<div id="token-analytics-container" class="overview-card full-width"></div>',Q='<div id="git-costs-container" class="overview-card full-width"></div>',$='<div id="heatmap-container" class="overview-card full-width"></div>';if(n.innerHTML=c+m+H+k+Q+$+D+p+L+f+I+S+P,se.claude_bridge==="true")Na();else{var X=document.getElementById("claude-card-body");X&&(X.innerHTML="")}ja(),Ba(),Pa(),Da(),Ua(),Wa(),i.length>0&&Ra(i,t),Oa(n)}}var Ft=localStorage.getItem("niyantra_snap_default")||"antigravity";function za(){var e=document.getElementById("snap-caret"),t=document.getElementById("snap-dropdown");!e||!t||(e.addEventListener("click",function(a){a.stopPropagation(),t.classList.toggle("open")}),document.addEventListener("click",function(){t.classList.remove("open")}),t.querySelectorAll(".snap-option").forEach(function(a){a.addEventListener("click",function(n){n.stopPropagation();var r=a.dataset.source;t.classList.remove("open"),r==="all"?qt("all"):(Ft=r,localStorage.setItem("niyantra_snap_default",r),$a(),qt(r))})}),$a())}function $a(){var e=document.getElementById("snap-dropdown");e&&e.querySelectorAll(".snap-option").forEach(function(t){if(t.dataset.source!=="all"){var a=t.dataset.source===Ft;t.textContent=(a?"\u25C9 ":"\u25CB ")+t.textContent.replace(/^[◉○] /,""),t.classList.toggle("active",a)}})}function Pe(){qt(Ft)}function qt(e){var t=document.getElementById("snap-btn");if(!(!t||t.disabled||Lt)){Ke(!0),t.disabled=!0,t.classList.add("snapping");var a=t.innerHTML;t.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Capturing...';var n=[];if((e==="antigravity"||e==="all")&&n.push(ta().then(function(r){return{source:"Antigravity",data:r,label:r.email||"Antigravity"}}).catch(function(r){return{source:"Antigravity",error:r.message}})),(e==="codex"||e==="all")&&n.push(fetch("/api/codex/snap",{method:"POST"}).then(function(r){return r.json()}).then(function(r){var i=r.plan?"Codex \xB7 "+r.plan:"Codex";return{source:"Codex",data:r,label:i}}).catch(function(){return{source:"Codex",error:"capture failed"}})),(e==="cursor"||e==="all")&&n.push(fetch("/api/cursor/snap",{method:"POST"}).then(function(r){return r.json()}).then(function(r){if(r.error)return{source:"Cursor",error:r.error};var i="Cursor \xB7 "+(r.premiumUsed||0)+"/"+(r.premiumLimit||"?");return{source:"Cursor",data:r,label:i}}).catch(function(){return{source:"Cursor",error:"capture failed"}})),(e==="gemini"||e==="all")&&n.push(fetch("/api/gemini/snap",{method:"POST"}).then(function(r){return r.json()}).then(function(r){if(r.error)return{source:"Gemini",error:r.error};var i="Gemini \xB7 "+(r.modelCount||0)+" models";return{source:"Gemini",data:r,label:i}}).catch(function(){return{source:"Gemini",error:"capture failed"}})),(e==="copilot"||e==="all")&&n.push(fetch("/api/copilot/snap",{method:"POST"}).then(function(r){return r.json()}).then(function(r){if(r.error)return{source:"Copilot",error:r.error};var i="Copilot \xB7 "+(r.plan||"unknown")+" \xB7 "+(r.premiumPct||0).toFixed(0)+"%";return{source:"Copilot",data:r,label:i}}).catch(function(){return{source:"Copilot",error:"capture failed"}})),n.length===0){t.innerHTML=a,t.disabled=!1,Ke(!1),v("No snap source selected","warning");return}Promise.all(n).then(function(r){for(var i=[],o=null,s=0;s<r.length;s++){var l=r[s];l.error?i.push("\u274C "+l.source+": "+l.error):(i.push("\u2705 "+l.label),l.source==="Antigravity"&&(o=l.data))}v(i.join(" \xB7 "),i.some(function(c){return c.startsWith("\u274C")})?"warning":"success"),o&&(Y(o),Ze())}).finally(function(){t.innerHTML=a,t.disabled=!1,t.classList.remove("snapping"),Ke(!1)})}}var Nt=window.Chart,ne=null;function De(e){if(ne){var t=e!=="light",a=t?"rgba(255,255,255,0.06)":"rgba(0,0,0,0.06)",n=t?"#94a3b8":"#64748b";ne.options.scales&&ne.options.scales.y&&(ne.options.scales.y.grid.color=a,ne.options.scales.y.ticks.color=n),ne.options.scales&&ne.options.scales.x&&(ne.options.scales.x.grid.color=a,ne.options.scales.x.ticks.color=n),ne.update("none")}}function je(){if(!(typeof Nt>"u")){var e=parseInt(document.getElementById("chart-account").value)||0,t=parseInt(document.getElementById("chart-range").value)||20,a="/api/history?limit="+t;e>0&&(a+="&account="+e),fetch(a).then(function(n){return n.json()}).then(function(n){Zn(n.snapshots||[])}).catch(function(n){console.error("Failed to load history:",n)})}}function Zn(e){var t=document.querySelector(".chart-container");if(!(!t||typeof Nt>"u")){if(e.length===0){t.innerHTML='<div class="chart-empty">No snapshot history yet. Click Snap Now to start tracking.</div>';return}t.innerHTML='<canvas id="history-chart"></canvas>',e=e.slice().reverse();for(var a=e.map(function(L){var I=new Date(L.capturedAt);return I.toLocaleDateString(void 0,{month:"short",day:"numeric"})+" "+I.toLocaleTimeString(void 0,{hour:"2-digit",minute:"2-digit"})}),n={},r={claude_gpt:"Claude + GPT",gemini_pro:"Gemini Pro",gemini_flash:"Gemini Flash"},i={claude_gpt:"#D97757",gemini_pro:"#10B981",gemini_flash:"#3B82F6"},o=0;o<e.length;o++)for(var s=e[o].groups||[],l=0;l<s.length;l++){var c=s[l];n[c.groupKey]||(n[c.groupKey]=[])}for(var p=[],m=!1,o=0;o<e.length;o++){for(var g=e[o],s=g.groups||[],T={},l=0;l<s.length;l++){var c=s[l];n[c.groupKey]||(n[c.groupKey]=[]),n[c.groupKey].push(Math.round(c.remainingPercent||0)),T[c.groupKey]=!0}for(var x=Object.keys(n),h=0;h<x.length;h++)T[x[h]]||n[x[h]].push(null);g.aiCredits&&g.aiCredits.length>0?(p.push(g.aiCredits[0].creditAmount),m=!0):p.push(null)}for(var u=[],x=Object.keys(n),h=0;h<x.length;h++){var b=x[h];!b||!r[b]||u.push({label:r[b],data:n[b],borderColor:i[b]||"#94a3b8",backgroundColor:(i[b]||"#94a3b8")+"20",yAxisID:"y",fill:!0,tension:.3,pointRadius:3,pointHoverRadius:6,borderWidth:2})}m&&u.push({label:"AI Credits",data:p,borderColor:"#fbbf24",backgroundColor:"transparent",yAxisID:"yCredits",borderDash:[5,5],tension:.3,pointRadius:4,pointBackgroundColor:"#fbbf24",pointHoverRadius:6,borderWidth:3});var f=document.documentElement.getAttribute("data-theme")!=="light",E=f?"rgba(255,255,255,0.06)":"rgba(0,0,0,0.06)",M=f?"#94a3b8":"#64748b";ne&&ne.destroy();var C=document.getElementById("history-chart");C&&(ne=new Nt(C,{type:"line",data:{labels:a,datasets:u},options:{responsive:!0,maintainAspectRatio:!1,interaction:{mode:"index",intersect:!1},plugins:{legend:{position:"bottom",labels:{color:M,font:{family:"'Inter', sans-serif",size:11},boxWidth:12,padding:16}},tooltip:{backgroundColor:f?"#1e293b":"#fff",titleColor:f?"#f1f5f9":"#0f172a",bodyColor:f?"#94a3b8":"#475569",borderColor:f?"#334155":"#e2e8f0",borderWidth:1,padding:10,titleFont:{family:"'Inter', sans-serif",weight:"600"},bodyFont:{family:"'Inter', sans-serif"},callbacks:{label:function(L){return L.dataset.yAxisID==="yCredits"?L.dataset.label+": "+L.parsed.y.toLocaleString():L.dataset.label+": "+L.parsed.y+"%"}}}},scales:{y:{type:"linear",display:!0,position:"left",min:0,max:100,grid:{color:E},ticks:{color:M,font:{family:"'Inter', sans-serif",size:11},callback:function(L){return L+"%"}},border:{display:!1}},yCredits:{type:"linear",display:m,position:"right",grid:{display:!1},ticks:{color:f?"#fbbf24":"#d97706",font:{family:"'Inter', sans-serif",size:11}},border:{display:!1}},x:{grid:{display:!1},ticks:{color:M,font:{family:"'Inter', sans-serif",size:10},maxRotation:45,maxTicksLimit:12},border:{display:!1}}}}}))}}function Qa(e){var t=document.getElementById("chart-account");if(!(!t||!e.accounts)){for(;t.options.length>1;)t.remove(1);for(var a=0;a<e.accounts.length;a++){var n=document.createElement("option");n.value=e.accounts[a].accountId,n.textContent=e.accounts[a].email,t.appendChild(n)}}}function Oe(){fetch("/api/alerts").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("alert-banner-container");if(t){var a=e.alerts||[];if(a.length===0){t.innerHTML="";return}for(var n="",r=Math.min(a.length,3),i=0;i<r;i++){var o=a[i],s=o.severity==="critical"?"\u{1F6A8}":o.severity==="warning"?"\u26A0\uFE0F":"\u2139\uFE0F";n+='<div class="alert-banner '+d(o.severity)+'"><span class="alert-banner-icon">'+s+'</span><div class="alert-banner-content"><div class="alert-banner-title">'+d(o.category)+'</div><div class="alert-banner-msg">'+d(o.message)+'</div></div><button class="alert-banner-dismiss" onclick="dismissAlert('+o.id+')" title="Dismiss">&times;</button></div>'}a.length>3&&(n+=`<div class="alert-more-link" onclick="switchToTab('overview')">+ `+(a.length-3)+" more alert(s)</div>"),t.innerHTML=n}}).catch(function(){})}function Ka(e){fetch("/api/alerts/dismiss",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:e})}).then(function(){Oe(),v("Alert dismissed","success")}).catch(function(){v("Failed to dismiss alert","error")})}function ye(){var e=document.getElementById("activity-filter").value,t="/api/activity?limit=50";e&&(t+="&type="+e),fetch(t).then(function(a){return a.json()}).then(function(a){var n=document.getElementById("activity-log");if(!a.entries||a.entries.length===0){n.innerHTML='<div class="activity-empty">No activity'+(e?' for "'+e+'"':"")+" yet</div>";return}var r="";a.entries.forEach(function(i){var o=i.timestamp?i.timestamp.replace("T"," ").substring(5,16):"",s=er(i);r+='<div class="activity-entry"><span class="activity-time">'+o+'</span><span class="activity-type '+d(i.eventType)+'">'+d(i.eventType.replace(/_/g," "))+'</span><span class="activity-detail">'+s+"</span></div>"}),n.innerHTML=r}).catch(function(){document.getElementById("activity-log").innerHTML='<div class="activity-empty">Failed to load activity log</div>'})}function er(e){try{var t=JSON.parse(e.details||"{}");switch(e.eventType){case"snap":return d(e.accountEmail||"")+(t.method?" \xB7 "+t.method:"")+(t.source?" via "+t.source:"");case"snap_failed":return d(t.error||"Unknown error");case"config_change":return d(t.key||"")+": "+d(t.from||'""')+" \u2192 "+d(t.to||'""');case"server_start":return"Port "+(t.port||"?")+" \xB7 "+d(t.mode||"manual")+" mode";case"sub_created":case"sub_deleted":return d(t.platform||"");case"auto_link":return d(e.accountEmail||"")+" \u2192 "+d(t.platform||"");case"codex_snap":var a=e.accountEmail||"";return a.length>20&&(a=a.substring(0,6)+".."+a.slice(-6)),d(a)+(t.plan?" ("+d(t.plan)+")":"");case"model_reset":return d(e.accountEmail||"");case"quota_alert":return"\u{1F514} "+d(t.model||"")+" \u2014 "+(t.remainingPct!=null?t.remainingPct.toFixed(1)+"% remaining":"");default:return e.accountEmail?d(e.accountEmail):""}}catch{return""}}var lt=null;function be(){fetch("/api/mode").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("mode-badge"),a=document.getElementById("mode-label");e.mode==="auto"?(t.className="mode-badge mode-auto",a.textContent="Auto"):(t.className="mode-badge mode-manual",a.textContent="Manual");var n=document.getElementById("polling-status");if(n)if(e.isPolling){var r="";e.lastPoll?(r="Last: "+V(e.lastPoll),e.lastPollOK===!1&&(r+=" (failed)")):r="Starting...",n.innerHTML='<span class="polling-dot"></span> Polling every '+ea(e.pollInterval)+" \xB7 "+r,n.style.display=""}else n.style.display="none";var i=document.getElementById("s-about-info");if(i){var o=(e.sources||[]).filter(function(c){return c.enabled}).length,s=e.schemaVersion?"Schema v"+e.schemaVersion:"Schema",l=oe.length||0;i.textContent=s+" \xB7 "+l+" presets \xB7 Mode: "+(e.mode==="auto"?"Auto":"Manual")+(e.isPolling?" (polling)":"")+" \xB7 "+o+" active source"+(o!==1?"s":"")}lt&&(clearInterval(lt),lt=null),e.isPolling&&(lt=setInterval(function(){be(),Oe();var c=document.querySelector(".tab-btn.active");c&&c.getAttribute("data-tab")==="settings"&&ye()},3e4))}).catch(function(){})}function ue(){fetch("/api/mode").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("data-sources-list");if(!e.sources||e.sources.length===0){t.innerHTML="";return}var a='<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';e.sources.forEach(function(n){var r=n.captureCount+" captures";n.lastCapture&&(r+=" \xB7 Last: "+V(n.lastCapture)),a+='<div class="data-source-item"><div class="data-source-info"><span class="data-source-name">'+d(n.name)+'</span><span class="data-source-meta">'+d(n.sourceType)+" \xB7 "+r+'</span></div><span class="data-source-status '+(n.enabled?"enabled":"disabled")+'">'+(n.enabled?"\u25CF Active":"\u25CB Disabled")+"</span></div>"}),t.innerHTML=a}).catch(function(){})}var z=null;function Va(){fetch("/api/config/pricing").then(function(e){return e.json()}).then(function(e){z=e.pricing||[],dt(z)}).catch(function(e){console.error("Failed to load model pricing:",e)})}function dt(e){var t=document.getElementById("pricing-tbody");if(t){for(var a={anthropic:"\u{1F7E4}",openai:"\u{1F7E2}",google:"\u{1F535}"},n="",r=0;r<e.length;r++){var i=e[r],o=i.provider||"custom",s=i.provider?i.provider.charAt(0).toUpperCase()+i.provider.slice(1):"Custom",l=a[i.provider]||"\u26AA";n+='<tr data-pricing-idx="'+r+'"><td><span class="pricing-model-name">'+d(i.displayName)+'</span></td><td><span class="pricing-provider '+d(o)+'">'+l+" "+d(s)+'</span></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="inputPer1M" step="0.01" min="0" value="'+i.inputPer1M+'"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="outputPer1M" step="0.01" min="0" value="'+i.outputPer1M+'"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="cachePer1M" step="0.001" min="0" value="'+i.cachePer1M+'"></td><td><button class="pricing-delete-btn" data-pricing-del="'+r+'" title="Remove this model">\u2715</button></td></tr>'}t.innerHTML=n,t.querySelectorAll(".pricing-input").forEach(function(c){c.addEventListener("change",function(){var p=c.closest("tr"),m=parseInt(p.dataset.pricingIdx),g=c.dataset.field,T=parseFloat(c.value)||0;T<0&&(T=0),c.value=String(T),z&&z[m]&&(z[m][g]=T,jt())})}),t.querySelectorAll(".pricing-delete-btn").forEach(function(c){c.addEventListener("click",function(){var p=parseInt(c.dataset.pricingDel);tr(p)})})}}function jt(){!z||z.length===0||fetch("/api/config/pricing",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({pricing:z})}).then(function(e){return e.json()}).then(function(e){if(e.error){v("\u274C "+e.error,"error");return}v("\u{1F4B0} Pricing saved","success")}).catch(function(){v("\u274C Failed to save pricing","error")})}function Ya(){z||(z=[]);var e={modelId:"custom-"+Date.now(),displayName:"New Model",provider:"custom",inputPer1M:1,outputPer1M:5,cachePer1M:.1};z.push(e),dt(z);var t=document.getElementById("pricing-tbody"),a=t.lastElementChild;if(a){var n=a.querySelector(".pricing-model-name");if(n){n.contentEditable="true",n.focus();var r=document.createRange();r.selectNodeContents(n);var i=window.getSelection();i.removeAllRanges(),i.addRange(r),n.addEventListener("blur",function(){n.contentEditable="false";var o=parseInt(a.dataset.pricingIdx),s=n.textContent.trim();s&&z[o]&&(z[o].displayName=s,z[o].modelId=s.toLowerCase().replace(/[^a-z0-9]+/g,"-"),jt())},{once:!0}),n.addEventListener("keydown",function(o){o.key==="Enter"&&(o.preventDefault(),n.blur())})}}v("\u{1F4B0} New model added \u2014 edit the name and prices","info")}function tr(e){if(!(!z||e<0||e>=z.length)){var t=z[e].displayName;confirm('Remove pricing for "'+t+'"?')&&(z.splice(e,1),dt(z),jt(),v("\u{1F5D1}\uFE0F Removed "+t,"success"))}}function Xa(){if(confirm("Reset all model pricing to current market defaults? This will overwrite your custom prices.")){var e=[{modelId:"claude-opus-4.6",displayName:"Claude Opus 4.6",provider:"anthropic",inputPer1M:5,outputPer1M:25,cachePer1M:.5},{modelId:"claude-sonnet-4.6",displayName:"Claude Sonnet 4.6",provider:"anthropic",inputPer1M:3,outputPer1M:15,cachePer1M:.3},{modelId:"claude-haiku-4.5",displayName:"Claude Haiku 4.5",provider:"anthropic",inputPer1M:1,outputPer1M:5,cachePer1M:.1},{modelId:"gpt-4o",displayName:"GPT-4o",provider:"openai",inputPer1M:2.5,outputPer1M:10,cachePer1M:1.25},{modelId:"gemini-3.1-pro",displayName:"Gemini 3.1 Pro",provider:"google",inputPer1M:2,outputPer1M:12,cachePer1M:.5},{modelId:"gemini-2.5-flash",displayName:"Gemini 2.5 Flash",provider:"google",inputPer1M:.3,outputPer1M:2.5,cachePer1M:.075}];z=e,dt(z),fetch("/api/config/pricing",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({pricing:e})}).then(function(t){return t.json()}).then(function(t){if(t.error){v("\u274C "+t.error,"error");return}v("\u21BB Pricing reset to defaults","success")}).catch(function(){v("\u274C Failed to reset pricing","error")})}}function Za(){fetch("/api/plugins").then(function(e){return e.json()}).then(function(e){var t=document.getElementById("plugins-list");if(t){var a=e.plugins||[],n=e.pluginsDir||"",r=e.errors||[];if(a.length===0&&r.length===0){t.innerHTML='<div class="plugin-empty"><div class="plugin-empty-icon">\u{1F9E9}</div><div class="plugin-empty-title">No plugins installed</div><div class="plugin-empty-hint">Add plugins to <code>'+d(n)+"</code><br>Each plugin needs a <code>plugin.json</code> manifest and an executable entry point.</div></div>";return}var i="";r.length>0&&(i+='<div class="plugin-errors">',r.forEach(function(o){i+='<div class="plugin-error">\u26A0\uFE0F '+d(o)+"</div>"}),i+="</div>"),a.forEach(function(o){var s=o.captureCount+" captures";o.lastCapture&&(s+=" \xB7 Last: "+V(o.lastCapture)),i+='<div class="plugin-card" data-plugin-id="'+d(o.manifest.id)+'">',i+='<div class="plugin-header">',i+='<div class="plugin-info">',i+='<div class="plugin-name">'+d(o.manifest.name)+'<span class="plugin-version">v'+d(o.manifest.version)+"</span></div>",i+='<div class="plugin-meta">'+d(o.manifest.description||"No description")+"</div>",o.manifest.author&&(i+='<div class="plugin-meta">By '+d(o.manifest.author)+" \xB7 "+s+"</div>"),i+="</div>",i+='<div class="plugin-actions">',i+='<label class="toggle-label">',i+='<input type="checkbox" class="plugin-toggle" data-plugin="'+d(o.manifest.id)+'"'+(o.enabled?" checked":"")+">",i+='<span class="toggle-slider"></span>',i+="</label>",i+="</div>",i+="</div>";var l=Object.keys(o.manifest.config||{});l.length>0&&(i+='<div class="plugin-config" style="'+(o.enabled?"":"display:none")+'">',l.forEach(function(c){var p=o.manifest.config[c],m=o.config[c]||p.default||"";i+='<div class="plugin-config-row">',i+='<label class="plugin-config-label">'+d(p.label||c),p.required&&(i+=' <span style="color:var(--accent)">*</span>'),i+="</label>",p.secret?i+='<input type="password" class="plugin-config-input" data-plugin="'+d(o.manifest.id)+'" data-key="'+d(c)+'" placeholder="'+(m==="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"?"\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)":"Enter "+d(p.label||c))+'">':i+='<input type="text" class="plugin-config-input" data-plugin="'+d(o.manifest.id)+'" data-key="'+d(c)+'" value="'+d(m)+'" placeholder="Enter '+d(p.label||c)+'">',i+="</div>"}),i+="</div>"),i+='<div class="plugin-footer" style="'+(o.enabled?"":"display:none")+'">',i+='<button class="btn-sm plugin-test-btn" data-plugin="'+d(o.manifest.id)+'">\u25B6 Test Run</button>',i+='<span class="plugin-test-result" id="plugin-result-'+d(o.manifest.id)+'"></span>',i+="</div>",i+="</div>"}),t.innerHTML=i,t.querySelectorAll(".plugin-toggle").forEach(function(o){o.addEventListener("change",function(){var s=o,l=s.dataset.plugin,c=s.checked;fetch("/api/plugins/"+l+"/config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:c?"true":"false"})}).then(function(){v(c?"\u{1F9E9} Plugin enabled: "+l:"\u{1F9E9} Plugin disabled: "+l,"success");var p=s.closest(".plugin-card"),m=p.querySelector(".plugin-config"),g=p.querySelector(".plugin-footer");m&&(m.style.display=c?"":"none"),g&&(g.style.display=c?"":"none")}).catch(function(){v("\u274C Failed to update plugin","error")})})}),t.querySelectorAll(".plugin-config-input").forEach(function(o){o.addEventListener("change",function(){var s=o,l=s.dataset.plugin,c=s.dataset.key,p=s.value.trim();if(p){var m={};m[c]=p,fetch("/api/plugins/"+l+"/config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(m)}).then(function(){v("\u{1F9E9} "+c+" saved","success"),s.type==="password"&&(s.value="",s.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)")}).catch(function(){v("\u274C Failed to save config","error")})}})}),t.querySelectorAll(".plugin-test-btn").forEach(function(o){o.addEventListener("click",function(){var s=o,l=s.dataset.plugin,c=document.getElementById("plugin-result-"+l);s.disabled=!0,s.textContent="\u23F3 Running...",c.textContent="",fetch("/api/plugins/"+l+"/run",{method:"POST"}).then(function(p){return p.json()}).then(function(p){if(p.error)c.textContent="\u274C "+p.error,c.style.color="#ef4444";else if(p.status==="ok"){var m=p.data||{};c.textContent="\u2705 "+(m.label||m.provider||"OK")+(m.usage_pct?" \u2014 "+m.usage_pct.toFixed(1)+"%":"")+(m.usage_display?" ("+m.usage_display+")":""),c.style.color="#22c55e"}else c.textContent="\u26A0\uFE0F "+(p.error||"Unknown response"),c.style.color="#f59e0b"}).catch(function(){c.textContent="\u274C Network error",c.style.color="#ef4444"}).finally(function(){s.disabled=!1,s.textContent="\u25B6 Test Run"})})})}}).catch(function(){})}function en(){var e=document.getElementById("s-theme"),t=localStorage.getItem("niyantra-theme")||"dark";e.value=t,e&&(e.addEventListener("change",function(){var a=e.value;if(a==="system"){localStorage.removeItem("niyantra-theme");var n=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";document.documentElement.setAttribute("data-theme",n)}else localStorage.setItem("niyantra-theme",a),document.documentElement.setAttribute("data-theme",a);var r=document.documentElement.getAttribute("data-theme");De(r)}),wa().then(function(){var a=se;ar(a);var n=document.getElementById("s-budget"),r=document.getElementById("s-currency"),i=document.getElementById("s-auto-capture"),o=document.getElementById("s-auto-link"),s=document.getElementById("s-poll-interval"),l=document.getElementById("s-retention");n.value=String(parseFloat(a.budget_monthly||"0")||""),r.value=a.currency||"USD",i.checked=a.auto_capture==="true",o.checked=a.auto_link_subs!=="false",s.value=a.poll_interval||"300",l.value=a.retention_days||"365",document.getElementById("poll-interval-row").style.display=i.checked?"":"none",n.addEventListener("change",function(){var y=parseFloat(n.value)||0;Ht(y),y>0&&v("\u2705 Budget: $"+y.toFixed(0)+"/mo","success")}),r.addEventListener("change",function(){O("currency",r.value),v("\u2705 Currency: "+r.value,"success")}),i.addEventListener("change",function(){var y=i.checked?"true":"false";O("auto_capture",y).then(function(){be(),v(i.checked?"\u{1F7E2} Auto-capture started":"\u23F8\uFE0F Auto-capture stopped","success")}),document.getElementById("poll-interval-row").style.display=i.checked?"":"none"}),o.addEventListener("change",function(){O("auto_link_subs",o.checked?"true":"false")}),s.addEventListener("change",function(){var y=s.value;O("poll_interval",y).then(function(){var _=s.options[s.selectedIndex].text;v("\u23F1\uFE0F Interval updated to "+_+" \u2014 takes effect on next cycle.","success"),be()})}),l.addEventListener("change",function(){var y=parseInt(l.value);y>=30&&y<=3650&&O("retention_days",y.toString())});var c=document.getElementById("s-claude-bridge");c&&(c.checked=a.claude_bridge==="true",c.addEventListener("change",function(){var y=c.checked?"true":"false";O("claude_bridge",y).then(function(){v(c.checked?"\u{1F517} Claude Code bridge enabled":"\u{1F517} Bridge disabled","success"),At()})}),At());var p=document.getElementById("s-notify-enabled"),m=document.getElementById("s-notify-threshold"),g=document.getElementById("notify-threshold-row"),T=document.getElementById("notify-test-row");p&&(p.checked=a.notify_enabled==="true",m.value=a.notify_threshold||"10",g.style.display=p.checked?"":"none",T.style.display=p.checked?"":"none",p.addEventListener("change",function(){var y=p.checked?"true":"false";O("notify_enabled",y).then(function(){v(p.checked?"\u{1F514} Notifications enabled":"\u{1F515} Notifications disabled","success")}),g.style.display=p.checked?"":"none",T.style.display=p.checked?"":"none"}),m.addEventListener("change",function(){var y=parseInt(m.value);y>=5&&y<=50&&(O("notify_threshold",y.toString()),v("\u{1F514} Threshold: "+y+"%","success"))}),document.getElementById("notify-test-btn").addEventListener("click",function(){fetch("/api/notify/test",{method:"POST"}).then(function(y){return y.json()}).then(function(y){y.error?v("\u274C "+y.error,"error"):v("\u{1F514} Test notification sent!","success")}).catch(function(){v("\u274C Failed to send test","error")})}));var h=document.getElementById("s-smtp-enabled"),u=document.getElementById("smtp-config-rows");if(h){h.checked=a.smtp_enabled==="true",u.style.display=h.checked?"":"none";var x=document.getElementById("s-smtp-host"),b=document.getElementById("s-smtp-port"),f=document.getElementById("s-smtp-tls"),E=document.getElementById("s-smtp-user"),M=document.getElementById("s-smtp-pass"),C=document.getElementById("s-smtp-from"),L=document.getElementById("s-smtp-to");x.value=a.smtp_host||"",b.value=a.smtp_port||"587",f.value=a.smtp_tls||"starttls",E.value=a.smtp_user||"",C.value=a.smtp_from||"",L.value=a.smtp_to||"",a.smtp_pass&&(M.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)"),h.addEventListener("change",function(){var y=h.checked?"true":"false";O("smtp_enabled",y).then(function(){v(h.checked?"\u{1F4E7} Email notifications enabled":"\u{1F4E7} Email notifications disabled","success")}),u.style.display=h.checked?"":"none"}),x.addEventListener("change",function(){O("smtp_host",x.value.trim()),v("\u{1F4E7} SMTP host saved","success")}),b.addEventListener("change",function(){O("smtp_port",b.value),v("\u{1F4E7} SMTP port saved","success")}),f.addEventListener("change",function(){O("smtp_tls",f.value),v("\u{1F4E7} Encryption mode saved","success")}),E.addEventListener("change",function(){O("smtp_user",E.value.trim()),v("\u{1F4E7} SMTP username saved","success")}),M.addEventListener("change",function(){var y=M.value.trim();y&&O("smtp_pass",y).then(function(){v("\u{1F4E7} SMTP password saved","success"),M.value="",M.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)"})}),C.addEventListener("change",function(){O("smtp_from",C.value.trim()),v("\u{1F4E7} From address saved","success")}),L.addEventListener("change",function(){O("smtp_to",L.value.trim()),v("\u{1F4E7} To address saved","success")}),document.getElementById("smtp-test-btn").addEventListener("click",function(){var y=document.getElementById("smtp-test-btn");y.disabled=!0,y.textContent="\u{1F4E7} Sending...",fetch("/api/notify/test-email",{method:"POST"}).then(function(_){return _.json()}).then(function(_){_.error?v("\u274C "+_.error,"error"):v("\u{1F4E7} Test email sent!","success")}).catch(function(){v("\u274C Failed to send test email","error")}).finally(function(){y.disabled=!1,y.textContent="\u{1F4E7} Send Test"})})}var I=document.getElementById("s-webhook-enabled"),S=document.getElementById("webhook-config-rows");if(I){let y=function(){var _=document.getElementById("webhook-url-label"),H=document.getElementById("webhook-url-hint"),k=document.getElementById("webhook-secret-label"),Q=document.getElementById("webhook-secret-hint"),$=document.getElementById("webhook-secret-row"),X=document.getElementById("s-webhook-url");switch(B.value){case"discord":_.textContent="Webhook URL",H.textContent="Discord channel webhook URL",X.placeholder="https://discord.com/api/webhooks/...",$.style.display="none";break;case"telegram":_.textContent="Chat ID",H.textContent="Telegram chat/group ID (numeric)",X.placeholder="123456789",$.style.display="",k.textContent="Bot Token",Q.textContent="Telegram bot token from @BotFather",A.placeholder="123456:ABC-DEF...";break;case"slack":_.textContent="Webhook URL",H.textContent="Slack incoming webhook URL",X.placeholder="https://hooks.slack.com/services/...",$.style.display="none";break;case"generic":_.textContent="Endpoint URL",H.textContent="ntfy/Gotify/custom POST URL",X.placeholder="https://ntfy.sh/mytopic",$.style.display="",k.textContent="Auth Header",Q.textContent="Optional: Bearer token or Basic auth",A.placeholder="Bearer your-token";break}};var K=y;I.checked=a.webhook_enabled==="true",S.style.display=I.checked?"":"none";var B=document.getElementById("s-webhook-type"),U=document.getElementById("s-webhook-url"),A=document.getElementById("s-webhook-secret");B.value=a.webhook_type||"discord",U.value=a.webhook_url||"",a.webhook_secret&&(A.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)"),y(),I.addEventListener("change",function(){var _=I.checked?"true":"false";O("webhook_enabled",_).then(function(){v(I.checked?"\u{1F517} Webhook enabled":"\u{1F517} Webhook disabled","success")}),S.style.display=I.checked?"":"none"}),B.addEventListener("change",function(){O("webhook_type",B.value),v("\u{1F517} Webhook service updated","success"),y()}),U.addEventListener("change",function(){O("webhook_url",U.value.trim()),v("\u{1F517} Webhook URL saved","success")}),A.addEventListener("change",function(){var _=A.value.trim();_&&O("webhook_secret",_).then(function(){v("\u{1F517} Webhook secret saved","success"),A.value="",A.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)"})}),document.getElementById("webhook-test-btn").addEventListener("click",function(){var _=document.getElementById("webhook-test-btn");_.disabled=!0,_.textContent="\u{1F517} Sending...",fetch("/api/notify/test-webhook",{method:"POST"}).then(function(H){return H.json()}).then(function(H){H.error?v("\u274C "+H.error,"error"):v("\u{1F517} Test webhook sent!","success")}).catch(function(){v("\u274C Failed to send test webhook","error")}).finally(function(){_.disabled=!1,_.textContent="\u{1F517} Send Test"})})}var w=document.getElementById("s-webpush-enabled"),q=document.getElementById("webpush-config-rows");if(w&&"serviceWorker"in navigator&&"PushManager"in window){let y=function(H){for(var k="=".repeat((4-H.length%4)%4),Q=(H+k).replace(/-/g,"+").replace(/_/g,"/"),$=window.atob(Q),X=new Uint8Array($.length),le=0;le<$.length;++le)X[le]=$.charCodeAt(le);return X},_=function(){var H=document.getElementById("webpush-status-badge"),k=document.getElementById("webpush-subscribe-btn");navigator.serviceWorker.getRegistration("/sw.js").then(function(Q){if(!Q){H.textContent="\u26AA Not registered",H.style.color="var(--text-secondary)",k.textContent="\u{1F514} Subscribe";return}Q.pushManager.getSubscription().then(function($){$?(H.textContent="\u{1F7E2} Subscribed",H.style.color="#22c55e",k.textContent="\u{1F515} Unsubscribe"):(H.textContent="\u26AA Not subscribed",H.style.color="var(--text-secondary)",k.textContent="\u{1F514} Subscribe")})})};var te=y,me=_;w.checked=a.webpush_enabled==="true",q.style.display=w.checked?"":"none",_(),w.addEventListener("change",function(){var H=w.checked?"true":"false";O("webpush_enabled",H).then(function(){v(w.checked?"\u{1F514} WebPush enabled":"\u{1F514} WebPush disabled","success")}),q.style.display=w.checked?"":"none"}),document.getElementById("webpush-subscribe-btn").addEventListener("click",function(){var H=document.getElementById("webpush-subscribe-btn");H.disabled=!0,navigator.serviceWorker.getRegistration("/sw.js").then(function(k){return k||navigator.serviceWorker.register("/sw.js")}).then(function(k){return k.pushManager.getSubscription().then(function(Q){return Q?Q.unsubscribe().then(function(){return fetch("/api/webpush/unsubscribe",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({endpoint:Q.endpoint})})}).then(function(){v("\u{1F515} Unsubscribed from push notifications","success"),_()}):fetch("/api/webpush/vapid-key").then(function($){return $.json()}).then(function($){var X=y($.publicKey);return k.pushManager.subscribe({userVisibleOnly:!0,applicationServerKey:X})}).then(function($){return fetch("/api/webpush/subscribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify($.toJSON())})}).then(function(){v("\u{1F514} Subscribed to push notifications!","success"),_()})})}).catch(function(k){v("\u274C Push subscription failed: "+k.message,"error")}).finally(function(){H.disabled=!1})}),document.getElementById("webpush-test-btn").addEventListener("click",function(){var H=document.getElementById("webpush-test-btn");H.disabled=!0,H.textContent="\u{1F514} Sending...",fetch("/api/notify/test-webpush",{method:"POST"}).then(function(k){return k.json()}).then(function(k){k.error?v("\u274C "+k.error,"error"):v("\u{1F514} Test push sent!","success")}).catch(function(){v("\u274C Failed to send test push","error")}).finally(function(){H.disabled=!1,H.textContent="\u{1F514} Send Test"})})}else if(w){w.disabled=!0;var F=document.getElementById("webpush-status-hint");F&&(F.textContent="Not supported in this browser")}var P=document.getElementById("s-codex-capture");P&&(P.checked=a.codex_capture==="true",P.addEventListener("change",function(){var y=P.checked?"true":"false";O("codex_capture",y).then(function(){v(P.checked?"\u{1F916} Codex capture enabled":"\u{1F916} Codex capture disabled","success"),it(),ue()})}),it());var D=document.getElementById("s-cursor-capture");D&&(D.checked=a.cursor_capture==="true",D.addEventListener("change",function(){var y=D.checked?"true":"false";O("cursor_capture",y).then(function(){v(D.checked?"\u{1F5B1}\uFE0F Cursor capture enabled":"\u{1F5B1}\uFE0F Cursor capture disabled","success"),ue()})}));var N=document.getElementById("s-gemini-capture");N&&(N.checked=a.gemini_capture==="true",N.addEventListener("change",function(){var y=N.checked?"true":"false";O("gemini_capture",y).then(function(){v(N.checked?"\u2728 Gemini capture enabled":"\u2728 Gemini capture disabled","success"),ue()})}));var J=document.getElementById("s-copilot-capture"),W=document.getElementById("s-copilot-pat");J&&(J.checked=a.copilot_capture==="true",J.addEventListener("change",function(){var y=J.checked?"true":"false";O("copilot_capture",y).then(function(){v(J.checked?"\u{1F419} Copilot capture enabled":"\u{1F419} Copilot capture disabled","success"),ue()})})),W&&(a.copilot_pat&&(W.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)"),W.addEventListener("change",function(){var y=W.value.trim();y&&O("copilot_pat",y).then(function(){v("\u{1F419} Copilot PAT saved","success"),W.value="",W.placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)",ue()})}));var R=document.getElementById("import-json-btn"),G=document.getElementById("import-file");R&&G&&(R.addEventListener("click",function(){G.click()}),G.addEventListener("change",function(){if(!(!G.files||!G.files[0])){var y=G.files[0];v("\u{1F4E5} Importing "+y.name+"...","info");var _=new FileReader;_.onload=function(H){fetch("/api/import/json",{method:"POST",headers:{"Content-Type":"application/json"},body:H.target.result}).then(function(k){return k.json()}).then(function(k){if(k.error){v("\u274C Import failed: "+k.error,"error");return}var Q="\u2705 Imported: "+(k.accountsCreated||0)+" accounts, "+(k.subsCreated||0)+" subs, "+(k.snapshotsImported||0)+" snapshots";v(Q,"success");var $=document.getElementById("import-result");$&&($.style.display="",$.innerHTML='<span style="color:var(--accent)">'+Q+"</span>"+(k.accountsSkipped?"<br>Accounts skipped (existing): "+k.accountsSkipped:"")+(k.subsSkipped?"<br>Subs skipped (existing): "+k.subsSkipped:"")+(k.snapshotsDuped?"<br>Snapshots deduped: "+k.snapshotsDuped:"")+(k.errors&&k.errors.length?"<br>\u26A0\uFE0F Errors: "+k.errors.length:"")),re().then(Y),ge()}).catch(function(){v("\u274C Import failed","error")})},_.readAsText(y),G.value=""}}))}),Va(),document.getElementById("pricing-add-btn").addEventListener("click",Ya),document.getElementById("pricing-reset-btn").addEventListener("click",Xa),be(),ue(),document.getElementById("activity-refresh").addEventListener("click",ye),document.getElementById("activity-filter").addEventListener("change",ye),ye(),Za())}function ar(e){var t=localStorage.getItem("niyantra-budget"),a=localStorage.getItem("niyantra-currency");t&&(!e.budget_monthly||e.budget_monthly==="0")&&(O("budget_monthly",t),se.budget_monthly=t,localStorage.removeItem("niyantra-budget")),a&&e.currency==="USD"&&(O("currency",a),se.currency=a,localStorage.removeItem("niyantra-currency"))}var Ot=[{name:"Snap Now",key:"S",icon:"\u{1F4F8}",action:function(){Pe()}},{name:"Show Quotas",key:"1",icon:"\u{1F4CA}",action:function(){ee("quotas")}},{name:"Show Subscriptions",key:"2",icon:"\u{1F4B3}",action:function(){ee("subscriptions")}},{name:"Show Overview",key:"3",icon:"\u{1F4CB}",action:function(){ee("overview")}},{name:"Show Settings",key:"4",icon:"\u2699\uFE0F",action:function(){ee("settings")}},{name:"New Subscription",key:"N",icon:"\u2795",action:function(){Me()}},{name:"Toggle Auto-Capture",icon:"\u{1F504}",action:function(){var e=document.getElementById("s-auto-capture");e&&(e.checked=!e.checked,e.dispatchEvent(new Event("change")))}},{name:"Export CSV",icon:"\u{1F4E5}",action:function(){window.location.href="/api/export/csv"}},{name:"Export JSON",icon:"\u{1F4E6}",action:function(){window.location.href="/api/export/json"}},{name:"Download Backup",icon:"\u{1F4BE}",action:function(){window.location.href="/api/backup"}},{name:"Search Subscriptions",key:"/",icon:"\u{1F50D}",action:function(){ee("subscriptions"),setTimeout(function(){var e=document.getElementById("search-subs");e&&e.focus()},100)}},{name:"Set Budget",icon:"\u{1F4B0}",action:function(){at()}},{name:"Toggle Theme",icon:"\u{1F313}",action:function(){var e=document.documentElement.getAttribute("data-theme"),t=e==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",t),localStorage.setItem("niyantra-theme",t);var a=document.getElementById("s-theme");a&&(a.value=t),De(t)}},{name:"Codex Snap",icon:"\u{1F916}",action:function(){ot()}},{name:"Import JSON",icon:"\u{1F4E5}",action:function(){var e=document.getElementById("import-file");e&&e.click()}}],ve=0,pe=Ot;function tn(){var e=document.getElementById("command-palette-overlay"),t=document.getElementById("command-palette-search");!e||!t||(e.addEventListener("click",function(a){a.target===e&&Ue()}),t.addEventListener("input",function(){var a=t.value.toLowerCase().trim();pe=Ot.filter(function(n){return n.name.toLowerCase().indexOf(a)>=0}),ve=0,ct()}),t.addEventListener("keydown",function(a){a.key==="ArrowDown"?(a.preventDefault(),ve=Math.min(ve+1,pe.length-1),ct()):a.key==="ArrowUp"?(a.preventDefault(),ve=Math.max(ve-1,0),ct()):a.key==="Enter"?(a.preventDefault(),pe[ve]&&(Ue(),pe[ve].action())):a.key==="Escape"&&Ue()}))}function an(){var e=document.getElementById("command-palette-overlay");e.hidden?nr():Ue()}function nr(){var e=document.getElementById("command-palette-overlay"),t=document.getElementById("command-palette-search");e.hidden=!1,t.value="",pe=Ot,ve=0,ct(),setTimeout(function(){t.focus()},50)}function Ue(){document.getElementById("command-palette-overlay").hidden=!0}function ct(){var e=document.getElementById("command-palette-list");if(pe.length===0){e.innerHTML='<div class="command-palette-empty">No matching commands</div>';return}for(var t="",a=0;a<pe.length;a++){var n=pe[a],r=a===ve?" selected":"";t+='<div class="command-palette-item'+r+'" data-idx="'+a+'"><span class="cp-icon">'+n.icon+'</span><span class="cp-name">'+d(n.name)+"</span>"+(n.key?'<span class="cp-shortcut">'+n.key+"</span>":"")+"</div>"}e.innerHTML=t,e.querySelectorAll(".command-palette-item").forEach(function(o){o.addEventListener("click",function(){var s=parseInt(o.getAttribute("data-idx"));Ue(),pe[s].action()})});var i=e.querySelector(".selected");i&&i.scrollIntoView({block:"nearest"})}function nn(){document.addEventListener("keydown",function(e){var t=document.activeElement?.tagName;if(t==="INPUT"||t==="TEXTAREA"||t==="SELECT"){e.key==="Escape"&&(document.activeElement?.blur(),xe(),Ie(),ke());return}var a=!document.getElementById("modal-overlay").hidden||!document.getElementById("delete-overlay").hidden||!document.getElementById("budget-overlay").hidden;if(e.key==="Escape"){xe(),Ie(),ke();return}if(!a)switch(e.key){case"1":ee("quotas");break;case"2":ee("subscriptions");break;case"3":ee("overview");break;case"4":ee("settings");break;case"n":case"N":Me(),e.preventDefault();break;case"s":case"S":Pe(),e.preventDefault();break;case"/":e.preventDefault(),ee("subscriptions"),setTimeout(function(){var n=document.getElementById("search-subs");n&&n.focus()},100);break}}),document.addEventListener("keydown",function(e){(e.ctrlKey||e.metaKey)&&e.key==="k"&&(e.preventDefault(),an())})}document.addEventListener("DOMContentLoaded",function(){sa(),la(),ca(Y),Ia(),xa(),ka(),Ca(),en(),Sa(),nn(),ha(),document.addEventListener("niyantra:tab-change",function(e){var t=e.detail.tab;t==="overview"&&_t(),t==="settings"&&(ye(),be(),ue())}),document.addEventListener("niyantra:theme-change",function(e){De(e.detail.theme)}),document.addEventListener("niyantra:chart-refresh",function(){je()}),document.addEventListener("niyantra:overview-refresh",function(){_t()}),document.getElementById("snap-btn").addEventListener("click",Pe),za(),document.getElementById("chart-account").addEventListener("change",je),document.getElementById("chart-range").addEventListener("change",je),Promise.all([re(),tt()]).then(function(e){var t=e[0];Y(t),Ze(),Qa(t),je(),(!t.codexSnapshot||!t.claudeSnapshot)&&setTimeout(function(){re().then(function(a){(a.codexSnapshot||a.claudeSnapshot)&&Y(a)}).catch(function(){})},3e3)}).catch(function(e){console.error("Failed to load status:",e)}),ge(),oa().then(function(e){Vt(e.presets||[]);for(var t=document.getElementById("preset-list"),a=0;a<oe.length;a++){var n=document.createElement("option");n.value=oe[a].platform,t.appendChild(n)}}),be(),tn(),Oe(),setInterval(It,3e4)});window.openBudgetModal=at;window.dismissAlert=Ka;window.switchToTab=ee;window.calendarNav=_a;window.handleCodexSnap=ot;})();
+  // internal/web/src/core/api.ts
+  function fetchStatus() {
+    return fetch("/api/status").then(function(res) {
+      if (!res.ok) throw new Error("Failed to fetch status");
+      return res.json();
+    });
+  }
+  function triggerSnap() {
+    return fetch("/api/snap", { method: "POST" }).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || "Snap failed");
+        return data;
+      });
+    });
+  }
+  function fetchSubscriptions(status, category) {
+    var params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (category) params.set("category", category);
+    var url = "/api/subscriptions" + (params.toString() ? "?" + params : "");
+    return fetch(url).then(function(res) {
+      return res.json();
+    });
+  }
+  function createSubscription(sub) {
+    return fetch("/api/subscriptions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub)
+    }).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || "Create failed");
+        return data;
+      });
+    });
+  }
+  function updateSubscription(id, sub) {
+    return fetch("/api/subscriptions/" + id, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(sub)
+    }).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || "Update failed");
+        return data;
+      });
+    });
+  }
+  function deleteSubscription(id) {
+    return fetch("/api/subscriptions/" + id, { method: "DELETE" }).then(function(res) {
+      return res.json().then(function(data) {
+        if (!res.ok) throw new Error(data.error || "Delete failed");
+        return data;
+      });
+    });
+  }
+  function fetchOverview() {
+    return fetch("/api/overview").then(function(res) {
+      return res.json();
+    });
+  }
+  function fetchPresets() {
+    return fetch("/api/presets").then(function(res) {
+      return res.json();
+    });
+  }
+  function fetchUsage(accountId) {
+    var url = "/api/usage";
+    if (accountId) url += "?account=" + accountId;
+    return fetch(url).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      setUsageDataCache(data);
+      return data;
+    });
+  }
+
+  // internal/web/src/core/theme.ts
+  function initTheme() {
+    var saved = localStorage.getItem("niyantra-theme");
+    if (saved) {
+      document.documentElement.setAttribute("data-theme", saved);
+    } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+    var themeBtn = document.getElementById("theme-btn");
+    if (!themeBtn) return;
+    themeBtn.addEventListener("click", function() {
+      var current = document.documentElement.getAttribute("data-theme");
+      var next = current === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("niyantra-theme", next);
+      document.dispatchEvent(new CustomEvent("niyantra:theme-change", { detail: { theme: next } }));
+    });
+  }
+  function initTabs() {
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var tab = btn.getAttribute("data-tab");
+        if (tab) switchToTab(tab);
+      });
+    });
+  }
+  function switchToTab(tabName) {
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(b) {
+      b.classList.remove("active");
+    });
+    var target = document.querySelector('.tab-btn[data-tab="' + tabName + '"]');
+    if (target) target.classList.add("active");
+    document.querySelectorAll(".tab-panel").forEach(function(p) {
+      p.classList.remove("active");
+    });
+    var panel = document.getElementById("panel-" + tabName);
+    if (panel) panel.classList.add("active");
+    document.dispatchEvent(new CustomEvent("niyantra:tab-change", { detail: { tab: tabName } }));
+  }
+
+  // internal/web/src/quotas/features.ts
+  var _renderAccounts = null;
+  function setRenderAccounts(fn) {
+    _renderAccounts = fn;
+  }
+  function refreshGrid() {
+    if (_renderAccounts) fetchStatus().then(_renderAccounts);
+  }
+  function renderPinnedBadge(groupData, pinnedKey) {
+    if (!groupData) return "";
+    var pct = Math.round(groupData.remainingPercent);
+    var cls = "good";
+    if (groupData.isExhausted || pct === 0) cls = "exhausted";
+    else if (pct < 20) cls = "warning";
+    else if (pct < 50) cls = "ok";
+    return ' <span class="pinned-badge ' + cls + '" title="Pinned: ' + esc(groupData.displayName || pinnedKey) + '">\u2605 ' + esc(groupData.displayName || GROUP_NAMES[pinnedKey] || pinnedKey) + ": " + pct + "%</span>";
+  }
+  function pinGroup(accountId, groupKey) {
+    updateAccountMeta(accountId, { pinnedGroup: groupKey }).then(function() {
+      showToast("\u2B50 Pinned " + (GROUP_NAMES[groupKey] || groupKey), "success");
+      refreshGrid();
+    });
+  }
+  function unpinGroup(accountId) {
+    updateAccountMeta(accountId, { pinnedGroup: "" }).then(function() {
+      showToast("\u2606 Unpinned \u2014 will show first group", "info");
+      refreshGrid();
+    });
+  }
+  function daysUntilRenewal(day) {
+    if (!day || day < 1 || day > 31) return -1;
+    var now = /* @__PURE__ */ new Date();
+    var y = now.getFullYear();
+    var m = now.getMonth();
+    var today = now.getDate();
+    var targetMonth = today < day ? m : m + 1;
+    var target = new Date(y, targetMonth, day);
+    var diff = Math.ceil((target.getTime() - now.getTime()) / (1e3 * 60 * 60 * 24));
+    return diff < 0 ? 0 : diff;
+  }
+  function renderCreditRenewal(accountId, renewalDay) {
+    if (!renewalDay || renewalDay < 1) {
+      return '<span class="credit-renewal-set" data-renewal-edit="' + accountId + '" title="Set credit renewal day">\u21BB set</span>';
+    }
+    var days = daysUntilRenewal(renewalDay);
+    var label = days === 0 ? "today" : days === 1 ? "1d" : days + "d";
+    return '<span class="credit-renewal" data-renewal-edit="' + accountId + '" data-renewal-day="' + renewalDay + '" title="Credits renew on day ' + renewalDay + " (\u21BB " + label + ')">\u21BB ' + label + "</span>";
+  }
+  function openRenewalPicker(el) {
+    var existing = document.querySelector(".renewal-picker");
+    if (existing) existing.remove();
+    var accountId = el.getAttribute("data-renewal-edit");
+    var currentDay = parseInt(el.getAttribute("data-renewal-day")) || 0;
+    var picker = document.createElement("div");
+    picker.className = "renewal-picker";
+    picker.innerHTML = '<div class="renewal-picker-label">Credit Renewal Day</div><input type="number" class="renewal-picker-input" min="1" max="31" value="' + (currentDay || "") + '" placeholder="1\u201331"><div class="renewal-picker-hint">Day of month when AI credits refresh.<br>Find at one.google.com/ai/activity</div>';
+    el.closest(".credits-cell").appendChild(picker);
+    var input = picker.querySelector("input");
+    input.focus();
+    input.select();
+    function save() {
+      var day = parseInt(input.value) || 0;
+      if (day > 31) day = 31;
+      if (day < 0) day = 0;
+      picker.remove();
+      updateAccountMeta(accountId, { creditRenewalDay: day }).then(function() {
+        if (day > 0) {
+          showToast("\u21BB Renewal day set to " + day, "success");
+        } else {
+          showToast("\u21BB Renewal day cleared", "info");
+        }
+        refreshGrid();
+      });
+    }
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        save();
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        picker.remove();
+      }
+    });
+    input.addEventListener("blur", function() {
+      setTimeout(function() {
+        if (picker.parentNode) save();
+      }, 150);
+    });
+  }
+  var TAG_PRESETS = ["work", "personal", "primary", "backup", "shared", "test", "dev"];
+  function renderAccountTags(acc) {
+    var tags = (acc.tags || "").split(",").filter(function(t) {
+      return t.trim();
+    });
+    var html = '<span class="account-tags" data-account-id="' + acc.accountId + '">';
+    for (var i = 0; i < tags.length; i++) {
+      html += '<span class="tag-chip" data-tag="' + esc(tags[i].trim()) + '">' + esc(tags[i].trim()) + '<span class="tag-remove" data-remove-tag="' + esc(tags[i].trim()) + '" data-account-id="' + acc.accountId + '" title="Remove tag">\u2715</span></span>';
+    }
+    html += "</span>";
+    html += '<button class="tag-add-btn" data-tag-add="' + acc.accountId + '" title="Add tag">+</button>';
+    return html;
+  }
+  function renderAccountNote(acc) {
+    if (acc.notes) {
+      return '<span class="account-note" data-note-edit="' + acc.accountId + '" data-current-note="' + esc(acc.notes) + '" title="' + esc(acc.notes) + ' \u2014 click to edit">\u{1F4DD} ' + esc(acc.notes) + "</span>";
+    }
+    return '<span class="account-note-empty" data-note-edit="' + acc.accountId + '" data-current-note="">+ note</span>';
+  }
+  function updateAccountMeta(accountId, patch) {
+    return fetch("/api/accounts/" + accountId + "/meta", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch)
+    }).then(function(r) {
+      return r.json();
+    });
+  }
+  function addTagToAccount(accountId, newTag) {
+    newTag = newTag.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    if (!newTag) return;
+    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+    var existing = [];
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        existing.push(chip.getAttribute("data-tag"));
+      });
+    }
+    if (existing.indexOf(newTag) >= 0) return;
+    existing.push(newTag);
+    updateAccountMeta(accountId, { tags: existing.join(",") }).then(function() {
+      showToast('\u{1F3F7}\uFE0F Tag "' + newTag + '" added', "success");
+      refreshGrid();
+    });
+  }
+  function removeTagFromAccount(accountId, tag) {
+    var container = document.querySelector('.account-tags[data-account-id="' + accountId + '"]');
+    var tags = [];
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        var t = chip.getAttribute("data-tag");
+        if (t !== tag) tags.push(t);
+      });
+    }
+    updateAccountMeta(accountId, { tags: tags.join(",") }).then(function() {
+      showToast("\u{1F3F7}\uFE0F Tag removed", "success");
+      refreshGrid();
+    });
+  }
+  function openTagPicker(btn) {
+    closeTagPicker();
+    var accountId = btn.getAttribute("data-tag-add");
+    var meta = btn.closest(".account-meta");
+    if (!meta) return;
+    var existing = [];
+    var container = meta.querySelector(".account-tags");
+    if (container) {
+      container.querySelectorAll(".tag-chip").forEach(function(chip) {
+        existing.push(chip.getAttribute("data-tag"));
+      });
+    }
+    var picker = document.createElement("div");
+    picker.className = "tag-picker";
+    picker.id = "active-tag-picker";
+    picker.innerHTML = '<input type="text" class="tag-picker-input" placeholder="Type tag name..." autocomplete="off" maxlength="20"><div class="tag-picker-hint">Enter to add</div><div class="tag-picker-presets">' + TAG_PRESETS.map(function(p) {
+      var active = existing.indexOf(p) >= 0 ? " active" : "";
+      return '<button class="tag-preset' + active + '" data-preset-tag="' + p + '">' + p + "</button>";
+    }).join("") + "</div>";
+    meta.appendChild(picker);
+    var input = picker.querySelector(".tag-picker-input");
+    input.focus();
+    picker.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        var val = input.value.trim();
+        if (val) {
+          addTagToAccount(accountId, val);
+          closeTagPicker();
+        }
+      }
+      if (e.key === "Escape") {
+        closeTagPicker();
+      }
+    });
+    picker.querySelectorAll(".tag-preset").forEach(function(btn2) {
+      btn2.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var tag = btn2.getAttribute("data-preset-tag");
+        if (btn2.classList.contains("active")) {
+          removeTagFromAccount(accountId, tag);
+        } else {
+          addTagToAccount(accountId, tag);
+        }
+        closeTagPicker();
+      });
+    });
+    setTimeout(function() {
+      document.addEventListener("click", closeTagPickerOnOutside);
+    }, 10);
+  }
+  function closeTagPicker() {
+    var picker = document.getElementById("active-tag-picker");
+    if (picker) picker.remove();
+    document.removeEventListener("click", closeTagPickerOnOutside);
+  }
+  function closeTagPickerOnOutside(e) {
+    var picker = document.getElementById("active-tag-picker");
+    if (picker && !picker.contains(e.target)) {
+      closeTagPicker();
+    }
+  }
+  function openNoteEditor(el) {
+    var accountId = el.getAttribute("data-note-edit");
+    var currentNote = el.getAttribute("data-current-note") || "";
+    var editor = document.createElement("span");
+    editor.className = "note-inline-editor";
+    editor.innerHTML = '<input type="text" class="note-inline-input" value="' + esc(currentNote) + '" placeholder="Add a note..." maxlength="100">';
+    el.replaceWith(editor);
+    var input = editor.querySelector(".note-inline-input");
+    input.focus();
+    input.select();
+    editor.addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+    function save() {
+      var val = input.value.trim();
+      updateAccountMeta(accountId, { notes: val }).then(function() {
+        if (val) showToast("\u{1F4DD} Note saved", "success");
+        refreshGrid();
+      });
+    }
+    input.addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        save();
+      }
+      if (e.key === "Escape") {
+        refreshGrid();
+      }
+    });
+    input.addEventListener("blur", save);
+  }
+  function initAccountMetaHandlers() {
+    var grid = document.getElementById("account-grid");
+    if (!grid) return;
+    grid.addEventListener("click", function(e) {
+      var removeBtn = e.target.closest("[data-remove-tag]");
+      if (removeBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        removeTagFromAccount(removeBtn.getAttribute("data-account-id"), removeBtn.getAttribute("data-remove-tag"));
+        return;
+      }
+      var addBtn = e.target.closest("[data-tag-add]");
+      if (addBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        openTagPicker(addBtn);
+        return;
+      }
+      var noteEl = e.target.closest("[data-note-edit]");
+      if (noteEl) {
+        e.stopPropagation();
+        e.preventDefault();
+        openNoteEditor(noteEl);
+        return;
+      }
+      var pinBtn = e.target.closest("[data-pin-group]");
+      if (pinBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        var pinAccountId = pinBtn.getAttribute("data-pin-account");
+        var pinGroupKey = pinBtn.getAttribute("data-pin-group");
+        if (pinBtn.classList.contains("pinned")) {
+          unpinGroup(pinAccountId);
+        } else {
+          pinGroup(pinAccountId, pinGroupKey);
+        }
+        return;
+      }
+      var renewalEl = e.target.closest("[data-renewal-edit]");
+      if (renewalEl) {
+        e.stopPropagation();
+        e.preventDefault();
+        openRenewalPicker(renewalEl);
+        return;
+      }
+    });
+  }
+
+  // internal/web/src/quotas/render.ts
+  function getGroupPct(acc, groupKey) {
+    if (!acc.groups) return -1;
+    for (var i = 0; i < acc.groups.length; i++) {
+      if (acc.groups[i].groupKey === groupKey) return acc.groups[i].remainingPercent;
+    }
+    return -1;
+  }
+  function getAICredits(acc) {
+    if (acc.aiCredits && acc.aiCredits.length > 0) return acc.aiCredits[0].creditAmount;
+    return -1;
+  }
+  function allExhausted(acc) {
+    var grps = acc.groups || [];
+    if (grps.length === 0) return false;
+    for (var i = 0; i < grps.length; i++) {
+      if (!grps[i].isExhausted && grps[i].remainingPercent > 0) return false;
+    }
+    return true;
+  }
+  function getCodexClaudeStatus(snap) {
+    var fiveUsed = snap.fiveHourPct || 0;
+    var sevenUsed = snap.sevenDayPct || 0;
+    var fiveRem = Math.max(0, 100 - fiveUsed);
+    var sevenRem = Math.max(0, 100 - sevenUsed);
+    if (fiveRem === 0 && sevenRem === 0) return "empty";
+    if (fiveUsed >= 80 || sevenUsed >= 80) return "low";
+    return "ready";
+  }
+  function sortAccountsArray(accounts) {
+    var col = quotaSortState.column;
+    var dir = quotaSortState.direction;
+    return accounts.slice().sort(function(a, b) {
+      var va, vb;
+      switch (col) {
+        case "account":
+          va = a.email;
+          vb = b.email;
+          break;
+        case "claude_gpt":
+        case "gemini_pro":
+        case "gemini_flash":
+          va = getGroupPct(a, col);
+          vb = getGroupPct(b, col);
+          break;
+        case "credits":
+          va = getAICredits(a);
+          vb = getAICredits(b);
+          break;
+        case "lastsnap":
+          va = a.lastSeen ? new Date(a.lastSeen).getTime() : 0;
+          vb = b.lastSeen ? new Date(b.lastSeen).getTime() : 0;
+          break;
+        case "status":
+          va = a.isReady ? 1 : 0;
+          vb = b.isReady ? 1 : 0;
+          break;
+        default:
+          va = a.email;
+          vb = b.email;
+          break;
+      }
+      if (va === vb) return 0;
+      var res = va > vb ? 1 : -1;
+      return dir === "asc" ? res : -res;
+    });
+  }
+  function filterAccountsArray(accounts) {
+    var searchInput = document.getElementById("quota-search");
+    var statusFilter = document.getElementById("quota-filter-status");
+    var query = searchInput ? searchInput.value.toLowerCase() : "";
+    var status = statusFilter ? statusFilter.value : "all";
+    return accounts.filter(function(acc) {
+      var matchesSearch = !query || acc.email.toLowerCase().includes(query) || (acc.planName || "").toLowerCase().includes(query);
+      var matchesStatus = true;
+      if (status === "ready") matchesStatus = acc.isReady;
+      else if (status === "low") matchesStatus = !acc.isReady && !allExhausted(acc);
+      else if (status === "empty") matchesStatus = allExhausted(acc);
+      var matchesTag = true;
+      if (activeTagFilter) {
+        var accTags = (acc.tags || "").split(",").map(function(t) {
+          return t.trim().toLowerCase();
+        });
+        matchesTag = accTags.indexOf(activeTagFilter) >= 0;
+      }
+      return matchesSearch && matchesStatus && matchesTag;
+    });
+  }
+  function getUniqueTagsFromData(data) {
+    var tagCounts = {};
+    var accounts = data.accounts || [];
+    for (var i = 0; i < accounts.length; i++) {
+      var tags = (accounts[i].tags || "").split(",");
+      for (var j = 0; j < tags.length; j++) {
+        var t = tags[j].trim().toLowerCase();
+        if (t) {
+          tagCounts[t] = (tagCounts[t] || 0) + 1;
+        }
+      }
+    }
+    return tagCounts;
+  }
+  function renderTagFilterStrip(data) {
+    var strip = document.getElementById("tag-filter-strip");
+    if (!strip) return;
+    var tagCounts = getUniqueTagsFromData(data);
+    var tagNames = Object.keys(tagCounts).sort();
+    if (tagNames.length === 0) {
+      if (activeTagFilter) {
+        setActiveTagFilter(null);
+      }
+      strip.innerHTML = "";
+      return;
+    }
+    if (activeTagFilter && tagNames.indexOf(activeTagFilter) < 0) {
+      setActiveTagFilter(null);
+    }
+    var html = '<span class="tag-filter-label">\u{1F3F7}\uFE0F Filter:</span>';
+    var allActive = !activeTagFilter ? " active" : "";
+    var totalAccounts = (data.accounts || []).length;
+    html += '<button class="tag-filter-chip' + allActive + '" data-tag-filter="">All <span class="tag-filter-count">' + totalAccounts + "</span></button>";
+    for (var i = 0; i < tagNames.length; i++) {
+      var tag = tagNames[i];
+      var isActive = activeTagFilter === tag ? " active" : "";
+      html += '<button class="tag-filter-chip' + isActive + '" data-tag-filter="' + esc(tag) + '">' + esc(tag) + ' <span class="tag-filter-count">' + tagCounts[tag] + "</span></button>";
+    }
+    strip.innerHTML = html;
+  }
+  function handleTagFilterClick(e) {
+    var chip = e.target.closest(".tag-filter-chip");
+    if (!chip) return;
+    var tag = chip.getAttribute("data-tag-filter");
+    setActiveTagFilter(tag || null);
+    if (latestQuotaData) {
+      renderTagFilterStrip(latestQuotaData);
+      renderAccounts(latestQuotaData);
+    }
+  }
+  function renderAccounts(data) {
+    setLatestQuotaData(data);
+    var grid = document.getElementById("account-grid");
+    var countBadge = document.getElementById("account-count");
+    var snapCount = document.getElementById("snap-count");
+    if (!grid) return;
+    renderTagFilterStrip(data);
+    var acctCount = (data.accounts || []).length;
+    var parts = [];
+    if (acctCount > 0) parts.push(acctCount + " Antigravity");
+    if (data.codexSnapshot) parts.push("1 Codex");
+    if (data.claudeSnapshot) parts.push("1 Claude");
+    if (data.cursorSnapshot) parts.push("1 Cursor");
+    if (data.geminiSnapshot) parts.push("1 Gemini");
+    if (data.copilotSnapshot) parts.push("1 Copilot");
+    if (countBadge) countBadge.textContent = parts.join(" \xB7 ") || "0 accounts";
+    if (snapCount) snapCount.textContent = data.snapshotCount ? data.snapshotCount + " snapshots" : "";
+    if (acctCount === 0 && !data.codexSnapshot && !data.claudeSnapshot && !data.cursorSnapshot && !data.geminiSnapshot && !data.copilotSnapshot) {
+      grid.innerHTML = '<div class="empty-state"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg><p>No accounts tracked yet</p><p class="empty-hint">Click <strong>Snap Now</strong> to capture your first snapshot</p></div>';
+      return;
+    }
+    var providerFilter = document.getElementById("quota-filter-provider");
+    var pf = providerFilter ? providerFilter.value : "all";
+    var html = "";
+    if (acctCount > 0 && (pf === "all" || pf === "antigravity")) {
+      var filtered = filterAccountsArray(data.accounts);
+      var sorted = sortAccountsArray(filtered);
+      var agCollapseClass = collapsedProviders.has("section-antigravity") ? " collapsed" : "";
+      var agChevron = collapsedProviders.has("section-antigravity") ? "\u25B8" : "\u25BE";
+      html += '<div class="provider-section" data-provider="antigravity"><div class="provider-header" data-toggle-provider="section-antigravity"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-antigravity">' + agChevron + '</span><span class="provider-name">Antigravity</span><span class="provider-count">' + acctCount + " account" + (acctCount !== 1 ? "s" : "") + '</span></div></div><div class="provider-body' + agCollapseClass + '" id="section-antigravity">';
+      html += '<div class="grid-header"><div class="grid-col-account sortable" data-sort="account">Account <span class="sort-indicator"></span></div>';
+      for (var gh = 0; gh < GROUP_ORDER.length; gh++) {
+        html += '<div class="grid-col-group sortable" data-sort="' + GROUP_ORDER[gh] + '">' + (GROUP_LABELS[gh] || GROUP_ORDER[gh]) + ' <span class="sort-indicator"></span></div>';
+      }
+      html += '<div class="grid-col-credits sortable" data-sort="credits">AI Credits <span class="sort-indicator"></span></div><div class="grid-col-snap sortable" data-sort="lastsnap">Last Snap <span class="sort-indicator"></span></div><div class="grid-col-status sortable" data-sort="status">Status <span class="sort-indicator"></span></div></div>';
+      for (var i = 0; i < sorted.length; i++) {
+        var acc = sorted[i];
+        var accId = "acc-" + acc.accountId;
+        var isExpanded = expandedAccounts.has(accId);
+        var groupCells = "";
+        var modelsByGroup = {};
+        if (acc.models) {
+          for (var mi2 = 0; mi2 < acc.models.length; mi2++) {
+            var mm = acc.models[mi2];
+            var gk = mm.groupKey || "claude_gpt";
+            if (!modelsByGroup[gk]) modelsByGroup[gk] = [];
+            modelsByGroup[gk].push(mm.label || mm.modelId);
+          }
+        }
+        var pinnedKey = acc.pinnedGroup || (acc.groups && acc.groups.length > 0 ? acc.groups[0].groupKey : "claude_gpt");
+        var pinnedGroupData = null;
+        var groups = acc.groups || [];
+        for (var pg = 0; pg < groups.length; pg++) {
+          if (groups[pg].groupKey === pinnedKey) {
+            pinnedGroupData = groups[pg];
+            break;
+          }
+        }
+        for (var gi = 0; gi < GROUP_ORDER.length; gi++) {
+          var key = GROUP_ORDER[gi];
+          var g = null;
+          var groups = acc.groups || [];
+          for (var gj = 0; gj < groups.length; gj++) {
+            if (groups[gj].groupKey === key) {
+              g = groups[gj];
+              break;
+            }
+          }
+          if (!g) {
+            groupCells += '<div class="quota-cell"><span class="quota-pct">\u2014</span></div>';
+            continue;
+          }
+          var pct = Math.round(g.remainingPercent);
+          var cls = "good";
+          if (g.isExhausted || pct === 0) cls = "exhausted";
+          else if (pct < 20) cls = "warning";
+          else if (pct < 50) cls = "ok";
+          var reset = "";
+          if (g.timeUntilResetSec > 0) {
+            reset = '<span class="quota-reset">\u21BB ' + formatSeconds(g.timeUntilResetSec) + "</span>";
+          }
+          var barCls = cls;
+          var groupLabels = (modelsByGroup[key] || []).join("|||");
+          var groupAdjust = '<span class="group-adjust" data-snap-id="' + acc.latestSnapshotId + '" data-group-key="' + key + '" data-group-labels="' + esc(groupLabels) + '" data-current-pct="' + pct + '"><button class="gadj-btn" data-delta="-5" title="\u22125% all models in group">\u22125</button><button class="gadj-btn" data-delta="5" title="+5% all models in group">+5</button></span>';
+          var ttxBadge = "";
+          if (data.forecasts && data.forecasts[acc.accountId]) {
+            var acctForecasts = data.forecasts[acc.accountId];
+            for (var fi = 0; fi < acctForecasts.length; fi++) {
+              if (acctForecasts[fi].groupKey === key && acctForecasts[fi].ttxLabel) {
+                var ttxSev = acctForecasts[fi].severity || "safe";
+                var ttxLabel = acctForecasts[fi].ttxLabel;
+                if (ttxLabel && ttxLabel !== "" && ttxSev !== "none") {
+                  ttxBadge = '<span class="ttx-badge ttx-' + ttxSev + '" title="Time to exhaustion at current burn rate">' + esc(ttxLabel) + "</span>";
+                }
+                break;
+              }
+            }
+          }
+          var costBadge = "";
+          if (pct < 95 && data.estimatedCosts && data.estimatedCosts[acc.accountId]) {
+            var acctCosts = data.estimatedCosts[acc.accountId];
+            if (acctCosts.groups) {
+              for (var ci = 0; ci < acctCosts.groups.length; ci++) {
+                if (acctCosts.groups[ci].groupKey === key && acctCosts.groups[ci].hasData) {
+                  var costVal = acctCosts.groups[ci].estimatedCost || 0;
+                  if (costVal < 0.01) break;
+                  var costLabel = acctCosts.groups[ci].costLabel || "\u2014";
+                  var costCls = "cost-low";
+                  if (costVal >= 10) costCls = "cost-high";
+                  else if (costVal >= 3) costCls = "cost-medium";
+                  var costTitle = "Estimated cost this cycle";
+                  if (acctCosts.groups[ci].hourlyLabel) {
+                    costTitle += " (" + acctCosts.groups[ci].hourlyLabel + ")";
+                  }
+                  costBadge = '<span class="cost-badge ' + costCls + '" title="' + costTitle + '">' + esc(costLabel) + "</span>";
+                  break;
+                }
+              }
+            }
+          }
+          groupCells += '<div class="quota-cell"><span class="quota-pct ' + cls + '">' + pct + '%</span><div class="quota-minibar"><div class="quota-minibar-fill ' + barCls + '" style="width:' + pct + '%"></div></div>' + groupAdjust + reset + ttxBadge + costBadge + "</div>";
+        }
+        var dotCls = "dot-ready";
+        var badgeText = "Ready";
+        if (allExhausted(acc)) {
+          dotCls = "dot-empty";
+          badgeText = "Empty";
+        } else if (!acc.isReady) {
+          dotCls = "dot-low";
+          badgeText = "Low";
+        }
+        var creditsCell = '<div class="credits-cell" style="position:relative">';
+        if (acc.aiCredits && acc.aiCredits.length > 0) {
+          var credits = acc.aiCredits[0].creditAmount;
+          var creditCls = credits > 500 ? "good" : credits > 100 ? "ok" : "warning";
+          creditsCell += '<span class="credit-amount ' + creditCls + '" title="AI Credits">\u2726 ' + formatCredits(credits) + "</span>";
+          creditsCell += renderCreditRenewal(acc.accountId, acc.creditRenewalDay);
+        } else {
+          creditsCell += '<span class="credit-amount muted">\u2014</span>';
+        }
+        creditsCell += "</div>";
+        var modelsHTML = "";
+        if (acc.models && acc.models.length > 0) {
+          var groupedModels = {};
+          for (var mi = 0; mi < acc.models.length; mi++) {
+            var m = acc.models[mi];
+            var gk2 = m.groupKey || "claude_gpt";
+            if (!groupedModels[gk2]) groupedModels[gk2] = [];
+            groupedModels[gk2].push(m);
+          }
+          var modelRows = "";
+          for (var goi = 0; goi < GROUP_ORDER.length; goi++) {
+            var groupKey2 = GROUP_ORDER[goi];
+            var groupModels = groupedModels[groupKey2];
+            if (!groupModels || groupModels.length === 0) continue;
+            var isPinned = pinnedKey === groupKey2;
+            var starCls = isPinned ? "pin-star pinned" : "pin-star";
+            var starTitle = isPinned ? "Pinned \u2014 click to unpin" : "Click to pin this group";
+            var starChar = isPinned ? "\u2605" : "\u2606";
+            modelRows += '<div class="model-group-header"><button class="' + starCls + '" data-pin-group="' + groupKey2 + '" data-pin-account="' + acc.accountId + '" title="' + starTitle + '">' + starChar + '</button><span class="model-group-name" style="color:' + (GROUP_COLORS[groupKey2] || "var(--text-secondary)") + '">' + (GROUP_NAMES[groupKey2] || groupKey2) + "</span></div>";
+            for (var mi3 = 0; mi3 < groupModels.length; mi3++) {
+              var m = groupModels[mi3];
+              var mpct = Math.round(m.remainingPercent);
+              var mcls = "good";
+              if (m.isExhausted || mpct === 0) mcls = "exhausted";
+              else if (mpct < 20) mcls = "warning";
+              else if (mpct < 50) mcls = "ok";
+              var color = GROUP_COLORS[m.groupKey] || "#94a3b8";
+              var resetStr = m.resetSeconds > 0 ? "\u21BB " + formatSeconds(m.resetSeconds) : "";
+              var intellBadges = "";
+              if (usageDataCache && usageDataCache.models) {
+                for (var ui = 0; ui < usageDataCache.models.length; ui++) {
+                  var um = usageDataCache.models[ui];
+                  if (um.modelId === m.modelId && um.hasIntelligence) {
+                    var rateStr = (um.currentRate * 100).toFixed(1) + "%/hr";
+                    intellBadges += '<span class="rate-badge" title="Current consumption rate">' + rateStr + "</span>";
+                    if (um.projectedUsage > 0) {
+                      var projPct = Math.round(um.projectedUsage * 100);
+                      var projCls = projPct > 95 ? "proj-danger" : projPct > 80 ? "proj-warn" : "proj-ok";
+                      intellBadges += '<span class="proj-badge ' + projCls + '" title="Projected usage at reset">\u2192' + projPct + "%</span>";
+                    }
+                    if (um.projectedExhaustion) {
+                      var exhaust = new Date(um.projectedExhaustion);
+                      var minsLeft = Math.round((exhaust.getTime() - Date.now()) / 6e4);
+                      if (minsLeft > 0) {
+                        intellBadges += '<span class="exhaust-badge" title="Projected exhaustion time">\u26A0 ' + (minsLeft > 60 ? Math.round(minsLeft / 60) + "h" : minsLeft + "m") + "</span>";
+                      }
+                    }
+                    break;
+                  }
+                }
+              }
+              var adjustBtns = '<span class="adjust-controls" data-snap-id="' + acc.latestSnapshotId + '" data-model-label="' + esc(m.label || m.modelId) + '" data-current-pct="' + mpct + '"><button class="adj-btn" data-delta="-10" title="\u221210%">\u221210</button><button class="adj-btn" data-delta="-5" title="\u22125%">\u22125</button><button class="adj-btn" data-delta="5" title="+5%">+5</button><button class="adj-btn" data-delta="10" title="+10%">+10</button></span>';
+              modelRows += '<div class="model-row"><div class="model-indicator" style="background:' + color + '"></div><span class="model-label">' + esc(m.label || m.modelId) + '</span><div class="model-bar-track"><div class="model-bar-fill ' + mcls + '" style="width:' + mpct + '%"></div></div><span class="model-pct ' + mcls + '">' + mpct + "%</span>" + adjustBtns + '<span class="model-reset">' + resetStr + "</span>" + intellBadges + "</div>";
+            }
+          }
+          var expandedCls = isExpanded ? " is-expanded" : "";
+          modelsHTML = '<div class="model-details' + expandedCls + '" id="' + accId + '">' + modelRows + '<div class="account-actions"><button class="btn-clear-snaps" data-clear-account="' + acc.accountId + '" data-clear-email="' + esc(acc.email) + '" title="Delete all snapshots for this account">Clear Snapshots</button><button class="btn-delete-account" data-delete-account="' + acc.accountId + '" data-delete-email="' + esc(acc.email) + '" title="Remove account and all its data">Remove Account</button></div></div>';
+        }
+        var chevronCls = isExpanded ? "chevron expanded" : "chevron";
+        var staleStyle = "";
+        if (!acc.isReady) {
+          staleStyle = ' style="opacity:0.6"';
+        }
+        html += '<div class="account-card"' + staleStyle + '><div class="account-row" data-toggle="' + accId + '"><div class="account-info"><div class="account-email"><span class="' + chevronCls + '" id="chev-' + accId + '">\u25B8</span> ' + esc(acc.email) + renderPinnedBadge(pinnedGroupData, pinnedKey) + '</div><div class="account-meta" style="position:relative">' + (acc.planName ? '<span class="plan-badge">' + esc(acc.planName) + "</span>" : "") + renderAccountTags(acc) + renderAccountNote(acc) + "</div></div>" + groupCells + creditsCell + '<div class="snap-cell"><span class="snap-ago">' + esc(acc.stalenessLabel) + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + badgeText + "</span></div></div>" + modelsHTML + "</div>";
+      }
+      html += "</div></div>";
+    }
+    var sf = document.getElementById("quota-filter-status");
+    var statusVal = sf ? sf.value : "all";
+    if (data.codexSnapshot && (pf === "all" || pf === "codex")) {
+      var cxStatus = getCodexClaudeStatus(data.codexSnapshot);
+      if (statusVal === "all" || cxStatus === statusVal) {
+        html += renderCodexProviderSection(data.codexSnapshot);
+      }
+    }
+    if (data.claudeSnapshot && (pf === "all" || pf === "claude")) {
+      var clStatus = getCodexClaudeStatus(data.claudeSnapshot);
+      if (statusVal === "all" || clStatus === statusVal) {
+        html += renderClaudeProviderSection(data.claudeSnapshot);
+      }
+    }
+    if (data.cursorSnapshot && (pf === "all" || pf === "cursor")) {
+      var crStatus = getCursorStatus(data.cursorSnapshot);
+      if (statusVal === "all" || crStatus === statusVal) {
+        html += renderCursorProviderSection(data.cursorSnapshot);
+      }
+    }
+    if (data.geminiSnapshot && (pf === "all" || pf === "gemini")) {
+      var gmStatus = getGeminiStatus(data.geminiSnapshot);
+      if (statusVal === "all" || gmStatus === statusVal) {
+        html += renderGeminiProviderSection(data.geminiSnapshot);
+      }
+    }
+    if (data.copilotSnapshot && (pf === "all" || pf === "copilot")) {
+      var cpStatus = getCopilotStatus(data.copilotSnapshot);
+      if (statusVal === "all" || cpStatus === statusVal) {
+        html += renderCopilotProviderSection(data.copilotSnapshot);
+      }
+    }
+    if (pf === "antigravity" && acctCount === 0) {
+      html += '<div class="provider-empty-state" data-provider="antigravity"><span class="provider-empty-icon">\u26A1</span><p>No Antigravity accounts detected</p><p class="empty-hint">Open Windsurf and log in to start tracking quotas</p></div>';
+    }
+    if (pf === "codex" && !data.codexSnapshot) {
+      html += '<div class="provider-empty-state" data-provider="codex"><span class="provider-empty-icon">\u{1F916}</span><p>No Codex snapshots yet</p><p class="empty-hint">Install Codex CLI and click <strong>Snap Now</strong> to capture</p></div>';
+    }
+    if (pf === "claude" && !data.claudeSnapshot) {
+      html += '<div class="provider-empty-state" data-provider="claude"><span class="provider-empty-icon">\u{1F52E}</span><p>No Claude Code data yet</p><p class="empty-hint">Enable the Claude bridge in <strong>Settings</strong></p></div>';
+    }
+    if (pf === "cursor" && !data.cursorSnapshot) {
+      html += '<div class="provider-empty-state" data-provider="cursor"><span class="provider-empty-icon">\u{1F5B1}\uFE0F</span><p>No Cursor data yet</p><p class="empty-hint">Enable Cursor capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
+    }
+    if (pf === "gemini" && !data.geminiSnapshot) {
+      html += '<div class="provider-empty-state" data-provider="gemini"><span class="provider-empty-icon">\u2726</span><p>No Gemini CLI data yet</p><p class="empty-hint">Enable Gemini capture in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
+    }
+    if (pf === "copilot" && !data.copilotSnapshot) {
+      html += '<div class="provider-empty-state" data-provider="copilot"><span class="provider-empty-icon">\u{1F419}</span><p>No GitHub Copilot data yet</p><p class="empty-hint">Add a PAT in <strong>Settings</strong> or click <strong>Snap Now</strong></p></div>';
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll(".provider-header[data-toggle-provider]").forEach(function(hdr) {
+      hdr.addEventListener("click", function() {
+        var targetId = hdr.dataset.toggleProvider;
+        var body = document.getElementById(targetId);
+        var chev = document.getElementById("pchev-" + targetId);
+        if (!body) return;
+        var collapsed = body.classList.toggle("collapsed");
+        if (chev) chev.textContent = collapsed ? "\u25B8" : "\u25BE";
+        if (collapsed) {
+          collapsedProviders.add(targetId);
+        } else {
+          collapsedProviders.delete(targetId);
+        }
+      });
+    });
+  }
+  function renderCodexProviderSection(cs) {
+    var fiveUsed = cs.fiveHourPct || 0;
+    var fiveRem = Math.max(0, 100 - fiveUsed);
+    var fiveCls = fiveRem > 50 ? "good" : fiveRem > 20 ? "ok" : fiveRem > 0 ? "warning" : "exhausted";
+    var fiveReset = cs.fiveHourReset ? formatResetTime(cs.fiveHourReset) : "";
+    var sevenUsed = cs.sevenDayPct ? cs.sevenDayPct : 0;
+    var sevenRem = Math.max(0, 100 - sevenUsed);
+    var sevenCls = sevenRem > 50 ? "good" : sevenRem > 20 ? "ok" : sevenRem > 0 ? "warning" : "exhausted";
+    var sevenReset = cs.sevenDayReset ? formatResetTime(cs.sevenDayReset) : "";
+    var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : "unknown";
+    var dotCls = fiveUsed >= 80 || sevenUsed >= 80 ? "dot-low" : "dot-ready";
+    var dotText = dotCls === "dot-ready" ? "Ready" : "Low";
+    var displayName = cs.email || (cs.accountId && cs.accountId.length > 12 ? cs.accountId.substring(0, 6) + ".." + cs.accountId.slice(-6) : cs.accountId || "Codex");
+    var creditsStr = cs.creditsBalance !== null && cs.creditsBalance !== void 0 ? cs.creditsBalance.toFixed(2) : String.fromCharCode(8212);
+    var cxCollapseClass = collapsedProviders.has("section-codex") ? " collapsed" : "";
+    var cxChevron = collapsedProviders.has("section-codex") ? "\u25B8" : "\u25BE";
+    return '<div class="provider-section" data-provider="codex"><div class="provider-header" data-toggle-provider="section-codex"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-codex">' + cxChevron + '</span><span class="provider-name">\u{1F916} Codex / ChatGPT</span><span class="provider-count">1 account</span></div></div><div class="provider-body' + cxCollapseClass + '" id="section-codex"><div class="grid-header grid-codex"><div>Account</div><div>Plan</div><div>5-Hour</div><div>7-Day</div><div>Credits</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-codex"><div class="account-info"><div class="account-email">' + esc(displayName) + "</div></div><div>" + (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + "</span>" : String.fromCharCode(8212)) + '</div><div class="quota-cell"><span class="quota-pct ' + fiveCls + '">' + fiveRem.toFixed(0) + '%</span><div class="quota-minibar"><div class="quota-minibar-fill ' + fiveCls + '" style="width:' + fiveRem + '%"></div></div>' + (fiveReset ? '<span class="quota-reset">\u21BB ' + fiveReset + "</span>" : "") + '</div><div class="quota-cell"><span class="quota-pct ' + sevenCls + '">' + sevenRem.toFixed(0) + '%</span><div class="quota-minibar"><div class="quota-minibar-fill ' + sevenCls + '" style="width:' + sevenRem + '%"></div></div>' + (sevenReset ? '<span class="quota-reset">\u21BB ' + sevenReset + "</span>" : "") + '</div><div class="credits-cell"><span class="credit-amount">' + creditsStr + '</span></div><div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + dotText + "</span></div></div></div></div></div>";
+  }
+  function renderClaudeProviderSection(cl) {
+    var clFive = cl.fiveHourPct || 0;
+    var clFiveRem = Math.max(0, 100 - clFive);
+    var clFiveCls = clFiveRem > 50 ? "good" : clFiveRem > 20 ? "ok" : clFiveRem > 0 ? "warning" : "exhausted";
+    var clSeven = cl.sevenDayPct ? cl.sevenDayPct : 0;
+    var clSevenRem = Math.max(0, 100 - clSeven);
+    var clSevenCls = clSevenRem > 50 ? "good" : clSevenRem > 20 ? "ok" : clSevenRem > 0 ? "warning" : "exhausted";
+    var clAgo = cl.capturedAt ? formatTimeAgo(cl.capturedAt) : "unknown";
+    var dotCls = clFive >= 80 || clSeven >= 80 ? "dot-low" : "dot-ready";
+    var dotText = dotCls === "dot-ready" ? "Ready" : "Low";
+    var clCollapseClass = collapsedProviders.has("section-claude") ? " collapsed" : "";
+    var clChevron = collapsedProviders.has("section-claude") ? "\u25B8" : "\u25BE";
+    return '<div class="provider-section" data-provider="claude"><div class="provider-header" data-toggle-provider="section-claude"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-claude">' + clChevron + '</span><span class="provider-name">\u{1F517} Claude Code</span><span class="provider-count">1 account \xB7 Bridge</span></div></div><div class="provider-body' + clCollapseClass + '" id="section-claude"><div class="grid-header grid-claude"><div>Source</div><div>5-Hour</div><div>7-Day</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-claude"><div class="account-info"><div class="account-email">' + esc(cl.source || "statusline") + '</div></div><div class="quota-cell"><span class="quota-pct ' + clFiveCls + '">' + clFiveRem.toFixed(0) + '%</span><div class="quota-minibar"><div class="quota-minibar-fill ' + clFiveCls + '" style="width:' + clFiveRem + '%"></div></div></div><div class="quota-cell"><span class="quota-pct ' + clSevenCls + '">' + clSevenRem.toFixed(0) + '%</span><div class="quota-minibar"><div class="quota-minibar-fill ' + clSevenCls + '" style="width:' + clSevenRem + '%"></div></div></div><div class="snap-cell"><span class="snap-ago">' + clAgo + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + dotText + "</span></div></div></div></div></div>";
+  }
+  function formatResetTime(isoString) {
+    if (!isoString) return "";
+    var reset = new Date(isoString);
+    var now = /* @__PURE__ */ new Date();
+    var diffSec = (reset.getTime() - now.getTime()) / 1e3;
+    if (diffSec <= 0) return "now";
+    return formatSeconds(diffSec);
+  }
+  function getCursorStatus(snap) {
+    var usagePct = snap.usagePct || 0;
+    var rem = Math.max(0, 100 - usagePct);
+    if (rem === 0) return "empty";
+    if (usagePct >= 80) return "low";
+    return "ready";
+  }
+  function renderCursorProviderSection(cs) {
+    var usagePct = cs.usagePct || 0;
+    var remaining = Math.max(0, 100 - usagePct);
+    var cls = remaining > 50 ? "good" : remaining > 20 ? "ok" : remaining > 0 ? "warning" : "exhausted";
+    var capturedAgo = cs.capturedAt ? formatTimeAgo(cs.capturedAt) : "unknown";
+    var dotCls = usagePct >= 80 ? "dot-low" : "dot-ready";
+    var dotText = dotCls === "dot-ready" ? "Ready" : "Low";
+    var displayName = cs.email || "Cursor";
+    var usedStr = cs.premiumUsed !== void 0 ? cs.premiumUsed : String.fromCharCode(8212);
+    var limitStr = cs.premiumLimit !== void 0 ? cs.premiumLimit : String.fromCharCode(8212);
+    var crCollapseClass = collapsedProviders.has("section-cursor") ? " collapsed" : "";
+    var crChevron = collapsedProviders.has("section-cursor") ? "\u25B8" : "\u25BE";
+    var modelRows = "";
+    if (cs.modelsJson && cs.modelsJson !== "{}") {
+      try {
+        var models = typeof cs.modelsJson === "string" ? JSON.parse(cs.modelsJson) : cs.modelsJson;
+        var modelKeys = Object.keys(models);
+        if (modelKeys.length > 0) {
+          modelRows = '<div class="cursor-model-breakdown">';
+          for (var mi = 0; mi < modelKeys.length; mi++) {
+            var mKey = modelKeys[mi];
+            var mVal = models[mKey];
+            var mUsed = mVal.numRequests || 0;
+            var mLimit = mVal.maxRequestUsage || 0;
+            var mPct = mLimit > 0 ? mUsed / mLimit * 100 : 0;
+            var mRem = Math.max(0, 100 - mPct);
+            var mCls = mRem > 50 ? "good" : mRem > 20 ? "ok" : mRem > 0 ? "warning" : "exhausted";
+            modelRows += '<div class="cursor-model-row"><span class="cursor-model-name">' + esc(mKey) + '</span><div class="quota-minibar"><div class="quota-minibar-fill ' + mCls + '" style="width:' + mRem + '%"></div></div><span class="cursor-model-usage">' + mUsed + "/" + mLimit + "</span></div>";
+          }
+          modelRows += "</div>";
+        }
+      } catch (e) {
+      }
+    }
+    return '<div class="provider-section" data-provider="cursor"><div class="provider-header" data-toggle-provider="section-cursor"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-cursor">' + crChevron + '</span><span class="provider-name">\u{1F5B1}\uFE0F Cursor</span><span class="provider-count">1 account</span></div></div><div class="provider-body' + crCollapseClass + '" id="section-cursor"><div class="grid-header grid-cursor"><div>Account</div><div>Plan</div><div>Premium Used</div><div>Usage</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-cursor"><div class="account-info"><div class="account-email">' + esc(displayName) + "</div></div><div>" + (cs.planType ? '<span class="plan-badge">' + esc(cs.planType) + "</span>" : String.fromCharCode(8212)) + '</div><div class="quota-cell"><span class="quota-pct ' + cls + '">' + usedStr + " / " + limitStr + '</span><div class="quota-minibar"><div class="quota-minibar-fill ' + cls + '" style="width:' + remaining + '%"></div></div></div><div class="quota-cell"><span class="quota-pct ' + cls + '">' + remaining.toFixed(0) + '% left</span></div><div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + dotText + "</span></div></div>" + modelRows + "</div></div></div>";
+  }
+  function getGeminiStatus(snap) {
+    var overallPct = snap.overallPct || 0;
+    var rem = Math.max(0, 100 - overallPct);
+    if (rem === 0) return "empty";
+    if (overallPct >= 80) return "low";
+    return "ready";
+  }
+  function renderGeminiProviderSection(gs) {
+    var overallPct = gs.overallPct || 0;
+    var remaining = Math.max(0, 100 - overallPct);
+    var cls = remaining > 50 ? "good" : remaining > 20 ? "ok" : remaining > 0 ? "warning" : "exhausted";
+    var capturedAgo = gs.capturedAt ? formatTimeAgo(gs.capturedAt) : "unknown";
+    var dotCls = overallPct >= 80 ? "dot-low" : "dot-ready";
+    var dotText = dotCls === "dot-ready" ? "Ready" : "Low";
+    var displayName = gs.email || "Gemini CLI";
+    var gmCollapseClass = collapsedProviders.has("section-gemini") ? " collapsed" : "";
+    var gmChevron = collapsedProviders.has("section-gemini") ? "\u25B8" : "\u25BE";
+    var modelRows = "";
+    if (gs.modelsJson && gs.modelsJson !== "[]") {
+      try {
+        var models = typeof gs.modelsJson === "string" ? JSON.parse(gs.modelsJson) : gs.modelsJson;
+        if (Array.isArray(models) && models.length > 0) {
+          modelRows = '<div class="cursor-model-breakdown">';
+          for (var mi = 0; mi < models.length; mi++) {
+            var m = models[mi];
+            var mUsedPct = m.usedPct || 0;
+            var mRemPct = Math.max(0, 100 - mUsedPct);
+            var mCls = mRemPct > 50 ? "good" : mRemPct > 20 ? "ok" : mRemPct > 0 ? "warning" : "exhausted";
+            var mResetStr = m.resetTime ? formatResetTime(m.resetTime) : "";
+            var tierLabel = m.tier || m.modelId || "unknown";
+            modelRows += '<div class="cursor-model-row"><span class="cursor-model-name">' + esc(m.modelId || tierLabel) + '</span><div class="quota-minibar"><div class="quota-minibar-fill ' + mCls + '" style="width:' + mRemPct + '%"></div></div><span class="cursor-model-usage">' + mRemPct.toFixed(0) + "% left</span>" + (mResetStr ? '<span class="quota-reset">\u21BB ' + mResetStr + "</span>" : "") + "</div>";
+          }
+          modelRows += "</div>";
+        }
+      } catch (e) {
+      }
+    }
+    return '<div class="provider-section" data-provider="gemini"><div class="provider-header" data-toggle-provider="section-gemini"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-gemini">' + gmChevron + '</span><span class="provider-name">\u2728 Gemini CLI</span><span class="provider-count">1 account</span></div></div><div class="provider-body' + gmCollapseClass + '" id="section-gemini"><div class="grid-header grid-gemini"><div>Account</div><div>Tier</div><div>Usage</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-gemini"><div class="account-info"><div class="account-email">' + esc(displayName) + "</div></div><div>" + (gs.tier ? '<span class="plan-badge">' + esc(gs.tier) + "</span>" : String.fromCharCode(8212)) + '</div><div class="quota-cell"><span class="quota-pct ' + cls + '">' + remaining.toFixed(0) + '% left</span><div class="quota-minibar"><div class="quota-minibar-fill ' + cls + '" style="width:' + remaining + '%"></div></div></div><div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + dotText + "</span></div></div>" + modelRows + "</div></div></div>";
+  }
+  function getCopilotStatus(snap) {
+    var premiumPct = snap.premiumPct || 0;
+    var rem = Math.max(0, 100 - premiumPct);
+    if (rem === 0) return "empty";
+    if (premiumPct >= 80) return "low";
+    return "ready";
+  }
+  function renderCopilotProviderSection(cp) {
+    var premiumPct = cp.premiumPct || 0;
+    var premiumRem = Math.max(0, 100 - premiumPct);
+    var premiumCls = premiumRem > 50 ? "good" : premiumRem > 20 ? "ok" : premiumRem > 0 ? "warning" : "exhausted";
+    var chatPct = cp.chatPct || 0;
+    var chatRem = Math.max(0, 100 - chatPct);
+    var chatCls = chatRem > 50 ? "good" : chatRem > 20 ? "ok" : chatRem > 0 ? "warning" : "exhausted";
+    var capturedAgo = cp.capturedAt ? formatTimeAgo(cp.capturedAt) : "unknown";
+    var dotCls = premiumPct >= 80 ? "dot-low" : "dot-ready";
+    var dotText = dotCls === "dot-ready" ? "Ready" : "Low";
+    var displayName = cp.username || cp.email || "Copilot";
+    var cpCollapseClass = collapsedProviders.has("section-copilot") ? " collapsed" : "";
+    var cpChevron = collapsedProviders.has("section-copilot") ? "\u25B8" : "\u25BE";
+    return '<div class="provider-section" data-provider="copilot"><div class="provider-header" data-toggle-provider="section-copilot"><div class="provider-header-left"><span class="provider-chevron" id="pchev-section-copilot">' + cpChevron + '</span><span class="provider-name">\u{1F419} GitHub Copilot</span><span class="provider-count">1 account</span></div></div><div class="provider-body' + cpCollapseClass + '" id="section-copilot"><div class="grid-header grid-copilot"><div>Account</div><div>Plan</div><div>Premium</div><div>Chat</div><div>Last Snap</div><div>Status</div></div><div class="account-card"><div class="account-row grid-copilot"><div class="account-info"><div class="account-email">' + esc(displayName) + "</div></div><div>" + (cp.plan ? '<span class="plan-badge">' + esc(cp.plan) + "</span>" : String.fromCharCode(8212)) + '</div><div class="quota-cell"><span class="quota-pct ' + premiumCls + '">' + premiumRem.toFixed(0) + '% left</span><div class="quota-minibar"><div class="quota-minibar-fill ' + premiumCls + '" style="width:' + premiumRem + '%"></div></div></div><div class="quota-cell"><span class="quota-pct ' + chatCls + '">' + chatRem.toFixed(0) + '% left</span><div class="quota-minibar"><div class="quota-minibar-fill ' + chatCls + '" style="width:' + chatRem + '%"></div></div></div><div class="snap-cell"><span class="snap-ago">' + capturedAgo + '</span></div><div style="text-align:center"><span class="health-dot ' + dotCls + '">\u25CF ' + dotText + "</span></div></div></div></div></div>";
+  }
+
+  // internal/web/src/quotas/expand.ts
+  function setupToggle() {
+    var grid = document.getElementById("account-grid");
+    if (!grid) return;
+    grid.addEventListener("click", function(e) {
+      var clearBtn = e.target.closest("[data-clear-account]");
+      if (clearBtn) {
+        e.stopPropagation();
+        var accountId = clearBtn.getAttribute("data-clear-account");
+        var email = clearBtn.getAttribute("data-clear-email");
+        if (confirm("Clear all snapshots for " + email + "?\n\nThe account will remain but all quota history will be deleted. This cannot be undone.")) {
+          fetch("/api/accounts/" + accountId + "/snapshots", { method: "DELETE" }).then(function(res) {
+            return res.json();
+          }).then(function(data) {
+            showToast("\u2705 Cleared " + (data.snapshotsDeleted || 0) + " snapshots for " + email, "success");
+            fetchStatus().then(renderAccounts);
+            document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"));
+          }).catch(function(err) {
+            showToast("\u274C " + err.message, "error");
+          });
+        }
+        return;
+      }
+      var deleteBtn = e.target.closest("[data-delete-account]");
+      if (deleteBtn) {
+        e.stopPropagation();
+        var accountId2 = deleteBtn.getAttribute("data-delete-account");
+        var email2 = deleteBtn.getAttribute("data-delete-email");
+        if (confirm("Remove account " + email2 + "?\n\nThis will permanently delete the account and ALL associated data (snapshots, cycles, codex data). This cannot be undone.")) {
+          fetch("/api/accounts/" + accountId2, { method: "DELETE" }).then(function(res) {
+            return res.json();
+          }).then(function(data) {
+            showToast("\u2705 Removed " + email2 + " (" + (data.totalDeleted || 0) + " records deleted)", "success");
+            expandedAccounts.delete("acc-" + accountId2);
+            fetchStatus().then(renderAccounts);
+            document.dispatchEvent(new CustomEvent("niyantra:chart-refresh"));
+          }).catch(function(err) {
+            showToast("\u274C " + err.message, "error");
+          });
+        }
+        return;
+      }
+      var gadjBtn = e.target.closest(".gadj-btn");
+      if (gadjBtn) {
+        e.stopPropagation();
+        var gControls = gadjBtn.closest(".group-adjust");
+        if (!gControls) return;
+        var gSnapId = parseInt(gControls.getAttribute("data-snap-id"), 10);
+        var gGroupKey = gControls.getAttribute("data-group-key");
+        var gLabelsStr = gControls.getAttribute("data-group-labels");
+        var gCurrentPct = parseFloat(gControls.getAttribute("data-current-pct"));
+        var gDelta = parseFloat(gadjBtn.getAttribute("data-delta"));
+        var gNewPct = Math.max(0, Math.min(100, gCurrentPct + gDelta));
+        var cell = gControls.closest(".quota-cell");
+        if (cell) {
+          var gPctSpan = cell.querySelector(".quota-pct");
+          var gBarFill = cell.querySelector(".quota-minibar-fill");
+          if (gPctSpan) {
+            gPctSpan.textContent = Math.round(gNewPct) + "%";
+            gPctSpan.className = "quota-pct " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
+          }
+          if (gBarFill) {
+            gBarFill.style.width = gNewPct + "%";
+            gBarFill.className = "quota-minibar-fill " + (gNewPct <= 0 ? "exhausted" : gNewPct < 20 ? "warning" : gNewPct < 50 ? "ok" : "good");
+          }
+        }
+        gControls.setAttribute("data-current-pct", String(gNewPct));
+        var gLabels = gLabelsStr.split("|||").filter(function(l) {
+          return l.length > 0;
+        });
+        var adjustments = [];
+        for (var li = 0; li < gLabels.length; li++) {
+          adjustments.push({ label: gLabels[li], remainingPercent: gNewPct });
+        }
+        if (adjustments.length === 0) return;
+        fetch("/api/snap/adjust", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ snapshotId: gSnapId, adjustments })
+        }).then(function(res) {
+          return res.json();
+        }).then(function(data) {
+          if (data.error) {
+            showToast("\u274C " + data.error, "error");
+            return;
+          }
+          var groupName = GROUP_NAMES[gGroupKey] || gGroupKey;
+          showToast("\u270E " + groupName + " \u2192 " + Math.round(gNewPct) + "% (" + adjustments.length + " models)", "info");
+          fetchStatus().then(renderAccounts);
+        }).catch(function(err) {
+          showToast("\u274C " + err.message, "error");
+        });
+        return;
+      }
+      var adjBtn = e.target.closest(".adj-btn");
+      if (adjBtn) {
+        e.stopPropagation();
+        var controls = adjBtn.closest(".adjust-controls");
+        if (!controls) return;
+        var snapId = parseInt(controls.getAttribute("data-snap-id"), 10);
+        var label = controls.getAttribute("data-model-label");
+        var currentPct = parseFloat(controls.getAttribute("data-current-pct"));
+        var delta = parseFloat(adjBtn.getAttribute("data-delta"));
+        var newPct = Math.max(0, Math.min(100, currentPct + delta));
+        var row = controls.closest(".model-row");
+        if (row) {
+          var pctSpan = row.querySelector(".model-pct");
+          var barFill = row.querySelector(".model-bar-fill");
+          if (pctSpan) {
+            pctSpan.textContent = Math.round(newPct) + "%";
+            pctSpan.className = "model-pct " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
+          }
+          if (barFill) {
+            barFill.style.width = newPct + "%";
+            barFill.className = "model-bar-fill " + (newPct <= 0 ? "exhausted" : newPct < 20 ? "warning" : newPct < 50 ? "ok" : "good");
+          }
+        }
+        controls.setAttribute("data-current-pct", String(newPct));
+        fetch("/api/snap/adjust", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            snapshotId: snapId,
+            adjustments: [{ label, remainingPercent: newPct }]
+          })
+        }).then(function(res) {
+          return res.json();
+        }).then(function(data) {
+          if (data.error) {
+            showToast("\u274C " + data.error, "error");
+            return;
+          }
+          showToast("\u270E Adjusted " + label + " \u2192 " + Math.round(newPct) + "%", "info");
+          fetchStatus().then(renderAccounts);
+        }).catch(function(err) {
+          showToast("\u274C " + err.message, "error");
+        });
+        return;
+      }
+      if (e.target.closest("[data-tag-add]") || e.target.closest("[data-remove-tag]") || e.target.closest("[data-note-edit]") || e.target.closest("[data-pin-group]") || e.target.closest("[data-renewal-edit]") || e.target.closest(".tag-picker") || e.target.closest(".tag-chip")) {
+        return;
+      }
+      var row = e.target.closest(".account-row[data-toggle]");
+      if (!row) return;
+      var id = row.getAttribute("data-toggle");
+      var el = document.getElementById(id);
+      var chev = document.getElementById("chev-" + id);
+      if (!el) return;
+      var willExpand = !el.classList.contains("is-expanded");
+      el.classList.toggle("is-expanded", willExpand);
+      if (willExpand) expandedAccounts.add(id);
+      else expandedAccounts.delete(id);
+      if (chev) chev.classList.toggle("expanded", willExpand);
+    });
+  }
+  function initQuotas() {
+    var qSearch = document.getElementById("quota-search");
+    var qStatus = document.getElementById("quota-filter-status");
+    if (qSearch) {
+      qSearch.addEventListener("input", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    if (qStatus) {
+      qStatus.addEventListener("change", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var qProvider = document.getElementById("quota-filter-provider");
+    if (qProvider) {
+      qProvider.addEventListener("change", function() {
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var gridEl = document.getElementById("account-grid");
+    if (gridEl) {
+      gridEl.addEventListener("click", function(e) {
+        var el = e.target.closest(".sortable");
+        if (!el) return;
+        var col = el.dataset.sort;
+        if (quotaSortState.column === col) {
+          quotaSortState.direction = quotaSortState.direction === "asc" ? "desc" : "asc";
+        } else {
+          quotaSortState.column = col;
+          quotaSortState.direction = "asc";
+        }
+        if (latestQuotaData) renderAccounts(latestQuotaData);
+      });
+    }
+    var tagStrip = document.getElementById("tag-filter-strip");
+    if (tagStrip) {
+      tagStrip.addEventListener("click", handleTagFilterClick);
+    }
+  }
+
+  // internal/web/src/core/onboarding.ts
+  var STORAGE_KEY = "niyantra_onboarding";
+  function getState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {
+    }
+    return { dismissed: false, completed: {} };
+  }
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+  function checkOnboardingStep(step) {
+    var state = getState();
+    if (state.dismissed) return;
+    if (state.completed[step]) return;
+    state.completed[step] = true;
+    saveState(state);
+    renderOnboarding();
+  }
+  function renderOnboarding() {
+    var container = document.getElementById("onboarding-container");
+    if (!container) return;
+    var state = getState();
+    if (state.dismissed) {
+      container.innerHTML = "";
+      return;
+    }
+    var steps = [
+      { key: "snapshot", label: "Take your first snapshot", icon: "\u{1F4F8}" },
+      { key: "subscription", label: "Add a subscription", icon: "\u{1F4B3}" },
+      { key: "budget", label: "Set a monthly budget", icon: "\u{1F4B0}" },
+      { key: "notifications", label: "Enable notifications", icon: "\u{1F514}" },
+      { key: "overview", label: "Explore the Overview tab", icon: "\u{1F4CA}" }
+    ];
+    var done = 0;
+    for (var i = 0; i < steps.length; i++) {
+      if (state.completed[steps[i].key]) done++;
+    }
+    if (done === steps.length) {
+      container.innerHTML = `<div class="onboarding-card celebration"><div class="onboarding-confetti">\u{1F389}</div><h3>You're all set!</h3><p style="color:var(--text-secondary);font-size:13px">Niyantra is fully configured. Enjoy your AI dashboard.</p></div>`;
+      setTimeout(function() {
+        state.dismissed = true;
+        saveState(state);
+        if (container) container.innerHTML = "";
+      }, 5e3);
+      return;
+    }
+    var pct = Math.round(done / steps.length * 100);
+    var html = '<div class="onboarding-card"><div class="onboarding-header"><h3>\u{1F680} Getting Started</h3><button class="onboarding-dismiss" id="onboarding-dismiss" title="Dismiss">\u2715</button></div><div class="onboarding-progress"><div class="onboarding-bar"><div class="onboarding-fill" style="width:' + pct + '%"></div></div><span class="onboarding-pct">' + done + "/" + steps.length + '</span></div><div class="onboarding-steps">';
+    for (var s = 0; s < steps.length; s++) {
+      var step = steps[s];
+      var isDone = state.completed[step.key] || false;
+      html += '<div class="onboarding-step' + (isDone ? " done" : "") + '"><span class="onboarding-check">' + (isDone ? "\u2705" : "\u2B1C") + "</span><span>" + step.icon + " " + step.label + "</span></div>";
+    }
+    html += "</div></div>";
+    container.innerHTML = html;
+    var btn = document.getElementById("onboarding-dismiss");
+    if (btn) {
+      btn.addEventListener("click", function() {
+        state.dismissed = true;
+        saveState(state);
+        if (container) container.innerHTML = "";
+      });
+    }
+  }
+  function autoDetectSteps(statusData, serverConfig2) {
+    if (statusData && (statusData.snapshotCount || 0) > 0) {
+      checkOnboardingStep("snapshot");
+    }
+    var budget = parseFloat(serverConfig2["budget_monthly"] || "0");
+    if (budget > 0) {
+      checkOnboardingStep("budget");
+    }
+    if (serverConfig2["smtp_enabled"] === "true" || serverConfig2["webhook_enabled"] === "true" || serverConfig2["webpush_enabled"] === "true") {
+      checkOnboardingStep("notifications");
+    }
+  }
+
+  // internal/web/src/core/emptyStates.ts
+  function emptyQuotas() {
+    return '<div class="empty-state"><div class="empty-state-icon">\u{1F4CA}</div><h3 class="empty-state-title">Your AI Quota Dashboard</h3><p class="empty-state-desc">After your first snapshot, quota cards for each provider will appear here with real-time usage tracking across Antigravity, Claude, Codex, and more.</p><div class="empty-state-preview"><div class="empty-preview-row"><span class="empty-preview-label">Claude + GPT</span><span class="empty-bar"><span style="width:67%"></span></span><span class="empty-preview-pct">67%</span></div><div class="empty-preview-row"><span class="empty-preview-label">Gemini Pro</span><span class="empty-bar"><span style="width:89%"></span></span><span class="empty-preview-pct">89%</span></div><div class="empty-preview-row"><span class="empty-preview-label">Gemini Flash</span><span class="empty-bar"><span style="width:42%"></span></span><span class="empty-preview-pct">42%</span></div></div><button class="btn-add" id="empty-snap-btn">\u{1F4F8} Take First Snapshot</button></div>';
+  }
+  function emptySubscriptions() {
+    return '<div class="empty-state"><div class="empty-state-icon">\u{1F4B3}</div><h3 class="empty-state-title">Track Your AI Subscriptions</h3><p class="empty-state-desc">Add your AI tool subscriptions to see monthly spend, renewal dates, budget tracking, and cost optimization insights.</p><div class="empty-state-preview"><div class="empty-preview-row"><span class="empty-preview-label">GitHub Copilot</span><span class="empty-preview-price">$19/mo</span></div><div class="empty-preview-row"><span class="empty-preview-label">Claude Pro</span><span class="empty-preview-price">$20/mo</span></div><div class="empty-preview-row"><span class="empty-preview-label">Cursor Pro</span><span class="empty-preview-price">$20/mo</span></div></div><button class="btn-add" id="empty-add-sub-btn">+ Add Subscription</button></div>';
+  }
+
+  // internal/web/src/subscriptions.ts
+  function loadSubscriptions() {
+    var status = document.getElementById("filter-status").value;
+    var category = document.getElementById("filter-category").value;
+    fetchSubscriptions(status, category).then(function(data) {
+      renderSubscriptions(data);
+    }).catch(function(err) {
+      console.error("Failed to load subscriptions:", err);
+    });
+  }
+  function renderSubscriptions(data) {
+    var grid = document.getElementById("subs-grid");
+    var summary = document.getElementById("subs-summary");
+    if (!grid) return;
+    var subs = data.subscriptions || [];
+    summary.textContent = subs.length + " subscription" + (subs.length !== 1 ? "s" : "");
+    if (subs.length === 0) {
+      grid.innerHTML = emptySubscriptions();
+      var emptyAddBtn = document.getElementById("empty-add-sub-btn");
+      if (emptyAddBtn) emptyAddBtn.addEventListener("click", function() {
+        openModal();
+      });
+      return;
+    }
+    checkOnboardingStep("subscription");
+    var providerGroups = {};
+    var manualSubs = [];
+    var grandTotal = 0;
+    for (var i = 0; i < subs.length; i++) {
+      var s = subs[i];
+      var monthly = 0;
+      if (s.costAmount > 0) {
+        if (s.billingCycle === "yearly") monthly = s.costAmount / 12;
+        else monthly = s.costAmount;
+      }
+      grandTotal += monthly;
+      if (s.autoTracked) {
+        var pkey = s.platform || "Unknown";
+        if (!providerGroups[pkey]) providerGroups[pkey] = { items: [], total: 0 };
+        providerGroups[pkey].items.push(s);
+        providerGroups[pkey].total += monthly;
+      } else {
+        manualSubs.push(s);
+      }
+    }
+    var providerKeys = Object.keys(providerGroups);
+    var autoCount = subs.length - manualSubs.length;
+    var sym2 = currencySymbol(subs[0] ? subs[0].costCurrency : "USD");
+    var html = '<div class="spend-summary-card"><div class="spend-hero"><div class="spend-amount">' + sym2 + grandTotal.toFixed(2) + '<span class="spend-period">/mo</span></div><div class="spend-label">Total Monthly Spend</div></div><div class="spend-breakdown">';
+    var providerIcons = { "Antigravity": "\u26A1", "Codex": "\u{1F916}", "Claude": "\u{1F52E}" };
+    for (var pk = 0; pk < providerKeys.length; pk++) {
+      var pName = providerKeys[pk];
+      var pIcon = providerIcons[pName] || "\u{1F4E6}";
+      var pTotal = providerGroups[pName].total;
+      html += '<span class="spend-chip">' + pIcon + " " + esc(pName) + " <strong>" + sym2 + pTotal.toFixed(2) + "</strong></span>";
+    }
+    if (manualSubs.length > 0) {
+      var manualTotal = 0;
+      for (var mi = 0; mi < manualSubs.length; mi++) {
+        if (manualSubs[mi].costAmount > 0) {
+          manualTotal += manualSubs[mi].billingCycle === "yearly" ? manualSubs[mi].costAmount / 12 : manualSubs[mi].costAmount;
+        }
+      }
+      if (manualTotal > 0) {
+        html += '<span class="spend-chip">\u{1F4CB} Manual <strong>' + sym2 + manualTotal.toFixed(2) + "</strong></span>";
+      }
+    }
+    html += '</div><div class="spend-meta">' + autoCount + " auto-tracked \xB7 " + manualSubs.length + " manual</div></div>";
+    for (var pi = 0; pi < providerKeys.length; pi++) {
+      var provider = providerKeys[pi];
+      var group = providerGroups[provider];
+      var items = group.items;
+      var icon = providerIcons[provider] || "\u{1F4E6}";
+      var sectionId = "sub-provider-" + provider.replace(/\s+/g, "-").toLowerCase();
+      var providerAttr = provider.toLowerCase().replace(/[^a-z]/g, "");
+      html += '<div class="provider-section" data-provider="' + providerAttr + '"><div class="provider-header" data-toggle-provider="' + sectionId + '"><div class="provider-header-left"><span class="provider-chevron" id="pchev-' + sectionId + '">\u25BE</span> <span class="provider-icon">' + icon + '</span><span class="provider-name">' + esc(provider) + '</span><span class="provider-count">' + items.length + " account" + (items.length !== 1 ? "s" : "") + '</span></div><span class="provider-spend">' + sym2 + group.total.toFixed(2) + '/mo</span></div><div class="provider-body" id="' + sectionId + '"><div class="subs-card-grid">';
+      for (var si = 0; si < items.length; si++) {
+        html += renderSubCard(items[si]);
+      }
+      html += "</div></div></div>";
+    }
+    if (manualSubs.length > 0) {
+      var grouped = {};
+      for (var mi2 = 0; mi2 < manualSubs.length; mi2++) {
+        var cat = manualSubs[mi2].category || "other";
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(manualSubs[mi2]);
+      }
+      var catOrder = ["coding", "chat", "api", "image", "audio", "productivity", "other"];
+      html += '<div class="sub-section-label">Manual Subscriptions (' + manualSubs.length + ")</div>";
+      html += '<div class="subs-card-grid">';
+      for (var ci = 0; ci < catOrder.length; ci++) {
+        var catItems = grouped[catOrder[ci]];
+        if (!catItems || catItems.length === 0) continue;
+        for (var csi = 0; csi < catItems.length; csi++) {
+          html += renderSubCard(catItems[csi]);
+        }
+      }
+      html += "</div>";
+    } else if (providerKeys.length > 0) {
+      html += '<div class="sub-section-label">Manual Subscriptions</div><div class="manual-empty"><p>No manual subscriptions tracked.</p><p class="empty-hint">Click <strong>+ Add</strong> to track Claude Pro, Cursor, or other AI tools.</p></div>';
+    }
+    grid.innerHTML = html;
+    grid.querySelectorAll(".provider-header").forEach(function(hdr) {
+      hdr.addEventListener("click", function() {
+        var targetId = hdr.dataset.toggleProvider;
+        var body = document.getElementById(targetId);
+        var chev = document.getElementById("pchev-" + targetId);
+        if (!body) return;
+        var collapsed = body.classList.toggle("collapsed");
+        if (chev) chev.textContent = collapsed ? "\u25B8" : "\u25BE";
+      });
+    });
+  }
+  function renderSubCard(sub) {
+    var costHTML = "";
+    if (sub.costAmount > 0) {
+      var sym2 = currencySymbol(sub.costCurrency);
+      costHTML = '<div class="sub-card-cost">' + sym2 + sub.costAmount.toFixed(2) + ' <span class="cycle">/' + esc(sub.billingCycle) + "</span></div>";
+    } else if (sub.billingCycle === "payg") {
+      costHTML = '<div class="sub-card-cost">Pay-as-you-go</div>';
+    }
+    var limitsHTML = "";
+    var chips = [];
+    if (sub.tokenLimit > 0) chips.push(formatNumber(sub.tokenLimit) + " tokens/" + esc(sub.limitPeriod));
+    if (sub.creditLimit > 0) chips.push(formatNumber(sub.creditLimit) + " credits/" + esc(sub.limitPeriod));
+    if (sub.requestLimit > 0) chips.push(formatNumber(sub.requestLimit) + " requests/" + esc(sub.limitPeriod));
+    if (chips.length > 0) {
+      limitsHTML = '<div class="sub-card-limits">';
+      for (var c = 0; c < chips.length; c++) {
+        limitsHTML += '<span class="sub-limit-chip">' + chips[c] + "</span>";
+      }
+      limitsHTML += "</div>";
+    }
+    var badgesHTML = '<span class="sub-status-badge ' + esc(sub.status) + '">' + esc(sub.status) + "</span>";
+    badgesHTML += '<span class="sub-cat-badge">' + esc(sub.category) + "</span>";
+    if (sub.autoTracked) badgesHTML += '<span class="sub-auto-badge">AUTO</span>';
+    var trialHTML = "";
+    if (sub.daysUntilTrialEnd !== void 0 && sub.daysUntilTrialEnd !== null) {
+      if (sub.daysUntilTrialEnd <= 0) {
+        trialHTML = '<span class="trial-countdown">Trial expired!</span>';
+      } else if (sub.daysUntilTrialEnd <= 7) {
+        trialHTML = '<span class="trial-countdown">Trial ends in ' + sub.daysUntilTrialEnd + "d</span>";
+      }
+    }
+    var renewalHTML = "";
+    if (sub.nextRenewal && sub.daysUntilRenewal !== void 0) {
+      var rCls = sub.daysUntilRenewal <= 7 ? "soon" : "";
+      if (sub.daysUntilRenewal < 0) rCls = "overdue";
+      renewalHTML = '<span class="sub-renewal-tag ' + rCls + '">Renews: ' + sub.nextRenewal + " (" + sub.daysUntilRenewal + "d)</span>";
+    }
+    var linksHTML = "";
+    if (sub.url || sub.statusPageUrl) {
+      linksHTML = '<div class="sub-card-links">';
+      if (sub.url) linksHTML += '<a href="' + esc(sub.url) + '" target="_blank" rel="noopener">\u{1F517} Dashboard</a>';
+      if (sub.statusPageUrl) linksHTML += '<a href="' + esc(sub.statusPageUrl) + '" target="_blank" rel="noopener">\u{1F7E2} Status</a>';
+      linksHTML += "</div>";
+    }
+    var notesHTML = "";
+    if (sub.notes) {
+      notesHTML = '<div class="sub-card-notes">' + esc(sub.notes) + "</div>";
+    }
+    var metaParts = [];
+    if (sub.email) metaParts.push(esc(sub.email));
+    if (sub.planName) metaParts.push(esc(sub.planName));
+    var metaHTML = metaParts.length > 0 ? '<div class="sub-card-meta">' + metaParts.join(" \xB7 ") + "</div>" : "";
+    var cardTitle, cardSubtitle;
+    if (sub.autoTracked && sub.email) {
+      cardTitle = esc(sub.email);
+      cardSubtitle = '<span class="sub-card-platform-badge">' + esc(sub.platform) + (sub.planName ? " \xB7 " + esc(sub.planName) : "") + "</span>";
+    } else {
+      cardTitle = esc(sub.platform);
+      cardSubtitle = "";
+    }
+    if (sub.autoTracked) {
+      badgesHTML = badgesHTML.replace(/<span[^>]*>AUTO<\/span>/i, "");
+    }
+    var colorSeed = (sub.platform || "") + (sub.email || "") + sub.id;
+    var hue = 0;
+    for (var ci = 0; ci < colorSeed.length; ci++) {
+      hue = (hue + colorSeed.charCodeAt(ci) * 31) % 360;
+    }
+    var accentStyle = "border-left: 3px solid hsl(" + hue + ", 60%, 55%)";
+    return '<div class="sub-card" data-sub-id="' + sub.id + '" style="' + accentStyle + '"><div class="sub-card-header"><div class="sub-card-title">' + cardTitle + '</div><div class="sub-card-badges">' + trialHTML + badgesHTML + "</div></div>" + (cardSubtitle ? '<div class="sub-card-subtitle">' + cardSubtitle + "</div>" : "") + metaHTML + costHTML + limitsHTML + notesHTML + linksHTML + renewalHTML + '<div class="sub-card-actions"><button class="btn-edit-card" data-edit-id="' + sub.id + '">Edit</button><button class="btn-delete-card" data-delete-id="' + sub.id + '" data-delete-name="' + esc(sub.platform) + '">Delete</button></div></div>';
+  }
+  function initModal() {
+    var overlay = document.getElementById("modal-overlay");
+    var closeBtn = document.getElementById("modal-close");
+    var cancelBtn = document.getElementById("modal-cancel");
+    var saveBtn = document.getElementById("modal-save");
+    document.getElementById("add-sub-btn").addEventListener("click", function() {
+      openModal();
+    });
+    document.getElementById("add-sub-btn-2").addEventListener("click", function() {
+      openModal();
+    });
+    closeBtn.addEventListener("click", closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) closeModal();
+    });
+    saveBtn.addEventListener("click", handleSave);
+    document.getElementById("f-platform").addEventListener("input", function() {
+      var val = this.value;
+      for (var i = 0; i < presetsData.length; i++) {
+        if (presetsData[i].platform === val) {
+          fillFromPreset(presetsData[i]);
+          break;
+        }
+      }
+    });
+    document.getElementById("subs-grid").addEventListener("click", function(e) {
+      var editBtn = e.target.closest("[data-edit-id]");
+      if (editBtn) {
+        var id = parseInt(editBtn.getAttribute("data-edit-id"));
+        openEditModal(id);
+        return;
+      }
+      var deleteBtn = e.target.closest("[data-delete-id]");
+      if (deleteBtn) {
+        var deleteId = parseInt(deleteBtn.getAttribute("data-delete-id"));
+        var deleteName = deleteBtn.getAttribute("data-delete-name");
+        openDeleteConfirm(deleteId, deleteName);
+      }
+    });
+    document.getElementById("delete-close").addEventListener("click", closeDelete);
+    document.getElementById("delete-cancel").addEventListener("click", closeDelete);
+    document.getElementById("delete-overlay").addEventListener("click", function(e) {
+      if (e.target.id === "delete-overlay") closeDelete();
+    });
+    document.getElementById("filter-status").addEventListener("change", loadSubscriptions);
+    document.getElementById("filter-category").addEventListener("change", loadSubscriptions);
+  }
+  function openModal(sub) {
+    var overlay = document.getElementById("modal-overlay");
+    var title = document.getElementById("modal-title");
+    if (sub) {
+      title.textContent = "Edit Subscription";
+      document.getElementById("f-id").value = sub.id || "";
+      document.getElementById("f-platform").value = sub.platform || "";
+      document.getElementById("f-category").value = sub.category || "other";
+      document.getElementById("f-status").value = sub.status || "active";
+      document.getElementById("f-email").value = sub.email || "";
+      document.getElementById("f-plan").value = sub.planName || "";
+      document.getElementById("f-cost").value = sub.costAmount || "";
+      document.getElementById("f-currency").value = sub.costCurrency || "USD";
+      document.getElementById("f-cycle").value = sub.billingCycle || "monthly";
+      document.getElementById("f-token-limit").value = sub.tokenLimit || "";
+      document.getElementById("f-credit-limit").value = sub.creditLimit || "";
+      document.getElementById("f-request-limit").value = sub.requestLimit || "";
+      document.getElementById("f-limit-period").value = sub.limitPeriod || "monthly";
+      document.getElementById("f-renewal").value = sub.nextRenewal || "";
+      document.getElementById("f-trial-ends").value = sub.trialEndsAt || "";
+      document.getElementById("f-url").value = sub.url || "";
+      document.getElementById("f-notes").value = sub.notes || "";
+      document.getElementById("f-status-page-url").value = sub.statusPageUrl || "";
+      document.getElementById("f-auto-tracked").value = sub.autoTracked ? "1" : "0";
+      document.getElementById("f-account-id").value = sub.accountId || "0";
+    } else {
+      title.textContent = "Add Subscription";
+      document.getElementById("sub-modal").querySelectorAll("input, select, textarea").forEach(function(el) {
+        if (el.type === "hidden") {
+          el.value = "";
+          return;
+        }
+        if (el.tagName === "SELECT") {
+          el.selectedIndex = 0;
+          return;
+        }
+        el.value = "";
+      });
+      document.getElementById("f-currency").value = "USD";
+      document.getElementById("f-cycle").value = "monthly";
+      document.getElementById("f-category").value = "coding";
+      document.getElementById("f-limit-period").value = "monthly";
+    }
+    overlay.hidden = false;
+    document.getElementById("f-platform").focus();
+  }
+  function closeModal() {
+    document.getElementById("modal-overlay").hidden = true;
+  }
+  function fillFromPreset(preset) {
+    document.getElementById("f-category").value = preset.category || "other";
+    document.getElementById("f-cost").value = preset.costAmount || "";
+    document.getElementById("f-cycle").value = preset.billingCycle || "monthly";
+    document.getElementById("f-token-limit").value = preset.tokenLimit || "";
+    document.getElementById("f-credit-limit").value = preset.creditLimit || "";
+    document.getElementById("f-request-limit").value = preset.requestLimit || "";
+    document.getElementById("f-limit-period").value = preset.limitPeriod || "monthly";
+    document.getElementById("f-url").value = preset.url || "";
+    document.getElementById("f-notes").value = preset.notes || "";
+    document.getElementById("f-status-page-url").value = preset.statusPageUrl || "";
+  }
+  function openEditModal(id) {
+    fetch("/api/subscriptions/" + id).then(function(res) {
+      return res.json();
+    }).then(function(sub) {
+      openModal(sub);
+    }).catch(function(err) {
+      showToast("\u274C " + err.message, "error");
+    });
+  }
+  function handleSave() {
+    var id = document.getElementById("f-id").value;
+    var sub = {
+      platform: document.getElementById("f-platform").value.trim(),
+      category: document.getElementById("f-category").value,
+      status: document.getElementById("f-status").value,
+      email: document.getElementById("f-email").value.trim(),
+      planName: document.getElementById("f-plan").value.trim(),
+      costAmount: parseFloat(document.getElementById("f-cost").value) || 0,
+      costCurrency: document.getElementById("f-currency").value,
+      billingCycle: document.getElementById("f-cycle").value,
+      tokenLimit: parseInt(document.getElementById("f-token-limit").value) || 0,
+      creditLimit: parseInt(document.getElementById("f-credit-limit").value) || 0,
+      requestLimit: parseInt(document.getElementById("f-request-limit").value) || 0,
+      limitPeriod: document.getElementById("f-limit-period").value,
+      nextRenewal: document.getElementById("f-renewal").value,
+      trialEndsAt: document.getElementById("f-trial-ends").value,
+      url: document.getElementById("f-url").value.trim(),
+      notes: document.getElementById("f-notes").value.trim(),
+      statusPageUrl: document.getElementById("f-status-page-url").value,
+      autoTracked: document.getElementById("f-auto-tracked").value === "1",
+      accountId: parseInt(document.getElementById("f-account-id").value) || 0
+    };
+    if (!sub.platform) {
+      showToast("\u274C Platform name is required", "error");
+      return;
+    }
+    var saveBtn = document.getElementById("modal-save");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    var promise = id ? updateSubscription(parseInt(id), sub) : createSubscription(sub);
+    promise.then(function(data) {
+      showToast("\u2705 " + (id ? "Updated" : "Created") + ": " + sub.platform, "success");
+      closeModal();
+      loadSubscriptions();
+    }).catch(function(err) {
+      showToast("\u274C " + err.message, "error");
+    }).finally(function() {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save Subscription";
+    });
+  }
+  var pendingDeleteId = null;
+  function openDeleteConfirm(id, name) {
+    pendingDeleteId = id;
+    document.getElementById("delete-name").textContent = name;
+    document.getElementById("delete-overlay").hidden = false;
+    document.getElementById("delete-confirm").onclick = function() {
+      deleteSubscription(pendingDeleteId).then(function() {
+        showToast("\u2705 Deleted: " + name, "success");
+        closeDelete();
+        loadSubscriptions();
+      }).catch(function(err) {
+        showToast("\u274C " + err.message, "error");
+      });
+    };
+  }
+  function closeDelete() {
+    document.getElementById("delete-overlay").hidden = true;
+    pendingDeleteId = null;
+  }
+  function initSearch() {
+    var searchEl = document.getElementById("search-subs");
+    if (!searchEl) return;
+    searchEl.addEventListener("input", function() {
+      var query = searchEl.value.toLowerCase().trim();
+      var cards = document.querySelectorAll(".sub-card");
+      var labels = document.querySelectorAll(".sub-category-label");
+      cards.forEach(function(card) {
+        var text = card.textContent.toLowerCase();
+        card.style.display = text.indexOf(query) >= 0 ? "" : "none";
+      });
+      labels.forEach(function(label) {
+        var next = label.nextElementSibling;
+        var anyVisible = false;
+        while (next && !next.classList.contains("sub-category-label")) {
+          if (next.classList.contains("sub-card") && next.style.display !== "none") {
+            anyVisible = true;
+          }
+          next = next.nextElementSibling;
+        }
+        label.style.display = anyVisible ? "" : "none";
+      });
+    });
+  }
+
+  // internal/web/src/overview/budget.ts
+  function getBudget() {
+    return parseFloat(serverConfig["budget_monthly"] || "0");
+  }
+  function setBudget(amount) {
+    serverConfig["budget_monthly"] = amount.toString();
+    updateConfig("budget_monthly", amount.toString());
+  }
+  function updateConfig(key, value) {
+    return fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value })
+    }).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.config) {
+      }
+    }).catch(function(err) {
+      console.error("Config update failed:", err);
+    });
+  }
+  function loadConfig() {
+    return fetch("/api/config").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.config) {
+        data.config.forEach(function(c) {
+          serverConfig[c.key] = c.value;
+        });
+      }
+    });
+  }
+  function initBudget() {
+    document.getElementById("budget-close").addEventListener("click", closeBudget);
+    document.getElementById("budget-cancel").addEventListener("click", closeBudget);
+    document.getElementById("budget-overlay").addEventListener("click", function(e) {
+      if (e.target.id === "budget-overlay") closeBudget();
+    });
+    document.getElementById("budget-save").addEventListener("click", function() {
+      var val = parseFloat(document.getElementById("f-budget").value) || 0;
+      setBudget(val);
+      closeBudget();
+      showToast("\u2705 Budget set to $" + val.toFixed(0) + "/mo", "success");
+      var overviewPanel = document.getElementById("panel-overview");
+      if (overviewPanel && overviewPanel.classList.contains("active")) document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
+    });
+  }
+  function openBudgetModal() {
+    document.getElementById("f-budget").value = String(getBudget() || "");
+    document.getElementById("budget-overlay").hidden = false;
+  }
+  function closeBudget() {
+    document.getElementById("budget-overlay").hidden = true;
+  }
+
+  // internal/web/src/overview/insights.ts
+  function renderServerInsights(insights) {
+    if (!insights || insights.length === 0) return "";
+    var html = '<div class="insight-panel"><h3>\u{1F9E0} Intelligence Insights</h3><div class="insight-list">';
+    var iconMap = {
+      renewal_imminent: "\u{1F534}",
+      trial_expiring: "\u23F3",
+      unused_subscription: "\u{1F4A4}",
+      spending_anomaly: "\u{1F4C8}",
+      category_overlap: "\u{1F501}",
+      annual_savings: "\u{1F4A1}",
+      budget_exceeded: "\u{1F6A8}"
+    };
+    for (var i = 0; i < insights.length; i++) {
+      var ins = insights[i];
+      var icon = iconMap[ins.type] || "\u{1F4A1}";
+      var cls = ins.severity === "critical" ? "critical" : ins.severity === "warning" ? "warning" : "info";
+      html += '<div class="insight-item ' + cls + '"><span class="insight-item-icon">' + icon + '</span><div class="insight-item-content"><div class="insight-item-title">' + esc(ins.type.replace(/_/g, " ")) + '</div><div class="insight-item-msg">' + esc(ins.message) + "</div></div></div>";
+    }
+    html += "</div></div>";
+    return html;
+  }
+  var advisorGroupPref = localStorage.getItem("niyantra_advisor_group") || "claude_gpt";
+  function loadAdvisorCard() {
+    var container = document.getElementById("advisor-card-container");
+    if (!container) return;
+    if (!latestQuotaData || !latestQuotaData.accounts || latestQuotaData.accounts.length < 2) {
+      container.innerHTML = "";
+      return;
+    }
+    renderAdvisorWithGroup(container, advisorGroupPref);
+  }
+  function renderAdvisorWithGroup(container, groupKey) {
+    var accounts = latestQuotaData.accounts;
+    var ranked = [];
+    for (var i = 0; i < accounts.length; i++) {
+      var acc = accounts[i];
+      var groups = acc.groups || [];
+      var pct = null;
+      for (var g = 0; g < groups.length; g++) {
+        if (groups[g].groupKey === groupKey) {
+          pct = Math.round(groups[g].remainingPercent);
+          break;
+        }
+      }
+      if (pct === null) {
+        if (groupKey === "all") {
+          var total = 0;
+          for (var gx = 0; gx < groups.length; gx++) total += groups[gx].remainingPercent;
+          pct = groups.length > 0 ? Math.round(total / groups.length) : 0;
+        } else {
+          pct = 0;
+        }
+      }
+      var isStale = false;
+      if (acc.lastSeen) {
+        var ageMs = Date.now() - new Date(acc.lastSeen).getTime();
+        isStale = ageMs > 6 * 3600 * 1e3;
+      }
+      ranked.push({
+        email: acc.email,
+        pct,
+        stale: isStale,
+        label: acc.stalenessLabel || ""
+      });
+    }
+    ranked.sort(function(a, b) {
+      return b.pct - a.pct;
+    });
+    var groupNames = {
+      "claude_gpt": "Claude + GPT",
+      "gemini_pro": "Gemini Pro",
+      "gemini_flash": "Gemini Flash",
+      "all": "All Models (avg)"
+    };
+    var best = ranked[0];
+    var worst = ranked[ranked.length - 1];
+    var allHealthy = ranked.every(function(a) {
+      return a.pct > 80;
+    });
+    var actionIcon = allHealthy ? "\u2705" : best.pct > 20 ? "\u26A1" : "\u23F3";
+    var actionLabel = allHealthy ? "ALL READY" : best.pct > 20 ? "SWITCH" : "WAIT";
+    var bestLabel = best.email.split("@")[0] + "@...";
+    var html = '<div class="advisor-card"><h3>\u26A1 Antigravity Account Advisor</h3><div class="advisor-group-select"><label>Optimize for:</label><select id="advisor-group-filter" class="filter-select" style="margin-left:8px;font-size:12px"><option value="claude_gpt"' + (groupKey === "claude_gpt" ? " selected" : "") + '>Claude + GPT</option><option value="gemini_pro"' + (groupKey === "gemini_pro" ? " selected" : "") + '>Gemini Pro</option><option value="gemini_flash"' + (groupKey === "gemini_flash" ? " selected" : "") + '>Gemini Flash</option><option value="all"' + (groupKey === "all" ? " selected" : "") + ">All Models (avg)</option></select></div>";
+    var actionCls = allHealthy ? "stay" : best.pct > 20 ? "switch" : "wait";
+    html += '<div class="advisor-action ' + actionCls + '">' + actionIcon + " " + actionLabel + '</div><div class="advisor-reason">' + (allHealthy ? "All accounts have healthy quotas \u2014 no switch needed" : "Best: " + esc(best.email) + " (" + best.pct + "% " + esc(groupNames[groupKey] || groupKey) + " remaining)") + (best.stale ? " \u26A0\uFE0F stale data" : "") + "</div>";
+    html += '<div class="advisor-scores">';
+    var initialShow = Math.min(ranked.length, 5);
+    for (var s = 0; s < ranked.length; s++) {
+      var acct = ranked[s];
+      var isBest = s === 0;
+      var barCls = acct.pct > 50 ? "good" : acct.pct > 20 ? "ok" : "low";
+      var staleIcon = acct.stale ? ' <span class="stale-icon" title="Data ' + esc(acct.label) + '">\u26A0</span>' : "";
+      var hidden = s >= initialShow ? ' style="display:none" data-advisor-extra' : "";
+      html += '<div class="advisor-score-row' + (isBest ? " best" : "") + '"' + hidden + '><span class="advisor-score-email" title="' + esc(acct.email) + '">' + esc(acct.email) + '</span><div class="advisor-score-bar"><div class="advisor-score-fill ' + barCls + '" style="width:' + acct.pct + '%"></div></div><span class="advisor-score-val">' + acct.pct + "%" + staleIcon + "</span></div>";
+    }
+    if (ranked.length > initialShow) {
+      html += '<button class="advisor-show-all" id="advisor-toggle-all">Show all ' + ranked.length + " accounts</button>";
+    }
+    html += "</div></div>";
+    container.innerHTML = html;
+    var sel = document.getElementById("advisor-group-filter");
+    if (sel) {
+      sel.addEventListener("change", function() {
+        advisorGroupPref = sel.value;
+        localStorage.setItem("niyantra_advisor_group", advisorGroupPref);
+        renderAdvisorWithGroup(container, advisorGroupPref);
+      });
+    }
+    var toggleBtn = document.getElementById("advisor-toggle-all");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", function() {
+        var extras = container.querySelectorAll("[data-advisor-extra]");
+        var showing = toggleBtn.textContent.indexOf("Hide") >= 0;
+        extras.forEach(function(el) {
+          el.style.display = showing ? "none" : "";
+        });
+        toggleBtn.textContent = showing ? "Show all " + ranked.length + " accounts" : "Hide extras";
+      });
+    }
+  }
+
+  // internal/web/src/overview/cost.ts
+  function loadCostKPI() {
+    var container = document.getElementById("cost-kpi-container");
+    if (!container) return;
+    fetch("/api/cost").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (!data || !data.accounts || data.accounts.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var total = data.totalCost || 0;
+      if (total < 0.01) {
+        container.innerHTML = "";
+        return;
+      }
+      var totalLabel = data.totalLabel || "$0.00";
+      var html = '<div class="cost-kpi-card overview-card"><h3>Estimated Spend (Current Cycle)</h3><div class="cost-kpi-amount">' + esc(totalLabel) + '</div><div class="cost-kpi-label">Estimated cost based on quota consumption \xD7 model pricing</div>';
+      var hasChips = false;
+      var chipsHTML = '<div class="cost-kpi-breakdown">';
+      if (data.accounts && data.accounts.length > 0) {
+        for (var i = 0; i < data.accounts.length; i++) {
+          var acct = data.accounts[i];
+          if (acct.totalCost >= 0.01) {
+            hasChips = true;
+            var emailShort = acct.email;
+            if (emailShort && emailShort.length > 20) {
+              emailShort = emailShort.split("@")[0] + "@\u2026";
+            }
+            chipsHTML += '<span class="cost-kpi-chip" title="' + esc(acct.email) + '">' + esc(emailShort) + ": " + esc(acct.totalLabel) + "</span>";
+          }
+        }
+      }
+      chipsHTML += "</div>";
+      if (hasChips) html += chipsHTML;
+      html += "</div>";
+      container.innerHTML = html;
+    }).catch(function(err) {
+      console.error("Cost KPI fetch failed:", err);
+      container.innerHTML = "";
+    });
+  }
+
+  // internal/web/src/overview/streaks.ts
+  function renderStreakCard(data) {
+    if (!data || data.totalSnapshots === 0) return "";
+    var fireEmojis = data.streak >= 30 ? "\u{1F525}\u{1F525}\u{1F525}" : data.streak >= 14 ? "\u{1F525}\u{1F525}" : data.streak >= 7 ? "\u{1F525}" : data.streak >= 1 ? "\u{1F525}" : "";
+    var streakLabel = data.streak === 0 ? "No active streak \u2014 take a snapshot today!" : data.streak + "-day streak " + fireEmojis;
+    return '<div class="streak-card"><div class="streak-main"><div class="streak-number">' + (data.streak || 0) + '</div><div class="streak-label">' + streakLabel + '</div></div><div class="streak-stats"><div class="streak-stat"><span class="streak-stat-val">' + formatCount(data.totalSnapshots) + '</span><span class="streak-stat-label">Total Snaps</span></div><div class="streak-stat"><span class="streak-stat-val">' + data.activeDays + '</span><span class="streak-stat-label">Active Days</span></div><div class="streak-stat"><span class="streak-stat-val">' + data.longestStreak + '</span><span class="streak-stat-label">Best Streak</span></div></div></div>';
+  }
+  function formatCount(n) {
+    if (n >= 1e4) return (n / 1e3).toFixed(1) + "k";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "k";
+    return n.toString();
+  }
+
+  // internal/web/src/overview/heatmap.ts
+  function loadHeatmap() {
+    var container = document.getElementById("heatmap-container");
+    if (!container) return;
+    fetch("/api/history/heatmap?days=365").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (!data) {
+        container.innerHTML = "";
+        return;
+      }
+      renderHeatmap(container, data);
+    }).catch(function(err) {
+      console.error("Heatmap fetch failed:", err);
+      container.innerHTML = "";
+    });
+  }
+  function renderHeatmap(container, data) {
+    var days = data.days || [];
+    var maxCount = data.maxCount || 1;
+    var dayMap = {};
+    for (var i = 0; i < days.length; i++) {
+      dayMap[days[i].date] = days[i];
+    }
+    var today = /* @__PURE__ */ new Date();
+    var startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 364);
+    var dayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+    var totalDays = Math.ceil((today.getTime() - startDate.getTime()) / (1e3 * 60 * 60 * 24)) + 1;
+    var totalWeeks = Math.ceil(totalDays / 7);
+    var monthLabels = [];
+    var lastMonth = -1;
+    var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var cellsHTML = "";
+    for (var w = 0; w < totalWeeks; w++) {
+      for (var d = 0; d < 7; d++) {
+        var cellDate = new Date(startDate);
+        cellDate.setDate(startDate.getDate() + w * 7 + d);
+        if (cellDate > today) {
+          cellsHTML += '<div class="heatmap-cell heatmap-empty"></div>';
+          continue;
+        }
+        var dateStr = formatDateISO(cellDate);
+        var entry = dayMap[dateStr];
+        var count = entry ? entry.count : 0;
+        var level = getIntensityLevel(count, maxCount);
+        var month = cellDate.getMonth();
+        if (month !== lastMonth && d === 0) {
+          monthLabels.push({ label: monthNames[month], col: w });
+          lastMonth = month;
+        }
+        var tooltip = formatDateHuman(cellDate) + ": ";
+        if (count === 0) {
+          tooltip += "No activity";
+        } else {
+          tooltip += count + " snapshot" + (count !== 1 ? "s" : "");
+          if (entry) {
+            var parts = [];
+            if (entry.antigravity > 0) parts.push(entry.antigravity + " AG");
+            if (entry.claude > 0) parts.push(entry.claude + " Claude");
+            if (entry.codex > 0) parts.push(entry.codex + " Codex");
+            if (entry.cursor > 0) parts.push(entry.cursor + " Cursor");
+            if (entry.gemini > 0) parts.push(entry.gemini + " Gemini");
+            if (entry.copilot > 0) parts.push(entry.copilot + " Copilot");
+            if (parts.length > 0) tooltip += " (" + parts.join(", ") + ")";
+          }
+        }
+        cellsHTML += '<div class="heatmap-cell heatmap-level-' + level + '" data-date="' + dateStr + '" data-count="' + count + '" aria-label="' + tooltip + '" title="' + tooltip + '"></div>';
+      }
+    }
+    var monthLabelHTML = '<div class="heatmap-month-labels" style="grid-template-columns: 28px repeat(' + totalWeeks + ', 1fr)">';
+    monthLabelHTML += "<div></div>";
+    var lastCol = -2;
+    for (var m = 0; m < monthLabels.length; m++) {
+      if (monthLabels[m].col > lastCol + 2) {
+        monthLabelHTML += '<div class="heatmap-month" style="grid-column: ' + (monthLabels[m].col + 2) + '">' + monthLabels[m].label + "</div>";
+        lastCol = monthLabels[m].col;
+      }
+    }
+    monthLabelHTML += "</div>";
+    var statsHTML = '<div class="heatmap-stats"><span class="heatmap-stat"><span class="heatmap-stat-value">' + data.totalSnapshots + '</span><span class="heatmap-stat-label">snapshots</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">' + data.activeDays + '</span><span class="heatmap-stat-label">active days</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">' + data.streak + 'd</span><span class="heatmap-stat-label">current streak</span></span><span class="heatmap-stat"><span class="heatmap-stat-value">' + data.longestStreak + 'd</span><span class="heatmap-stat-label">longest streak</span></span></div>';
+    var legendHTML = '<div class="heatmap-legend"><span class="heatmap-legend-label">Less</span><div class="heatmap-cell heatmap-level-0 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-1 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-2 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-3 heatmap-legend-cell"></div><div class="heatmap-cell heatmap-level-4 heatmap-legend-cell"></div><span class="heatmap-legend-label">More</span></div>';
+    var dayLabels = '<div class="heatmap-day-labels"><div></div><div class="heatmap-day-label">Mon</div><div></div><div class="heatmap-day-label">Wed</div><div></div><div class="heatmap-day-label">Fri</div><div></div></div>';
+    var gridHTML = '<div class="heatmap-scroll"><div class="heatmap-body">' + dayLabels + '<div class="heatmap-grid" style="grid-template-columns: repeat(' + totalWeeks + ', 1fr)">' + cellsHTML + "</div></div></div>";
+    var streakHTML = renderStreakCard(data);
+    container.innerHTML = streakHTML + "<h3>Activity</h3>" + monthLabelHTML + gridHTML + '<div class="heatmap-footer">' + legendHTML + "</div>";
+  }
+  function getIntensityLevel(count, max) {
+    if (count === 0) return 0;
+    if (max <= 1) return 4;
+    var ratio = count / max;
+    if (ratio <= 0.25) return 1;
+    if (ratio <= 0.5) return 2;
+    if (ratio <= 0.75) return 3;
+    return 4;
+  }
+  function formatDateISO(d) {
+    var y = d.getFullYear();
+    var m = (d.getMonth() + 1).toString().padStart(2, "0");
+    var day = d.getDate().toString().padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+  function formatDateHuman(d) {
+    var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return days[d.getDay()] + ", " + months[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear();
+  }
+
+  // internal/web/src/overview/calendar.ts
+  var calendarViewDate = /* @__PURE__ */ new Date();
+  function renderRenewalCalendar(renewals, subs) {
+    var container = document.getElementById("renewal-calendar-container");
+    if (!container) return;
+    var renewalMap = {};
+    if (renewals) {
+      for (var i = 0; i < renewals.length; i++) {
+        var r = renewals[i];
+        var dateKey = r.nextRenewal;
+        if (!renewalMap[dateKey]) renewalMap[dateKey] = [];
+        var cat = "other";
+        if (subs) {
+          for (var s = 0; s < subs.length; s++) {
+            if (subs[s].platform === r.platform && subs[s].category) {
+              cat = subs[s].category;
+              break;
+            }
+          }
+        }
+        renewalMap[dateKey].push({ platform: r.platform, category: cat, daysUntil: r.daysUntil });
+      }
+    }
+    var year = calendarViewDate.getFullYear();
+    var month = calendarViewDate.getMonth();
+    var today = /* @__PURE__ */ new Date();
+    var todayKey = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    var monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ];
+    var dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var firstDay = new Date(year, month, 1).getDay();
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+    var prevDays = new Date(year, month, 0).getDate();
+    var html = '<div class="calendar-container"><div class="calendar-header"><h3>\u{1F4C5} Renewal Calendar</h3><div class="calendar-nav"><button class="calendar-nav-btn" onclick="calendarNav(-1)">\u2039</button><span class="calendar-month-label">' + monthNames[month] + " " + year + '</span><button class="calendar-nav-btn" onclick="calendarNav(1)">\u203A</button></div></div>';
+    html += '<div class="calendar-weekdays">';
+    for (var d = 0; d < 7; d++) {
+      html += '<div class="calendar-weekday">' + dayNames[d] + "</div>";
+    }
+    html += "</div>";
+    html += '<div class="calendar-grid">';
+    for (var p = firstDay - 1; p >= 0; p--) {
+      html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + (prevDays - p) + "</span></div>";
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      dateKey = year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      var isToday = dateKey === todayKey;
+      var dayClass = isToday ? "calendar-day today" : "calendar-day";
+      var events = renewalMap[dateKey];
+      html += '<div class="' + dayClass + '"';
+      if (events && events.length > 0) {
+        var tooltipText = events.map(function(e2) {
+          return e2.platform;
+        }).join(", ");
+        html += ' title="' + esc(tooltipText) + '"';
+      }
+      html += ">";
+      html += '<span class="calendar-day-num">' + day + "</span>";
+      if (events && events.length > 0) {
+        html += '<div class="calendar-pins">';
+        for (var e = 0; e < Math.min(events.length, 4); e++) {
+          html += '<span class="calendar-pin ' + esc(events[e].category) + '"></span>';
+        }
+        html += "</div>";
+      }
+      html += "</div>";
+    }
+    var totalCells = firstDay + daysInMonth;
+    var remaining = 7 - totalCells % 7;
+    if (remaining < 7) {
+      for (var n = 1; n <= remaining; n++) {
+        html += '<div class="calendar-day other-month"><span class="calendar-day-num">' + n + "</span></div>";
+      }
+    }
+    html += "</div>";
+    var categories = {};
+    for (var key in renewalMap) {
+      for (var ci = 0; ci < renewalMap[key].length; ci++) {
+        categories[renewalMap[key][ci].category] = true;
+      }
+    }
+    var catKeys = Object.keys(categories);
+    if (catKeys.length > 0) {
+      html += '<div class="calendar-legend">';
+      for (var cl = 0; cl < catKeys.length; cl++) {
+        html += '<div class="calendar-legend-item"><span class="calendar-legend-dot ' + esc(catKeys[cl]) + '"></span>' + esc(catKeys[cl]) + "</div>";
+      }
+      html += "</div>";
+    }
+    html += "</div>";
+    container.innerHTML = html;
+  }
+  function calendarNav(delta) {
+    calendarViewDate.setMonth(calendarViewDate.getMonth() + delta);
+    var el = document.getElementById("renewal-calendar-container");
+    if (el) {
+      document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
+    }
+  }
+
+  // internal/web/src/advanced/claude.ts
+  function loadClaudeBridgeStatus() {
+    fetch("/api/claude/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var statusEl = document.getElementById("claude-bridge-status");
+      if (!statusEl) return;
+      var bridgeOn = data.bridgeEnabled;
+      var installed = data.installed;
+      if (!bridgeOn) {
+        statusEl.style.display = "none";
+        return;
+      }
+      var msg = "";
+      if (!installed) {
+        msg = "\u26A0\uFE0F Claude Code not detected (~/.claude/ not found)";
+      } else if (data.bridgeFresh) {
+        msg = '<span class="claude-bridge-dot"></span> Bridge active';
+        if (data.snapshot) {
+          msg += " \xB7 5h: " + data.snapshot.fiveHourPct.toFixed(1) + "% used";
+        }
+      } else if (data.snapshot) {
+        msg = '<span class="claude-bridge-dot stale"></span> Last data: ' + formatTimeAgo(data.snapshot.capturedAt);
+      } else {
+        msg = '<span class="claude-bridge-dot off"></span> Waiting for Claude Code statusline data...';
+      }
+      statusEl.innerHTML = msg;
+      statusEl.style.display = "";
+    }).catch(function() {
+    });
+  }
+  function renderClaudeCodeCard() {
+    return '<div class="claude-card" id="claude-code-card"><h3>\u{1F517} Claude Code</h3><div id="claude-card-body"><div class="empty-hint">Loading...</div></div><div id="claude-deep-usage" class="claude-deep-section"></div></div>';
+  }
+  function loadClaudeCardData() {
+    fetch("/api/claude/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var body = document.getElementById("claude-card-body");
+      if (!body) return;
+      if (!data.snapshot) {
+        body.innerHTML = '<div class="empty-hint">No Claude Code data yet. Start a Claude Code session to see rate limits.</div>';
+        return;
+      }
+      var snap = data.snapshot;
+      var html = "";
+      var fiveColor = meterColor(snap.fiveHourPct);
+      var fiveReset = snap.fiveHourReset ? "\u21BB " + formatResetTime(snap.fiveHourReset) : "";
+      html += '<div class="claude-meter"><span class="claude-meter-label">5-Hour</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.fiveHourPct + "%;background:" + fiveColor + '"></div></div><span class="claude-meter-pct" style="color:' + fiveColor + '">' + snap.fiveHourPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + fiveReset + "</span></div>";
+      if (snap.sevenDayPct !== void 0) {
+        var sevenColor = meterColor(snap.sevenDayPct);
+        var sevenReset = snap.sevenDayReset ? "\u21BB " + formatResetTime(snap.sevenDayReset) : "";
+        html += '<div class="claude-meter"><span class="claude-meter-label">7-Day</span><div class="claude-meter-track"><div class="claude-meter-fill" style="width:' + snap.sevenDayPct + "%;background:" + sevenColor + '"></div></div><span class="claude-meter-pct" style="color:' + sevenColor + '">' + snap.sevenDayPct.toFixed(1) + '%</span><span class="claude-meter-reset">' + sevenReset + "</span></div>";
+      }
+      var dotCls = data.bridgeFresh ? "" : "stale";
+      var agoStr = formatTimeAgo(snap.capturedAt);
+      html += '<div class="claude-bridge-badge"><span class="claude-bridge-dot ' + dotCls + '"></span>Bridge ' + (data.bridgeFresh ? "active" : "stale") + " \xB7 Last: " + agoStr + "</div>";
+      body.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function meterColor(pct) {
+    if (pct >= 80) return "var(--red)";
+    if (pct >= 50) return "var(--amber)";
+    return "var(--green)";
+  }
+  function loadClaudeDeepUsage() {
+    fetch("/api/claude/usage?days=30").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("claude-deep-usage");
+      if (!container) return;
+      if (!data || !data.days || data.days.length === 0) {
+        container.innerHTML = '<div class="empty-hint">No Claude Code session data found. Start coding with Claude Code to see token analytics.</div>';
+        return;
+      }
+      var html = "";
+      html += '<div class="claude-deep-stats">';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + formatTokens(data.totalTokens) + '</span><span class="claude-deep-label">tokens (30d)</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">$' + (data.totalCost || 0).toFixed(2) + '</span><span class="claude-deep-label">est. cost</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + (data.totalSessions || 0) + '</span><span class="claude-deep-label">sessions</span></div>';
+      html += '<div class="claude-deep-stat"><span class="claude-deep-value">' + ((data.cacheHitRate || 0) * 100).toFixed(0) + '%</span><span class="claude-deep-label">cache hit</span></div>';
+      html += "</div>";
+      var totalIn = data.totalInput || 0;
+      var totalOut = data.totalOutput || 0;
+      var totalAll = totalIn + totalOut;
+      if (totalAll > 0) {
+        var inPct = (totalIn / totalAll * 100).toFixed(0);
+        var outPct = (totalOut / totalAll * 100).toFixed(0);
+        html += '<div class="claude-token-bar"><div class="claude-token-in" style="width:' + inPct + '%"><span>In ' + formatTokens(totalIn) + '</span></div><div class="claude-token-out" style="width:' + outPct + '%"><span>Out ' + formatTokens(totalOut) + "</span></div></div>";
+      }
+      if (data.topModel) {
+        html += '<div class="claude-deep-meta"><span class="claude-deep-chip">\u{1F3C6} ' + data.topModel + "</span></div>";
+      }
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function formatTokens(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return n.toString();
+  }
+
+  // internal/web/src/advanced/codex.ts
+  function loadCodexSettingsStatus() {
+    var statusEl = document.getElementById("codex-status-settings");
+    if (!statusEl) return;
+    fetch("/api/codex/status").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      statusEl.style.display = "";
+      if (!data.installed) {
+        statusEl.innerHTML = '<span style="color:var(--text-muted)">\u26A0\uFE0F Codex CLI not detected. Install <a href="https://github.com/openai/codex" target="_blank" style="color:var(--accent)">Codex</a> and run <code>codex auth</code> to enable.</span>';
+        return;
+      }
+      var tokenStatus = data.tokenExpired ? '<span style="color:var(--warning)">\u26A0\uFE0F Token expired \u2014 will auto-refresh on next poll</span>' : '<span style="color:var(--success)">\u2705 Token valid (expires ' + (data.tokenExpiresIn || "?") + ")</span>";
+      var displayId = data.email || (data.accountId && data.accountId.length > 12 ? data.accountId.substring(0, 6) + "\u2026" + data.accountId.slice(-6) : data.accountId || "unknown");
+      statusEl.innerHTML = "\u{1F916} Codex detected \xB7 Account: <strong>" + esc(displayId) + "</strong><br>" + tokenStatus;
+      if (data.snapshot) {
+        statusEl.innerHTML += "<br>Latest: <strong>" + data.snapshot.fiveHourPct.toFixed(1) + '%</strong> used (5h) \xB7 <span style="color:var(--text-muted)">' + formatTimeAgo(data.snapshot.capturedAt) + "</span>";
+      }
+    }).catch(function() {
+      statusEl.style.display = "none";
+    });
+  }
+  function handleCodexSnap() {
+    showToast("\u{1F916} Capturing Codex snapshot...", "info");
+    fetch("/api/codex/snap", { method: "POST" }).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u{1F916} Codex snapshot captured! Plan: " + (data.plan || "unknown"), "success");
+      loadCodexSettingsStatus();
+      document.dispatchEvent(new CustomEvent("niyantra:overview-refresh"));
+    }).catch(function() {
+      showToast("\u274C Codex snap failed", "error");
+    });
+  }
+  function renderSessionsTimeline(container) {
+    fetch("/api/sessions?limit=10").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (!data.sessions || data.sessions.length === 0) return;
+      var html = '<div class="overview-card sessions-card">';
+      html += '<div class="card-header"><h3>\u23F1\uFE0F Usage Sessions</h3>';
+      html += '<span class="card-count">' + data.count + " sessions</span>";
+      html += "</div>";
+      html += '<div class="card-body">';
+      html += '<div class="session-timeline">';
+      for (var i = 0; i < data.sessions.length; i++) {
+        var sess = data.sessions[i];
+        var isActive = !sess.endedAt;
+        var duration = isActive ? formatDurationSec(Math.floor((Date.now() - new Date(sess.startedAt).getTime()) / 1e3)) : formatDurationSec(sess.durationSec);
+        var providerIcon = sess.provider === "codex" ? "\u{1F916}" : sess.provider === "claude" ? "\u{1F52E}" : "\u26A1";
+        html += '<div class="session-item' + (isActive ? " active" : "") + '">';
+        html += '<div class="session-dot' + (isActive ? " pulse" : "") + '"></div>';
+        html += '<div class="session-content">';
+        html += '<div class="session-top">';
+        html += '<span class="session-provider">' + providerIcon + " " + esc(sess.provider) + "</span>";
+        html += '<span class="session-duration">' + duration + "</span>";
+        html += "</div>";
+        html += '<div class="session-bottom">';
+        html += '<span class="session-time">' + formatTimeAgo(sess.startedAt) + "</span>";
+        html += '<span class="session-snaps">' + sess.snapCount + " snaps</span>";
+        if (isActive) html += '<span class="session-active-badge">LIVE</span>';
+        html += "</div>";
+        html += "</div></div>";
+      }
+      html += "</div></div></div>";
+      var codexCard = container.querySelector(".codex-card");
+      var existing = container.querySelector(".sessions-card");
+      if (existing) {
+        existing.outerHTML = html;
+      } else if (codexCard) {
+        codexCard.insertAdjacentHTML("afterend", html);
+      } else {
+        container.insertAdjacentHTML("afterbegin", html);
+      }
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/overview/tokenAnalytics.ts
+  function loadTokenAnalytics() {
+    var container = document.getElementById("token-analytics-container");
+    if (!container) return;
+    var rangeSelector = document.getElementById("token-range-selector");
+    var days = 30;
+    if (rangeSelector) {
+      days = parseInt(rangeSelector.value) || 30;
+    }
+    fetch("/api/token-usage?days=" + days).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      renderTokenAnalytics(container, data, days);
+    }).catch(function(err) {
+      console.error("Token analytics fetch failed:", err);
+      container.innerHTML = '<div class="token-analytics-empty">Failed to load token analytics</div>';
+    });
+  }
+  function renderTokenAnalytics(container, data, days) {
+    if (!data || !data.totals || data.totals.totalTokens === 0) {
+      container.innerHTML = '<div class="overview-card full-width token-analytics-card"><h3>\u{1F525} Token Usage Analytics</h3><div class="token-analytics-empty"><p>No token usage data available yet.</p><p style="font-size:12px;color:var(--text-secondary)">Use Claude Code to generate token usage data. Session files are parsed from <code>~/.claude/projects/</code>.</p></div></div>';
+      return;
+    }
+    var totals = data.totals;
+    var kpis = data.kpis || {};
+    var models = data.byModel || [];
+    var dailyData = data.byDay || [];
+    var rangeOptions = [
+      { value: "7", label: "7d" },
+      { value: "30", label: "30d" },
+      { value: "90", label: "90d" },
+      { value: "365", label: "1y" }
+    ];
+    var rangeHTML = '<div class="token-range-bar">';
+    for (var i = 0; i < rangeOptions.length; i++) {
+      var opt = rangeOptions[i];
+      var activeClass = String(days) === opt.value ? " token-range-active" : "";
+      rangeHTML += '<button class="token-range-btn' + activeClass + '" data-days="' + opt.value + '">' + opt.label + "</button>";
+    }
+    rangeHTML += "</div>";
+    var kpiHTML = '<div class="token-kpi-row">';
+    kpiHTML += buildKpiCard("Total Tokens", formatTokens2(totals.totalTokens), "\u{1F4CA}");
+    kpiHTML += buildKpiCard("Est. Cost", "$" + (totals.estimatedCostUSD || 0).toFixed(2), "\u{1F4B0}");
+    kpiHTML += buildKpiCard("Active Days", String(kpis.daysActive || 0), "\u{1F4C5}");
+    kpiHTML += buildKpiCard("Avg/Day", formatTokens2(kpis.avgTokensPerDay || 0), "\u{1F4C8}");
+    kpiHTML += buildKpiCard("Cache Rate", Math.round((kpis.cacheHitRate || 0) * 100) + "%", "\u26A1");
+    kpiHTML += "</div>";
+    var chipsHTML = '<div class="token-breakdown-chips">';
+    chipsHTML += '<span class="token-chip token-chip-input">Input: ' + formatTokens2(totals.inputTokens) + "</span>";
+    chipsHTML += '<span class="token-chip token-chip-output">Output: ' + formatTokens2(totals.outputTokens) + "</span>";
+    chipsHTML += '<span class="token-chip token-chip-cache">Cache: ' + formatTokens2(totals.cacheTokens) + "</span>";
+    if (totals.sessions > 0) {
+      chipsHTML += '<span class="token-chip token-chip-sessions">Sessions: ' + totals.sessions + "</span>";
+    }
+    chipsHTML += "</div>";
+    var modelHTML = "";
+    if (models.length > 0) {
+      modelHTML = '<div class="token-section">';
+      modelHTML += "<h4>Model Distribution</h4>";
+      modelHTML += '<div class="token-model-bars">';
+      var colors = ["#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#ef4444"];
+      var topModels = models.slice(0, 7);
+      for (var mi = 0; mi < topModels.length; mi++) {
+        var model = topModels[mi];
+        var color = colors[mi % colors.length];
+        var pct = model.percentage || 0;
+        var costLabel = model.costUSD > 0 ? " \xB7 $" + model.costUSD.toFixed(2) : "";
+        modelHTML += '<div class="token-model-row"><div class="token-model-header"><span class="token-model-name" style="color:' + color + '">' + escapeHtml(model.model) + '</span><span class="token-model-stats">' + formatTokens2(model.totalTokens) + " (" + pct.toFixed(1) + "%)" + costLabel + '</span></div><div class="token-model-bar-track"><div class="token-model-bar-fill" style="width:' + pct + "%;background:" + color + '"></div></div></div>';
+      }
+      modelHTML += "</div></div>";
+    }
+    var chartHTML = "";
+    if (dailyData.length > 0) {
+      chartHTML = '<div class="token-section">';
+      chartHTML += "<h4>Daily Token Burn</h4>";
+      chartHTML += '<div class="token-daily-chart">';
+      var maxTokens = 0;
+      for (var di = 0; di < dailyData.length; di++) {
+        if (dailyData[di].totalTokens > maxTokens) maxTokens = dailyData[di].totalTokens;
+      }
+      var displayDays = dailyData;
+      if (displayDays.length > 60) {
+        displayDays = displayDays.slice(displayDays.length - 60);
+      }
+      for (var dj = 0; dj < displayDays.length; dj++) {
+        var day = displayDays[dj];
+        var barHeight = maxTokens > 0 ? Math.max(2, day.totalTokens / maxTokens * 100) : 2;
+        var inputPct = day.totalTokens > 0 ? day.inputTokens / day.totalTokens * barHeight : 0;
+        var outputPct = barHeight - inputPct;
+        var dayLabel = day.date.substring(5);
+        chartHTML += '<div class="token-bar-col" title="' + day.date + ": " + formatTokens2(day.totalTokens) + " tokens, $" + (day.costUSD || 0).toFixed(2) + '"><div class="token-bar-stack" style="height:' + barHeight + '%"><div class="token-bar-output" style="height:' + outputPct + '%"></div><div class="token-bar-input" style="height:' + inputPct + '%"></div></div><span class="token-bar-label">' + dayLabel + "</span></div>";
+      }
+      chartHTML += "</div>";
+      chartHTML += '<div class="token-chart-legend"><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-input-color)"></span>Input</span><span class="token-legend-item"><span class="token-legend-dot" style="background:var(--token-output-color)"></span>Output</span></div>';
+      chartHTML += "</div>";
+    }
+    var peakHTML = "";
+    if (kpis.peakDay) {
+      peakHTML = '<div class="token-peak-badge">\u{1F525} Peak: ' + kpis.peakDay + " \u2014 " + formatTokens2(kpis.peakDayTokens) + " tokens</div>";
+    }
+    container.innerHTML = '<div class="overview-card full-width token-analytics-card"><div class="token-analytics-header"><h3>\u{1F525} Token Usage Analytics</h3>' + rangeHTML + "</div>" + kpiHTML + chipsHTML + peakHTML + modelHTML + chartHTML + "</div>";
+    var rangeBtns = container.querySelectorAll(".token-range-btn");
+    for (var bi = 0; bi < rangeBtns.length; bi++) {
+      rangeBtns[bi].addEventListener("click", function() {
+        var newDays = this.getAttribute("data-days") || "30";
+        var allBtns = container.querySelectorAll(".token-range-btn");
+        for (var k = 0; k < allBtns.length; k++) allBtns[k].classList.remove("token-range-active");
+        this.classList.add("token-range-active");
+        fetch("/api/token-usage?days=" + newDays).then(function(res) {
+          return res.json();
+        }).then(function(d) {
+          renderTokenAnalytics(container, d, parseInt(newDays));
+        });
+      });
+    }
+  }
+  function buildKpiCard(label, value, icon) {
+    return '<div class="token-kpi-card"><div class="token-kpi-icon">' + icon + '</div><div class="token-kpi-value">' + value + '</div><div class="token-kpi-label">' + label + "</div></div>";
+  }
+  function formatTokens2(n) {
+    if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return String(n);
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // internal/web/src/overview/gitCosts.ts
+  function loadGitCosts() {
+    var container = document.getElementById("git-costs-container");
+    if (!container) return;
+    fetch("/api/git-costs?days=30").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      renderGitCosts(container, data);
+    }).catch(function(err) {
+      console.error("Git costs fetch failed:", err);
+      container.innerHTML = "";
+    });
+  }
+  function renderGitCosts(container, data) {
+    if (!data || !data.commits || data.commits.length === 0) {
+      container.innerHTML = '<div class="overview-card full-width git-costs-card"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><div class="git-costs-empty"><p>No git commit data available.</p><p style="font-size:12px;color:var(--text-secondary)">Ensure you are running Niyantra from within a git repository, or pass <code>?repo=/path</code> to the API.</p></div></div>';
+      return;
+    }
+    var totals = data.totals || {};
+    var commits = data.commits || [];
+    var branches = data.branches || [];
+    var hasAICosts = totals.totalTokens > 0;
+    var kpiHTML = '<div class="git-kpi-row">';
+    kpiHTML += buildKpi("Commits", String(totals.commitCount || 0), "\u{1F4DD}");
+    kpiHTML += buildKpi("AI Cost", "$" + (totals.costUSD || 0).toFixed(2), "\u{1F4B0}");
+    kpiHTML += buildKpi("Avg/Commit", "$" + (totals.avgPerCommit || 0).toFixed(2), "\u{1F4CA}");
+    kpiHTML += buildKpi("Top Branch", truncate(totals.topBranch || "\u2014", 18), "\u{1F33F}");
+    kpiHTML += "</div>";
+    if (!hasAICosts) {
+      kpiHTML += '<div class="git-no-ai-banner">No Claude Code session data found in the commit time windows. AI costs will appear when commits overlap with Claude Code usage.</div>';
+    }
+    var chartHTML = "";
+    if (commits.length > 0 && hasAICosts) {
+      chartHTML = '<div class="git-section">';
+      chartHTML += "<h4>Cost per Commit</h4>";
+      chartHTML += '<div class="git-commit-chart">';
+      var maxCost = 0;
+      for (var ci = 0; ci < commits.length; ci++) {
+        if (commits[ci].costUSD > maxCost) maxCost = commits[ci].costUSD;
+      }
+      var displayCommits = commits;
+      if (displayCommits.length > 40) {
+        displayCommits = displayCommits.slice(0, 40);
+      }
+      for (var di = 0; di < displayCommits.length; di++) {
+        var c = displayCommits[di];
+        var barH = maxCost > 0 ? Math.max(3, c.costUSD / maxCost * 100) : 3;
+        var barColor = c.costUSD > 0 ? "var(--accent)" : "var(--border)";
+        chartHTML += '<div class="git-bar-col" title="' + escapeAttr(c.shortHash) + ": " + escapeAttr(c.message) + "\n$" + c.costUSD.toFixed(2) + " \xB7 " + formatTokens3(c.totalTokens) + ' tokens"><div class="git-bar" style="height:' + barH + "%;background:" + barColor + '"></div><span class="git-bar-hash">' + c.shortHash + "</span></div>";
+      }
+      chartHTML += "</div></div>";
+    }
+    var branchHTML = "";
+    if (branches.length > 0 && hasAICosts) {
+      branchHTML = '<div class="git-section">';
+      branchHTML += "<h4>Branch Costs</h4>";
+      branchHTML += '<div class="git-branch-table">';
+      branchHTML += '<div class="git-branch-header"><span>Branch</span><span>Commits</span><span>Tokens</span><span>Cost</span><span>Avg</span></div>';
+      var displayBranches = branches.slice(0, 10);
+      for (var bi = 0; bi < displayBranches.length; bi++) {
+        var b = displayBranches[bi];
+        if (b.costUSD === 0 && b.totalTokens === 0) continue;
+        branchHTML += '<div class="git-branch-row"><span class="git-branch-name">' + escapeHtml2(truncate(b.name, 30)) + '</span><span class="git-branch-val">' + b.commits + '</span><span class="git-branch-val">' + formatTokens3(b.totalTokens) + '</span><span class="git-branch-cost">$' + b.costUSD.toFixed(2) + '</span><span class="git-branch-val">$' + b.avgPerCommit.toFixed(2) + "</span></div>";
+      }
+      branchHTML += "</div></div>";
+    }
+    var commitsHTML = '<div class="git-section">';
+    commitsHTML += "<h4>Recent Commits</h4>";
+    commitsHTML += '<div class="git-commits-list">';
+    var showCommits = commits.slice(0, 15);
+    for (var ri = 0; ri < showCommits.length; ri++) {
+      var rc = showCommits[ri];
+      var costBadge = rc.costUSD > 0 ? '<span class="git-cost-badge">$' + rc.costUSD.toFixed(2) + "</span>" : '<span class="git-cost-badge git-cost-zero">\u2014</span>';
+      var tokenBadge = rc.totalTokens > 0 ? '<span class="git-token-badge">' + formatTokens3(rc.totalTokens) + "</span>" : "";
+      commitsHTML += '<div class="git-commit-item"><span class="git-commit-hash">' + rc.shortHash + '</span><span class="git-commit-msg">' + escapeHtml2(rc.message) + '</span><div class="git-commit-meta">' + tokenBadge + costBadge + "</div></div>";
+    }
+    commitsHTML += "</div></div>";
+    container.innerHTML = '<div class="overview-card full-width git-costs-card"><div class="git-costs-header"><h3>\u26A1 Git \xD7 AI Cost Correlation</h3><span class="git-repo-path" title="' + escapeAttr(data.repoPath || "") + '">' + escapeHtml2(shortenPath(data.repoPath || "")) + "</span></div>" + kpiHTML + chartHTML + branchHTML + commitsHTML + "</div>";
+  }
+  function buildKpi(label, value, icon) {
+    return '<div class="git-kpi-card"><div class="git-kpi-icon">' + icon + '</div><div class="git-kpi-value">' + value + '</div><div class="git-kpi-label">' + label + "</div></div>";
+  }
+  function formatTokens3(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
+    return String(n);
+  }
+  function truncate(s, max) {
+    return s.length > max ? s.substring(0, max - 1) + "\u2026" : s;
+  }
+  function shortenPath(p) {
+    var parts = p.replace(/\\/g, "/").split("/");
+    return parts.length > 2 ? "\u2026/" + parts.slice(-2).join("/") : p;
+  }
+  function escapeHtml2(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function escapeAttr(s) {
+    return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  // internal/web/src/overview/safeToSpend.ts
+  function renderSafeToSpend(bf, currency) {
+    if (!bf || bf.monthlyBudget <= 0) {
+      return '<div class="safe-to-spend-card no-budget"><div class="sts-icon">\u{1F4B0}</div><div class="sts-label">Set a monthly AI budget to unlock your Safe to Spend guardrail</div><button class="btn-add-sm" id="sts-set-budget-btn">Set Budget</button></div>';
+    }
+    var safeAmount = Math.max(0, bf.monthlyBudget - bf.currentSpend);
+    var pct = Math.round(bf.currentSpend / bf.monthlyBudget * 100);
+    var now = /* @__PURE__ */ new Date();
+    var daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    var daysLeft = daysInMonth - now.getDate();
+    var dayOfMonth = now.getDate();
+    var dailyBurn = dayOfMonth > 0 ? bf.currentSpend / dayOfMonth : 0;
+    var projected = dailyBurn * daysInMonth;
+    var willExceed = projected > bf.monthlyBudget;
+    var cls, statusIcon, statusText;
+    if (pct >= 100) {
+      cls = "over";
+      statusIcon = "\u{1F6A8}";
+      statusText = "Over budget by " + sym(currency) + (bf.currentSpend - bf.monthlyBudget).toFixed(2);
+    } else if (pct >= 80) {
+      cls = "warning";
+      statusIcon = "\u26A0\uFE0F";
+      statusText = willExceed ? "Projected to exceed by " + sym(currency) + (projected - bf.monthlyBudget).toFixed(2) : daysLeft + " days left at " + sym(currency) + dailyBurn.toFixed(2) + "/day";
+    } else {
+      cls = "healthy";
+      statusIcon = "\u2705";
+      statusText = daysLeft + " days left \xB7 " + sym(currency) + dailyBurn.toFixed(2) + "/day burn rate";
+    }
+    var s = sym(currency);
+    return '<div class="safe-to-spend-card ' + cls + '"><div class="sts-header"><span class="sts-title">Safe to Spend</span><button class="sts-edit" id="sts-edit-budget-btn" title="Edit budget">\u270F\uFE0F</button></div><div class="sts-amount">' + s + safeAmount.toFixed(2) + '</div><div class="sts-bar-container"><div class="sts-bar-fill ' + cls + '" style="width:' + Math.min(pct, 100) + '%"></div></div><div class="sts-details"><span>' + statusIcon + " " + statusText + '</span><span class="sts-budget">Budget: ' + s + bf.monthlyBudget.toFixed(0) + "/mo</span></div></div>";
+  }
+  function wireSafeToSpendButtons(openBudgetFn) {
+    var editBtn = document.getElementById("sts-edit-budget-btn");
+    if (editBtn) editBtn.addEventListener("click", openBudgetFn);
+    var setBtn = document.getElementById("sts-set-budget-btn");
+    if (setBtn) setBtn.addEventListener("click", openBudgetFn);
+  }
+  function sym(currency) {
+    if (currency === "INR") return "\u20B9";
+    if (currency === "EUR") return "\u20AC";
+    if (currency === "GBP") return "\xA3";
+    return "$";
+  }
+
+  // internal/web/src/overview/countdown.ts
+  function renderCountdowns(quotaData) {
+    if (!quotaData) return "";
+    var items = [];
+    if (quotaData.accounts) {
+      for (var i = 0; i < quotaData.accounts.length; i++) {
+        var acc = quotaData.accounts[i];
+        if (acc.resetTime) {
+          var resetDate = new Date(acc.resetTime);
+          var ms = resetDate.getTime() - Date.now();
+          if (ms > 0 && ms < 864e5) {
+            items.push({
+              provider: "\u26A1 Antigravity",
+              label: acc.email ? acc.email.split("@")[0] : "account",
+              resetMs: ms
+            });
+          }
+        }
+      }
+    }
+    if (quotaData.claudeSnapshot) {
+      var cs = quotaData.claudeSnapshot;
+      if (cs.capturedAt && (cs.fiveHourPct || 0) > 50) {
+        var fiveHReset = new Date(cs.capturedAt).getTime() + 5 * 36e5;
+        var msLeft = fiveHReset - Date.now();
+        if (msLeft > 0) {
+          items.push({ provider: "\u{1F52E} Claude", label: "5h window", resetMs: msLeft });
+        }
+      }
+    }
+    if (quotaData.codexSnapshot) {
+      var cx = quotaData.codexSnapshot;
+      if (cx.capturedAt && (cx.sevenDayPct || 0) > 50) {
+        var sevenDReset = new Date(cx.capturedAt).getTime() + 7 * 864e5;
+        var cxMs = sevenDReset - Date.now();
+        if (cxMs > 0 && cxMs < 864e5 * 2) {
+          items.push({ provider: "\u{1F916} Codex", label: "7d window", resetMs: cxMs });
+        }
+      }
+    }
+    if (items.length === 0) return "";
+    items.sort(function(a, b) {
+      return a.resetMs - b.resetMs;
+    });
+    var html = '<div class="countdown-strip"><span class="countdown-title">\u23F1 Resets:</span>';
+    for (var c = 0; c < Math.min(items.length, 4); c++) {
+      var item = items[c];
+      var h = Math.floor(item.resetMs / 36e5);
+      var m = Math.floor(item.resetMs % 36e5 / 6e4);
+      var timeStr = h > 0 ? h + "h " + m + "m" : m + "m";
+      html += '<div class="countdown-chip"><span class="countdown-provider">' + item.provider + '</span><span class="countdown-time">' + timeStr + "</span></div>";
+    }
+    html += "</div>";
+    return html;
+  }
+  var countdownInterval = null;
+  function startCountdownRefresh(quotaData) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(function() {
+      var container = document.getElementById("countdown-container");
+      if (container) {
+        container.innerHTML = renderCountdowns(quotaData);
+      }
+    }, 6e4);
+  }
+
+  // internal/web/src/overview/overview.ts
+  function loadOverview() {
+    Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
+      var data = results[0];
+      var subsData = results[1];
+      var usageData = results[2];
+      renderOverviewEnhanced(data, subsData.subscriptions || subsData || [], usageData);
+    }).catch(function(err) {
+      console.error("Failed to load overview:", err);
+    });
+  }
+  function renderOverviewEnhanced(data, subs, usageData) {
+    var el = document.getElementById("overview-content");
+    if (!el) return;
+    var stats = data.stats || { totalMonthlySpend: 0, totalAnnualSpend: 0, byCategory: {}, byStatus: {} };
+    var renewals = data.renewals || [];
+    var links = data.quickLinks || [];
+    var quotas = data.quotaSummary;
+    var serverInsights = data.insights || [];
+    var advisorHTML = '<div id="advisor-card-container"></div>';
+    var insightsHTML = renderServerInsights(serverInsights);
+    var safeToSpendHTML = renderSafeToSpend(
+      usageData && usageData.budgetForecast ? usageData.budgetForecast : null,
+      serverConfig["currency"] || "USD"
+    );
+    var countdownContent = renderCountdowns(latestQuotaData);
+    var countdownHTML = countdownContent ? '<div id="countdown-container" style="grid-column:1/-1">' + countdownContent + "</div>" : "";
+    if (latestQuotaData) startCountdownRefresh(latestQuotaData);
+    var cats = Object.keys(stats.byCategory);
+    var spendHTML = '<div class="overview-card"><h3>Monthly AI Spend</h3><div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + "</div>";
+    if (cats.length > 1) {
+      cats.sort(function(a, b) {
+        return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
+      });
+      for (var i = 0; i < cats.length; i++) {
+        var c = stats.byCategory[cats[i]];
+        spendHTML += '<div class="overview-category-row"><span class="overview-category-name">' + esc(cats[i]) + '<span class="overview-category-count">' + c.count + ' subs</span></span><span class="overview-category-spend">$' + c.monthlySpend.toFixed(2) + "/mo</span></div>";
+      }
+    } else if (cats.length === 1) {
+      var onlyCat = stats.byCategory[cats[0]];
+      spendHTML += '<div class="overview-big-label">' + onlyCat.count + " " + cats[0] + " subscription" + (onlyCat.count !== 1 ? "s" : "") + "</div>";
+    }
+    spendHTML += "</div>";
+    var claudeHTML = renderClaudeCodeCard();
+    var calendarHTML = "";
+    if (renewals.length > 0) {
+      calendarHTML = '<div id="renewal-calendar-container" class="overview-card full-width"></div>';
+    }
+    var linksHTML = "";
+    if (links.length > 0) {
+      var platformLinks = {};
+      for (var l = 0; l < links.length; l++) {
+        var lnk = links[l];
+        if (!platformLinks[lnk.platform]) {
+          platformLinks[lnk.platform] = lnk;
+        }
+      }
+      var platformKeys = Object.keys(platformLinks);
+      if (platformKeys.length > 1 || platformKeys.length === 1 && platformKeys[0] !== "Antigravity") {
+        linksHTML = '<div class="overview-card full-width"><h3>Quick Links</h3><div class="quick-links-grid">';
+        for (var pk = 0; pk < platformKeys.length; pk++) {
+          var pl = platformLinks[platformKeys[pk]];
+          linksHTML += '<a class="quick-link" href="' + esc(pl.url) + '" target="_blank" rel="noopener">\u{1F517} ' + esc(pl.platform) + "</a>";
+        }
+        linksHTML += "</div></div>";
+      }
+    }
+    var exportHTML = '<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a></div></div>';
+    var providerHTML = '<div class="overview-card full-width"><h3>Provider Health</h3>';
+    providerHTML += '<div class="provider-health-grid">';
+    if (latestQuotaData && latestQuotaData.accounts && latestQuotaData.accounts.length > 0) {
+      var accts = latestQuotaData.accounts;
+      var readyCount = 0;
+      for (var ai = 0; ai < accts.length; ai++) {
+        if (accts[ai].isReady) readyCount++;
+      }
+      var healthPct = Math.round(readyCount / accts.length * 100);
+      var healthCls = healthPct >= 80 ? "health-good" : healthPct >= 50 ? "health-warn" : "health-bad";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u26A1 Antigravity</span><span class="ph-count">' + accts.length + ' accounts</span><span class="ph-bar"><span class="ph-fill ' + healthCls + '" style="width:' + healthPct + '%"></span></span><span class="ph-stat ' + healthCls + '">' + readyCount + "/" + accts.length + " ready</span></div>";
+    }
+    if (latestQuotaData && latestQuotaData.codexSnapshot) {
+      var cs = latestQuotaData.codexSnapshot;
+      var cxStatus = cs.status === "healthy" ? "health-good" : "health-bad";
+      var cxLabel = cs.email || "Codex account";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F916} Codex</span><span class="ph-count">' + esc(cxLabel) + '</span><span class="ph-bar"><span class="ph-fill ' + cxStatus + '" style="width:' + (100 - (cs.sevenDayPct || 0)) + '%"></span></span><span class="ph-stat ' + cxStatus + '">' + esc(cs.planType || "free") + "</span></div>";
+    }
+    if (latestQuotaData && latestQuotaData.claudeSnapshot) {
+      var cls2 = latestQuotaData.claudeSnapshot;
+      var clStatus = cls2.status === "healthy" ? "health-good" : "health-bad";
+      providerHTML += '<div class="provider-health-row"><span class="ph-name">\u{1F52E} Claude Code</span><span class="ph-count">Bridge</span><span class="ph-bar"><span class="ph-fill ' + clStatus + '" style="width:' + (100 - (cls2.fiveHourPct || 0)) + '%"></span></span><span class="ph-stat ' + clStatus + '">' + (cls2.status || "\u2014") + "</span></div>";
+    }
+    providerHTML += "</div></div>";
+    var costKPIHTML = '<div id="cost-kpi-container"></div>';
+    var tokenAnalyticsHTML = '<div id="token-analytics-container" class="overview-card full-width"></div>';
+    var gitCostsHTML = '<div id="git-costs-container" class="overview-card full-width"></div>';
+    var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
+    el.innerHTML = safeToSpendHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+    wireSafeToSpendButtons(openBudgetModal);
+    if (serverConfig["claude_bridge"] === "true") {
+      loadClaudeCardData();
+    } else {
+      var cardBody = document.getElementById("claude-card-body");
+      if (cardBody) cardBody.innerHTML = "";
+    }
+    loadClaudeDeepUsage();
+    loadAdvisorCard();
+    loadCostKPI();
+    loadHeatmap();
+    loadTokenAnalytics();
+    loadGitCosts();
+    if (renewals.length > 0) {
+      renderRenewalCalendar(renewals, subs);
+    }
+    renderSessionsTimeline(el);
+  }
+
+  // internal/web/src/advanced/snap.ts
+  var snapDefault = localStorage.getItem("niyantra_snap_default") || "antigravity";
+  function initSnapDropdown() {
+    var caret = document.getElementById("snap-caret");
+    var dropdown = document.getElementById("snap-dropdown");
+    if (!caret || !dropdown) return;
+    caret.addEventListener("click", function(e) {
+      e.stopPropagation();
+      dropdown.classList.toggle("open");
+    });
+    document.addEventListener("click", function() {
+      dropdown.classList.remove("open");
+    });
+    dropdown.querySelectorAll(".snap-option").forEach(function(opt) {
+      opt.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var source = opt.dataset.source;
+        dropdown.classList.remove("open");
+        if (source === "all") {
+          snapSource("all");
+        } else {
+          snapDefault = source;
+          localStorage.setItem("niyantra_snap_default", source);
+          updateSnapDropdownIndicators();
+          snapSource(source);
+        }
+      });
+    });
+    updateSnapDropdownIndicators();
+  }
+  function updateSnapDropdownIndicators() {
+    var dropdown = document.getElementById("snap-dropdown");
+    if (!dropdown) return;
+    dropdown.querySelectorAll(".snap-option").forEach(function(opt) {
+      if (opt.dataset.source === "all") return;
+      var isActive = opt.dataset.source === snapDefault;
+      opt.textContent = (isActive ? "\u25C9 " : "\u25CB ") + opt.textContent.replace(/^[◉○] /, "");
+      opt.classList.toggle("active", isActive);
+    });
+  }
+  function handleSnap() {
+    snapSource(snapDefault);
+  }
+  function snapSource(source) {
+    var btn = document.getElementById("snap-btn");
+    if (!btn || btn.disabled || snapInProgress) return;
+    setSnapInProgress(true);
+    btn.disabled = true;
+    btn.classList.add("snapping");
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg> Capturing...';
+    var promises = [];
+    if (source === "antigravity" || source === "all") {
+      promises.push(
+        triggerSnap().then(function(data) {
+          return { source: "Antigravity", data, label: data.email || "Antigravity" };
+        }).catch(function(err) {
+          return { source: "Antigravity", error: err.message };
+        })
+      );
+    }
+    if (source === "codex" || source === "all") {
+      promises.push(
+        fetch("/api/codex/snap", { method: "POST" }).then(function(r) {
+          return r.json();
+        }).then(function(d) {
+          var label = d.plan ? "Codex \xB7 " + d.plan : "Codex";
+          return { source: "Codex", data: d, label };
+        }).catch(function() {
+          return { source: "Codex", error: "capture failed" };
+        })
+      );
+    }
+    if (source === "cursor" || source === "all") {
+      promises.push(
+        fetch("/api/cursor/snap", { method: "POST" }).then(function(r) {
+          return r.json();
+        }).then(function(d) {
+          if (d.error) return { source: "Cursor", error: d.error };
+          var label = "Cursor \xB7 " + (d.premiumUsed || 0) + "/" + (d.premiumLimit || "?");
+          return { source: "Cursor", data: d, label };
+        }).catch(function() {
+          return { source: "Cursor", error: "capture failed" };
+        })
+      );
+    }
+    if (source === "gemini" || source === "all") {
+      promises.push(
+        fetch("/api/gemini/snap", { method: "POST" }).then(function(r) {
+          return r.json();
+        }).then(function(d) {
+          if (d.error) return { source: "Gemini", error: d.error };
+          var label = "Gemini \xB7 " + (d.modelCount || 0) + " models";
+          return { source: "Gemini", data: d, label };
+        }).catch(function() {
+          return { source: "Gemini", error: "capture failed" };
+        })
+      );
+    }
+    if (source === "copilot" || source === "all") {
+      promises.push(
+        fetch("/api/copilot/snap", { method: "POST" }).then(function(r) {
+          return r.json();
+        }).then(function(d) {
+          if (d.error) return { source: "Copilot", error: d.error };
+          var label = "Copilot \xB7 " + (d.plan || "unknown") + " \xB7 " + (d.premiumPct || 0).toFixed(0) + "%";
+          return { source: "Copilot", data: d, label };
+        }).catch(function() {
+          return { source: "Copilot", error: "capture failed" };
+        })
+      );
+    }
+    if (promises.length === 0) {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+      setSnapInProgress(false);
+      showToast("No snap source selected", "warning");
+      return;
+    }
+    Promise.all(promises).then(function(results) {
+      var msgs = [];
+      var antigravityData = null;
+      for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        if (r.error) {
+          msgs.push("\u274C " + r.source + ": " + r.error);
+        } else {
+          msgs.push("\u2705 " + r.label);
+          if (r.source === "Antigravity") antigravityData = r.data;
+        }
+      }
+      showToast(msgs.join(" \xB7 "), msgs.some(function(m) {
+        return m.startsWith("\u274C");
+      }) ? "warning" : "success");
+      if (antigravityData) {
+        renderAccounts(antigravityData);
+        updateTimestamp();
+      }
+    }).finally(function() {
+      btn.innerHTML = orig;
+      btn.disabled = false;
+      btn.classList.remove("snapping");
+      setSnapInProgress(false);
+    });
+  }
+
+  // internal/web/src/charts/history.ts
+  var Chart = window.Chart;
+  var historyChart = null;
+  function updateChartTheme(theme) {
+    if (!historyChart) return;
+    var isDark = theme !== "light";
+    var gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    var textColor = isDark ? "#94a3b8" : "#64748b";
+    if (historyChart.options.scales && historyChart.options.scales.y) {
+      historyChart.options.scales.y.grid.color = gridColor;
+      historyChart.options.scales.y.ticks.color = textColor;
+    }
+    if (historyChart.options.scales && historyChart.options.scales.x) {
+      historyChart.options.scales.x.grid.color = gridColor;
+      historyChart.options.scales.x.ticks.color = textColor;
+    }
+    historyChart.update("none");
+  }
+  function loadHistoryChart() {
+    if (typeof Chart === "undefined") return;
+    var accountId = parseInt(document.getElementById("chart-account").value) || 0;
+    var limit = parseInt(document.getElementById("chart-range").value) || 20;
+    var url = "/api/history?limit=" + limit;
+    if (accountId > 0) url += "&account=" + accountId;
+    fetch(url).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      renderHistoryChart(data.snapshots || []);
+    }).catch(function(err) {
+      console.error("Failed to load history:", err);
+    });
+  }
+  function renderHistoryChart(snapshots) {
+    var container = document.querySelector(".chart-container");
+    if (!container || typeof Chart === "undefined") return;
+    if (snapshots.length === 0) {
+      container.innerHTML = '<div class="chart-empty">No snapshot history yet. Click Snap Now to start tracking.</div>';
+      return;
+    }
+    container.innerHTML = '<canvas id="history-chart"></canvas>';
+    snapshots = snapshots.slice().reverse();
+    var labels = snapshots.map(function(s) {
+      var d = new Date(s.capturedAt);
+      return d.toLocaleDateString(void 0, { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString(void 0, { hour: "2-digit", minute: "2-digit" });
+    });
+    var groupData = {};
+    var groupNames = { claude_gpt: "Claude + GPT", gemini_pro: "Gemini Pro", gemini_flash: "Gemini Flash" };
+    var groupColors = { claude_gpt: "#D97757", gemini_pro: "#10B981", gemini_flash: "#3B82F6" };
+    for (var i = 0; i < snapshots.length; i++) {
+      var groups = snapshots[i].groups || [];
+      for (var j = 0; j < groups.length; j++) {
+        var g = groups[j];
+        if (!groupData[g.groupKey]) groupData[g.groupKey] = [];
+      }
+    }
+    var aiCreditsData = [];
+    var hasAICredits = false;
+    for (var i = 0; i < snapshots.length; i++) {
+      var snap = snapshots[i];
+      var groups = snap.groups || [];
+      var seen = {};
+      for (var j = 0; j < groups.length; j++) {
+        var g = groups[j];
+        if (!groupData[g.groupKey]) groupData[g.groupKey] = [];
+        groupData[g.groupKey].push(Math.round(g.remainingPercent || 0));
+        seen[g.groupKey] = true;
+      }
+      var keys = Object.keys(groupData);
+      for (var k = 0; k < keys.length; k++) {
+        if (!seen[keys[k]]) groupData[keys[k]].push(null);
+      }
+      if (snap.aiCredits && snap.aiCredits.length > 0) {
+        aiCreditsData.push(snap.aiCredits[0].creditAmount);
+        hasAICredits = true;
+      } else {
+        aiCreditsData.push(null);
+      }
+    }
+    var datasets = [];
+    var keys = Object.keys(groupData);
+    for (var k = 0; k < keys.length; k++) {
+      var key = keys[k];
+      if (!key || !groupNames[key]) continue;
+      datasets.push({
+        label: groupNames[key],
+        data: groupData[key],
+        borderColor: groupColors[key] || "#94a3b8",
+        backgroundColor: (groupColors[key] || "#94a3b8") + "20",
+        yAxisID: "y",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 6,
+        borderWidth: 2
+      });
+    }
+    if (hasAICredits) {
+      datasets.push({
+        label: "AI Credits",
+        data: aiCreditsData,
+        borderColor: "#fbbf24",
+        // Amber
+        backgroundColor: "transparent",
+        yAxisID: "yCredits",
+        borderDash: [5, 5],
+        tension: 0.3,
+        pointRadius: 4,
+        pointBackgroundColor: "#fbbf24",
+        pointHoverRadius: 6,
+        borderWidth: 3
+      });
+    }
+    var isDark = document.documentElement.getAttribute("data-theme") !== "light";
+    var gridColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    var textColor = isDark ? "#94a3b8" : "#64748b";
+    if (historyChart) historyChart.destroy();
+    var ctx = document.getElementById("history-chart");
+    if (!ctx) return;
+    historyChart = new Chart(ctx, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 }, boxWidth: 12, padding: 16 }
+          },
+          tooltip: {
+            backgroundColor: isDark ? "#1e293b" : "#fff",
+            titleColor: isDark ? "#f1f5f9" : "#0f172a",
+            bodyColor: isDark ? "#94a3b8" : "#475569",
+            borderColor: isDark ? "#334155" : "#e2e8f0",
+            borderWidth: 1,
+            padding: 10,
+            titleFont: { family: "'Inter', sans-serif", weight: "600" },
+            bodyFont: { family: "'Inter', sans-serif" },
+            callbacks: {
+              label: function(ctx2) {
+                if (ctx2.dataset.yAxisID === "yCredits") return ctx2.dataset.label + ": " + ctx2.parsed.y.toLocaleString();
+                return ctx2.dataset.label + ": " + ctx2.parsed.y + "%";
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            min: 0,
+            max: 100,
+            grid: { color: gridColor },
+            ticks: { color: textColor, font: { family: "'Inter', sans-serif", size: 11 }, callback: function(v) {
+              return v + "%";
+            } },
+            border: { display: false }
+          },
+          yCredits: {
+            type: "linear",
+            display: hasAICredits,
+            position: "right",
+            grid: { display: false },
+            ticks: { color: isDark ? "#fbbf24" : "#d97706", font: { family: "'Inter', sans-serif", size: 11 } },
+            border: { display: false }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: textColor, font: { family: "'Inter', sans-serif", size: 10 }, maxRotation: 45, maxTicksLimit: 12 },
+            border: { display: false }
+          }
+        }
+      }
+    });
+  }
+  function populateChartAccountSelect(data) {
+    var sel = document.getElementById("chart-account");
+    if (!sel || !data.accounts) return;
+    while (sel.options.length > 1) sel.remove(1);
+    for (var i = 0; i < data.accounts.length; i++) {
+      var opt = document.createElement("option");
+      opt.value = data.accounts[i].accountId;
+      opt.textContent = data.accounts[i].email;
+      sel.appendChild(opt);
+    }
+  }
+
+  // internal/web/src/advanced/alerts.ts
+  function loadSystemAlerts() {
+    fetch("/api/alerts").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("alert-banner-container");
+      if (!container) return;
+      var alerts = data.alerts || [];
+      if (alerts.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var html = "";
+      var shown = Math.min(alerts.length, 3);
+      for (var i = 0; i < shown; i++) {
+        var a = alerts[i];
+        var icon = a.severity === "critical" ? "\u{1F6A8}" : a.severity === "warning" ? "\u26A0\uFE0F" : "\u2139\uFE0F";
+        html += '<div class="alert-banner ' + esc(a.severity) + '"><span class="alert-banner-icon">' + icon + '</span><div class="alert-banner-content"><div class="alert-banner-title">' + esc(a.category) + '</div><div class="alert-banner-msg">' + esc(a.message) + '</div></div><button class="alert-banner-dismiss" onclick="dismissAlert(' + a.id + ')" title="Dismiss">&times;</button></div>';
+      }
+      if (alerts.length > 3) {
+        html += `<div class="alert-more-link" onclick="switchToTab('overview')">+ ` + (alerts.length - 3) + " more alert(s)</div>";
+      }
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+  function dismissAlert(id) {
+    fetch("/api/alerts/dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    }).then(function() {
+      loadSystemAlerts();
+      showToast("Alert dismissed", "success");
+    }).catch(function() {
+      showToast("Failed to dismiss alert", "error");
+    });
+  }
+
+  // internal/web/src/settings/activity.ts
+  function loadActivityLog() {
+    var filter = document.getElementById("activity-filter").value;
+    var url = "/api/activity?limit=50";
+    if (filter) url += "&type=" + filter;
+    fetch(url).then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("activity-log");
+      if (!data.entries || data.entries.length === 0) {
+        container.innerHTML = '<div class="activity-empty">No activity' + (filter ? ' for "' + filter + '"' : "") + " yet</div>";
+        return;
+      }
+      var html = "";
+      data.entries.forEach(function(entry) {
+        var time = entry.timestamp ? entry.timestamp.replace("T", " ").substring(5, 16) : "";
+        var detail = formatActivityDetail(entry);
+        html += '<div class="activity-entry"><span class="activity-time">' + time + '</span><span class="activity-type ' + esc(entry.eventType) + '">' + esc(entry.eventType.replace(/_/g, " ")) + '</span><span class="activity-detail">' + detail + "</span></div>";
+      });
+      container.innerHTML = html;
+    }).catch(function() {
+      document.getElementById("activity-log").innerHTML = '<div class="activity-empty">Failed to load activity log</div>';
+    });
+  }
+  function formatActivityDetail(entry) {
+    try {
+      var d = JSON.parse(entry.details || "{}");
+      switch (entry.eventType) {
+        case "snap":
+          return esc(entry.accountEmail || "") + (d.method ? " \xB7 " + d.method : "") + (d.source ? " via " + d.source : "");
+        case "snap_failed":
+          return esc(d.error || "Unknown error");
+        case "config_change":
+          return esc(d.key || "") + ": " + esc(d.from || '""') + " \u2192 " + esc(d.to || '""');
+        case "server_start":
+          return "Port " + (d.port || "?") + " \xB7 " + esc(d.mode || "manual") + " mode";
+        case "sub_created":
+        case "sub_deleted":
+          return esc(d.platform || "");
+        case "auto_link":
+          return esc(entry.accountEmail || "") + " \u2192 " + esc(d.platform || "");
+        case "codex_snap":
+          var acctId = entry.accountEmail || "";
+          if (acctId.length > 20) acctId = acctId.substring(0, 6) + ".." + acctId.slice(-6);
+          return esc(acctId) + (d.plan ? " (" + esc(d.plan) + ")" : "");
+        case "model_reset":
+          return esc(entry.accountEmail || "");
+        case "quota_alert":
+          return "\u{1F514} " + esc(d.model || "") + " \u2014 " + (d.remainingPct != null ? d.remainingPct.toFixed(1) + "% remaining" : "");
+        default:
+          return entry.accountEmail ? esc(entry.accountEmail) : "";
+      }
+    } catch (e) {
+      return "";
+    }
+  }
+
+  // internal/web/src/settings/mode.ts
+  var modeRefreshTimer = null;
+  function loadMode() {
+    fetch("/api/mode").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var badge = document.getElementById("mode-badge");
+      var label = document.getElementById("mode-label");
+      if (data.mode === "auto") {
+        badge.className = "mode-badge mode-auto";
+        label.textContent = "Auto";
+      } else {
+        badge.className = "mode-badge mode-manual";
+        label.textContent = "Manual";
+      }
+      var statusEl = document.getElementById("polling-status");
+      if (statusEl) {
+        if (data.isPolling) {
+          var lastMsg = "";
+          if (data.lastPoll) {
+            lastMsg = "Last: " + formatTimeAgo(data.lastPoll);
+            if (data.lastPollOK === false) lastMsg += " (failed)";
+          } else {
+            lastMsg = "Starting...";
+          }
+          statusEl.innerHTML = '<span class="polling-dot"></span> Polling every ' + formatPollInterval(data.pollInterval) + " \xB7 " + lastMsg;
+          statusEl.style.display = "";
+        } else {
+          statusEl.style.display = "none";
+        }
+      }
+      var aboutEl = document.getElementById("s-about-info");
+      if (aboutEl) {
+        var srcCount = (data.sources || []).filter(function(s) {
+          return s.enabled;
+        }).length;
+        var schemaV = data.schemaVersion ? "Schema v" + data.schemaVersion : "Schema";
+        var presetCount = presetsData.length || 0;
+        aboutEl.textContent = schemaV + " \xB7 " + presetCount + " presets \xB7 Mode: " + (data.mode === "auto" ? "Auto" : "Manual") + (data.isPolling ? " (polling)" : "") + " \xB7 " + srcCount + " active source" + (srcCount !== 1 ? "s" : "");
+      }
+      if (modeRefreshTimer) {
+        clearInterval(modeRefreshTimer);
+        modeRefreshTimer = null;
+      }
+      if (data.isPolling) {
+        modeRefreshTimer = setInterval(function() {
+          loadMode();
+          loadSystemAlerts();
+          var activeTab = document.querySelector(".tab-btn.active");
+          if (activeTab && activeTab.getAttribute("data-tab") === "settings") {
+            loadActivityLog();
+          }
+        }, 3e4);
+      }
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/settings/data.ts
+  function loadDataSources() {
+    fetch("/api/mode").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("data-sources-list");
+      if (!data.sources || data.sources.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var html = '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;margin-top:4px">Data Sources</div>';
+      data.sources.forEach(function(src) {
+        var meta = src.captureCount + " captures";
+        if (src.lastCapture) {
+          meta += " \xB7 Last: " + formatTimeAgo(src.lastCapture);
+        }
+        html += '<div class="data-source-item"><div class="data-source-info"><span class="data-source-name">' + esc(src.name) + '</span><span class="data-source-meta">' + esc(src.sourceType) + " \xB7 " + meta + '</span></div><span class="data-source-status ' + (src.enabled ? "enabled" : "disabled") + '">' + (src.enabled ? "\u25CF Active" : "\u25CB Disabled") + "</span></div>";
+      });
+      container.innerHTML = html;
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/settings/pricing.ts
+  var pricingDataCache = null;
+  function loadModelPricing() {
+    fetch("/api/config/pricing").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      pricingDataCache = data.pricing || [];
+      renderPricingTable(pricingDataCache);
+    }).catch(function(err) {
+      console.error("Failed to load model pricing:", err);
+    });
+  }
+  function renderPricingTable(pricing) {
+    var tbody = document.getElementById("pricing-tbody");
+    if (!tbody) return;
+    var providerIcons = { anthropic: "\u{1F7E4}", openai: "\u{1F7E2}", google: "\u{1F535}" };
+    var html = "";
+    for (var i = 0; i < pricing.length; i++) {
+      var p = pricing[i];
+      var providerCls = p.provider || "custom";
+      var providerLabel = p.provider ? p.provider.charAt(0).toUpperCase() + p.provider.slice(1) : "Custom";
+      var icon = providerIcons[p.provider] || "\u26AA";
+      html += '<tr data-pricing-idx="' + i + '"><td><span class="pricing-model-name">' + esc(p.displayName) + '</span></td><td><span class="pricing-provider ' + esc(providerCls) + '">' + icon + " " + esc(providerLabel) + '</span></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="inputPer1M" step="0.01" min="0" value="' + p.inputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="outputPer1M" step="0.01" min="0" value="' + p.outputPer1M + '"></td><td style="text-align:right"><input type="number" class="pricing-input" data-field="cachePer1M" step="0.001" min="0" value="' + p.cachePer1M + '"></td><td><button class="pricing-delete-btn" data-pricing-del="' + i + '" title="Remove this model">\u2715</button></td></tr>';
+    }
+    tbody.innerHTML = html;
+    tbody.querySelectorAll(".pricing-input").forEach(function(input) {
+      input.addEventListener("change", function() {
+        var tr = input.closest("tr");
+        var idx = parseInt(tr.dataset.pricingIdx);
+        var field = input.dataset.field;
+        var val = parseFloat(input.value) || 0;
+        if (val < 0) val = 0;
+        input.value = String(val);
+        if (pricingDataCache && pricingDataCache[idx]) {
+          pricingDataCache[idx][field] = val;
+          savePricingFromTable();
+        }
+      });
+    });
+    tbody.querySelectorAll(".pricing-delete-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var idx = parseInt(btn.dataset.pricingDel);
+        deletePricingRow(idx);
+      });
+    });
+  }
+  function savePricingFromTable() {
+    if (!pricingDataCache || pricingDataCache.length === 0) return;
+    fetch("/api/config/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pricing: pricingDataCache })
+    }).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u{1F4B0} Pricing saved", "success");
+    }).catch(function() {
+      showToast("\u274C Failed to save pricing", "error");
+    });
+  }
+  function addPricingRow() {
+    if (!pricingDataCache) pricingDataCache = [];
+    var newModel = {
+      modelId: "custom-" + Date.now(),
+      displayName: "New Model",
+      provider: "custom",
+      inputPer1M: 1,
+      outputPer1M: 5,
+      cachePer1M: 0.1
+    };
+    pricingDataCache.push(newModel);
+    renderPricingTable(pricingDataCache);
+    var tbody = document.getElementById("pricing-tbody");
+    var lastRow = tbody.lastElementChild;
+    if (lastRow) {
+      var nameCell = lastRow.querySelector(".pricing-model-name");
+      if (nameCell) {
+        nameCell.contentEditable = "true";
+        nameCell.focus();
+        var range = document.createRange();
+        range.selectNodeContents(nameCell);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        nameCell.addEventListener("blur", function() {
+          nameCell.contentEditable = "false";
+          var idx = parseInt(lastRow.dataset.pricingIdx);
+          var newName = nameCell.textContent.trim();
+          if (newName && pricingDataCache[idx]) {
+            pricingDataCache[idx].displayName = newName;
+            pricingDataCache[idx].modelId = newName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            savePricingFromTable();
+          }
+        }, { once: true });
+        nameCell.addEventListener("keydown", function(e) {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            nameCell.blur();
+          }
+        });
+      }
+    }
+    showToast("\u{1F4B0} New model added \u2014 edit the name and prices", "info");
+  }
+  function deletePricingRow(idx) {
+    if (!pricingDataCache || idx < 0 || idx >= pricingDataCache.length) return;
+    var name = pricingDataCache[idx].displayName;
+    if (!confirm('Remove pricing for "' + name + '"?')) return;
+    pricingDataCache.splice(idx, 1);
+    renderPricingTable(pricingDataCache);
+    savePricingFromTable();
+    showToast("\u{1F5D1}\uFE0F Removed " + name, "success");
+  }
+  function resetPricingDefaults() {
+    if (!confirm("Reset all model pricing to current market defaults? This will overwrite your custom prices.")) return;
+    var defaults = [
+      { modelId: "claude-opus-4.6", displayName: "Claude Opus 4.6", provider: "anthropic", inputPer1M: 5, outputPer1M: 25, cachePer1M: 0.5 },
+      { modelId: "claude-sonnet-4.6", displayName: "Claude Sonnet 4.6", provider: "anthropic", inputPer1M: 3, outputPer1M: 15, cachePer1M: 0.3 },
+      { modelId: "claude-haiku-4.5", displayName: "Claude Haiku 4.5", provider: "anthropic", inputPer1M: 1, outputPer1M: 5, cachePer1M: 0.1 },
+      { modelId: "gpt-4o", displayName: "GPT-4o", provider: "openai", inputPer1M: 2.5, outputPer1M: 10, cachePer1M: 1.25 },
+      { modelId: "gemini-3.1-pro", displayName: "Gemini 3.1 Pro", provider: "google", inputPer1M: 2, outputPer1M: 12, cachePer1M: 0.5 },
+      { modelId: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", provider: "google", inputPer1M: 0.3, outputPer1M: 2.5, cachePer1M: 0.075 }
+    ];
+    pricingDataCache = defaults;
+    renderPricingTable(pricingDataCache);
+    fetch("/api/config/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pricing: defaults })
+    }).then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (data.error) {
+        showToast("\u274C " + data.error, "error");
+        return;
+      }
+      showToast("\u21BB Pricing reset to defaults", "success");
+    }).catch(function() {
+      showToast("\u274C Failed to reset pricing", "error");
+    });
+  }
+
+  // internal/web/src/settings/plugins.ts
+  function loadPlugins() {
+    fetch("/api/plugins").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      var container = document.getElementById("plugins-list");
+      if (!container) return;
+      var plugins = data.plugins || [];
+      var pluginsDir = data.pluginsDir || "";
+      var errors = data.errors || [];
+      if (plugins.length === 0 && errors.length === 0) {
+        container.innerHTML = '<div class="plugin-empty"><div class="plugin-empty-icon">\u{1F9E9}</div><div class="plugin-empty-title">No plugins installed</div><div class="plugin-empty-hint">Add plugins to <code>' + esc(pluginsDir) + "</code><br>Each plugin needs a <code>plugin.json</code> manifest and an executable entry point.</div></div>";
+        return;
+      }
+      var html = "";
+      if (errors.length > 0) {
+        html += '<div class="plugin-errors">';
+        errors.forEach(function(e) {
+          html += '<div class="plugin-error">\u26A0\uFE0F ' + esc(e) + "</div>";
+        });
+        html += "</div>";
+      }
+      plugins.forEach(function(p) {
+        var meta = p.captureCount + " captures";
+        if (p.lastCapture) {
+          meta += " \xB7 Last: " + formatTimeAgo(p.lastCapture);
+        }
+        html += '<div class="plugin-card" data-plugin-id="' + esc(p.manifest.id) + '">';
+        html += '<div class="plugin-header">';
+        html += '<div class="plugin-info">';
+        html += '<div class="plugin-name">' + esc(p.manifest.name) + '<span class="plugin-version">v' + esc(p.manifest.version) + "</span></div>";
+        html += '<div class="plugin-meta">' + esc(p.manifest.description || "No description") + "</div>";
+        if (p.manifest.author) {
+          html += '<div class="plugin-meta">By ' + esc(p.manifest.author) + " \xB7 " + meta + "</div>";
+        }
+        html += "</div>";
+        html += '<div class="plugin-actions">';
+        html += '<label class="toggle-label">';
+        html += '<input type="checkbox" class="plugin-toggle" data-plugin="' + esc(p.manifest.id) + '"' + (p.enabled ? " checked" : "") + ">";
+        html += '<span class="toggle-slider"></span>';
+        html += "</label>";
+        html += "</div>";
+        html += "</div>";
+        var configKeys = Object.keys(p.manifest.config || {});
+        if (configKeys.length > 0) {
+          html += '<div class="plugin-config" style="' + (p.enabled ? "" : "display:none") + '">';
+          configKeys.forEach(function(key) {
+            var field = p.manifest.config[key];
+            var val = p.config[key] || field.default || "";
+            html += '<div class="plugin-config-row">';
+            html += '<label class="plugin-config-label">' + esc(field.label || key);
+            if (field.required) html += ' <span style="color:var(--accent)">*</span>';
+            html += "</label>";
+            if (field.secret) {
+              html += '<input type="password" class="plugin-config-input" data-plugin="' + esc(p.manifest.id) + '" data-key="' + esc(key) + '" placeholder="' + (val === "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)" : "Enter " + esc(field.label || key)) + '">';
+            } else {
+              html += '<input type="text" class="plugin-config-input" data-plugin="' + esc(p.manifest.id) + '" data-key="' + esc(key) + '" value="' + esc(val) + '" placeholder="Enter ' + esc(field.label || key) + '">';
+            }
+            html += "</div>";
+          });
+          html += "</div>";
+        }
+        html += '<div class="plugin-footer" style="' + (p.enabled ? "" : "display:none") + '">';
+        html += '<button class="btn-sm plugin-test-btn" data-plugin="' + esc(p.manifest.id) + '">\u25B6 Test Run</button>';
+        html += '<span class="plugin-test-result" id="plugin-result-' + esc(p.manifest.id) + '"></span>';
+        html += "</div>";
+        html += "</div>";
+      });
+      container.innerHTML = html;
+      container.querySelectorAll(".plugin-toggle").forEach(function(el) {
+        el.addEventListener("change", function() {
+          var input = el;
+          var pluginId = input.dataset.plugin;
+          var enabled = input.checked;
+          fetch("/api/plugins/" + pluginId + "/config", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enabled: enabled ? "true" : "false" })
+          }).then(function() {
+            showToast(enabled ? "\u{1F9E9} Plugin enabled: " + pluginId : "\u{1F9E9} Plugin disabled: " + pluginId, "success");
+            var card = input.closest(".plugin-card");
+            var config = card.querySelector(".plugin-config");
+            var footer = card.querySelector(".plugin-footer");
+            if (config) config.style.display = enabled ? "" : "none";
+            if (footer) footer.style.display = enabled ? "" : "none";
+          }).catch(function() {
+            showToast("\u274C Failed to update plugin", "error");
+          });
+        });
+      });
+      container.querySelectorAll(".plugin-config-input").forEach(function(el) {
+        el.addEventListener("change", function() {
+          var input = el;
+          var pluginId = input.dataset.plugin;
+          var key = input.dataset.key;
+          var val = input.value.trim();
+          if (!val) return;
+          var body = {};
+          body[key] = val;
+          fetch("/api/plugins/" + pluginId + "/config", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          }).then(function() {
+            showToast("\u{1F9E9} " + key + " saved", "success");
+            if (input.type === "password") {
+              input.value = "";
+              input.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+            }
+          }).catch(function() {
+            showToast("\u274C Failed to save config", "error");
+          });
+        });
+      });
+      container.querySelectorAll(".plugin-test-btn").forEach(function(el) {
+        el.addEventListener("click", function() {
+          var btn = el;
+          var pluginId = btn.dataset.plugin;
+          var resultEl = document.getElementById("plugin-result-" + pluginId);
+          btn.disabled = true;
+          btn.textContent = "\u23F3 Running...";
+          resultEl.textContent = "";
+          fetch("/api/plugins/" + pluginId + "/run", { method: "POST" }).then(function(r) {
+            return r.json();
+          }).then(function(data2) {
+            if (data2.error) {
+              resultEl.textContent = "\u274C " + data2.error;
+              resultEl.style.color = "#ef4444";
+            } else if (data2.status === "ok") {
+              var d = data2.data || {};
+              resultEl.textContent = "\u2705 " + (d.label || d.provider || "OK") + (d.usage_pct ? " \u2014 " + d.usage_pct.toFixed(1) + "%" : "") + (d.usage_display ? " (" + d.usage_display + ")" : "");
+              resultEl.style.color = "#22c55e";
+            } else {
+              resultEl.textContent = "\u26A0\uFE0F " + (data2.error || "Unknown response");
+              resultEl.style.color = "#f59e0b";
+            }
+          }).catch(function() {
+            resultEl.textContent = "\u274C Network error";
+            resultEl.style.color = "#ef4444";
+          }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = "\u25B6 Test Run";
+          });
+        });
+      });
+    }).catch(function() {
+    });
+  }
+
+  // internal/web/src/settings/settings.ts
+  function initSettings() {
+    var themeEl = document.getElementById("s-theme");
+    var savedTheme = localStorage.getItem("niyantra-theme") || "dark";
+    themeEl.value = savedTheme;
+    if (!themeEl) return;
+    themeEl.addEventListener("change", function() {
+      var val = themeEl.value;
+      if (val === "system") {
+        localStorage.removeItem("niyantra-theme");
+        var prefer = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", prefer);
+      } else {
+        localStorage.setItem("niyantra-theme", val);
+        document.documentElement.setAttribute("data-theme", val);
+      }
+      var applied = document.documentElement.getAttribute("data-theme");
+      updateChartTheme(applied);
+    });
+    loadConfig().then(function() {
+      var cfg = serverConfig;
+      migrateLocalStorage(cfg);
+      var budgetEl = document.getElementById("s-budget");
+      var currencyEl = document.getElementById("s-currency");
+      var autoCaptureEl = document.getElementById("s-auto-capture");
+      var autoLinkEl = document.getElementById("s-auto-link");
+      var pollEl = document.getElementById("s-poll-interval");
+      var retentionEl = document.getElementById("s-retention");
+      budgetEl.value = String(parseFloat(cfg["budget_monthly"] || "0") || "");
+      currencyEl.value = cfg["currency"] || "USD";
+      autoCaptureEl.checked = cfg["auto_capture"] === "true";
+      autoLinkEl.checked = cfg["auto_link_subs"] !== "false";
+      pollEl.value = cfg["poll_interval"] || "300";
+      retentionEl.value = cfg["retention_days"] || "365";
+      document.getElementById("poll-interval-row").style.display = autoCaptureEl.checked ? "" : "none";
+      budgetEl.addEventListener("change", function() {
+        var val = parseFloat(budgetEl.value) || 0;
+        setBudget(val);
+        if (val > 0) showToast("\u2705 Budget: $" + val.toFixed(0) + "/mo", "success");
+      });
+      currencyEl.addEventListener("change", function() {
+        updateConfig("currency", currencyEl.value);
+        showToast("\u2705 Currency: " + currencyEl.value, "success");
+      });
+      autoCaptureEl.addEventListener("change", function() {
+        var val = autoCaptureEl.checked ? "true" : "false";
+        updateConfig("auto_capture", val).then(function() {
+          loadMode();
+          showToast(autoCaptureEl.checked ? "\u{1F7E2} Auto-capture started" : "\u23F8\uFE0F Auto-capture stopped", "success");
+        });
+        document.getElementById("poll-interval-row").style.display = autoCaptureEl.checked ? "" : "none";
+      });
+      autoLinkEl.addEventListener("change", function() {
+        updateConfig("auto_link_subs", autoLinkEl.checked ? "true" : "false");
+      });
+      pollEl.addEventListener("change", function() {
+        var v = pollEl.value;
+        updateConfig("poll_interval", v).then(function() {
+          var label = pollEl.options[pollEl.selectedIndex].text;
+          showToast("\u23F1\uFE0F Interval updated to " + label + " \u2014 takes effect on next cycle.", "success");
+          loadMode();
+        });
+      });
+      retentionEl.addEventListener("change", function() {
+        var v = parseInt(retentionEl.value);
+        if (v >= 30 && v <= 3650) updateConfig("retention_days", v.toString());
+      });
+      var claudeBridgeEl = document.getElementById("s-claude-bridge");
+      if (claudeBridgeEl) {
+        claudeBridgeEl.checked = cfg["claude_bridge"] === "true";
+        claudeBridgeEl.addEventListener("change", function() {
+          var val = claudeBridgeEl.checked ? "true" : "false";
+          updateConfig("claude_bridge", val).then(function() {
+            showToast(claudeBridgeEl.checked ? "\u{1F517} Claude Code bridge enabled" : "\u{1F517} Bridge disabled", "success");
+            loadClaudeBridgeStatus();
+          });
+        });
+        loadClaudeBridgeStatus();
+      }
+      var notifyEl = document.getElementById("s-notify-enabled");
+      var thresholdEl = document.getElementById("s-notify-threshold");
+      var thresholdRow = document.getElementById("notify-threshold-row");
+      var testRow = document.getElementById("notify-test-row");
+      if (notifyEl) {
+        notifyEl.checked = cfg["notify_enabled"] === "true";
+        thresholdEl.value = cfg["notify_threshold"] || "10";
+        thresholdRow.style.display = notifyEl.checked ? "" : "none";
+        testRow.style.display = notifyEl.checked ? "" : "none";
+        notifyEl.addEventListener("change", function() {
+          var val = notifyEl.checked ? "true" : "false";
+          updateConfig("notify_enabled", val).then(function() {
+            showToast(notifyEl.checked ? "\u{1F514} Notifications enabled" : "\u{1F515} Notifications disabled", "success");
+          });
+          thresholdRow.style.display = notifyEl.checked ? "" : "none";
+          testRow.style.display = notifyEl.checked ? "" : "none";
+        });
+        thresholdEl.addEventListener("change", function() {
+          var v = parseInt(thresholdEl.value);
+          if (v >= 5 && v <= 50) {
+            updateConfig("notify_threshold", v.toString());
+            showToast("\u{1F514} Threshold: " + v + "%", "success");
+          }
+        });
+        document.getElementById("notify-test-btn").addEventListener("click", function() {
+          fetch("/api/notify/test", { method: "POST" }).then(function(r) {
+            return r.json();
+          }).then(function(data) {
+            if (data.error) showToast("\u274C " + data.error, "error");
+            else showToast("\u{1F514} Test notification sent!", "success");
+          }).catch(function() {
+            showToast("\u274C Failed to send test", "error");
+          });
+        });
+      }
+      var smtpEnabledEl = document.getElementById("s-smtp-enabled");
+      var smtpConfigRows = document.getElementById("smtp-config-rows");
+      if (smtpEnabledEl) {
+        smtpEnabledEl.checked = cfg["smtp_enabled"] === "true";
+        smtpConfigRows.style.display = smtpEnabledEl.checked ? "" : "none";
+        var smtpHostEl = document.getElementById("s-smtp-host");
+        var smtpPortEl = document.getElementById("s-smtp-port");
+        var smtpTlsEl = document.getElementById("s-smtp-tls");
+        var smtpUserEl = document.getElementById("s-smtp-user");
+        var smtpPassEl = document.getElementById("s-smtp-pass");
+        var smtpFromEl = document.getElementById("s-smtp-from");
+        var smtpToEl = document.getElementById("s-smtp-to");
+        smtpHostEl.value = cfg["smtp_host"] || "";
+        smtpPortEl.value = cfg["smtp_port"] || "587";
+        smtpTlsEl.value = cfg["smtp_tls"] || "starttls";
+        smtpUserEl.value = cfg["smtp_user"] || "";
+        smtpFromEl.value = cfg["smtp_from"] || "";
+        smtpToEl.value = cfg["smtp_to"] || "";
+        if (cfg["smtp_pass"]) {
+          smtpPassEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+        }
+        smtpEnabledEl.addEventListener("change", function() {
+          var val = smtpEnabledEl.checked ? "true" : "false";
+          updateConfig("smtp_enabled", val).then(function() {
+            showToast(smtpEnabledEl.checked ? "\u{1F4E7} Email notifications enabled" : "\u{1F4E7} Email notifications disabled", "success");
+          });
+          smtpConfigRows.style.display = smtpEnabledEl.checked ? "" : "none";
+        });
+        smtpHostEl.addEventListener("change", function() {
+          updateConfig("smtp_host", smtpHostEl.value.trim());
+          showToast("\u{1F4E7} SMTP host saved", "success");
+        });
+        smtpPortEl.addEventListener("change", function() {
+          updateConfig("smtp_port", smtpPortEl.value);
+          showToast("\u{1F4E7} SMTP port saved", "success");
+        });
+        smtpTlsEl.addEventListener("change", function() {
+          updateConfig("smtp_tls", smtpTlsEl.value);
+          showToast("\u{1F4E7} Encryption mode saved", "success");
+        });
+        smtpUserEl.addEventListener("change", function() {
+          updateConfig("smtp_user", smtpUserEl.value.trim());
+          showToast("\u{1F4E7} SMTP username saved", "success");
+        });
+        smtpPassEl.addEventListener("change", function() {
+          var val = smtpPassEl.value.trim();
+          if (val) {
+            updateConfig("smtp_pass", val).then(function() {
+              showToast("\u{1F4E7} SMTP password saved", "success");
+              smtpPassEl.value = "";
+              smtpPassEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+            });
+          }
+        });
+        smtpFromEl.addEventListener("change", function() {
+          updateConfig("smtp_from", smtpFromEl.value.trim());
+          showToast("\u{1F4E7} From address saved", "success");
+        });
+        smtpToEl.addEventListener("change", function() {
+          updateConfig("smtp_to", smtpToEl.value.trim());
+          showToast("\u{1F4E7} To address saved", "success");
+        });
+        document.getElementById("smtp-test-btn").addEventListener("click", function() {
+          var btn = document.getElementById("smtp-test-btn");
+          btn.disabled = true;
+          btn.textContent = "\u{1F4E7} Sending...";
+          fetch("/api/notify/test-email", { method: "POST" }).then(function(r) {
+            return r.json();
+          }).then(function(data) {
+            if (data.error) showToast("\u274C " + data.error, "error");
+            else showToast("\u{1F4E7} Test email sent!", "success");
+          }).catch(function() {
+            showToast("\u274C Failed to send test email", "error");
+          }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = "\u{1F4E7} Send Test";
+          });
+        });
+      }
+      var webhookEnabledEl = document.getElementById("s-webhook-enabled");
+      var webhookConfigRows = document.getElementById("webhook-config-rows");
+      if (webhookEnabledEl) {
+        let updateWebhookLabels2 = function() {
+          var urlLabel = document.getElementById("webhook-url-label");
+          var urlHint = document.getElementById("webhook-url-hint");
+          var secretLabel = document.getElementById("webhook-secret-label");
+          var secretHint = document.getElementById("webhook-secret-hint");
+          var secretRow = document.getElementById("webhook-secret-row");
+          var urlInput = document.getElementById("s-webhook-url");
+          switch (webhookTypeEl.value) {
+            case "discord":
+              urlLabel.textContent = "Webhook URL";
+              urlHint.textContent = "Discord channel webhook URL";
+              urlInput.placeholder = "https://discord.com/api/webhooks/...";
+              secretRow.style.display = "none";
+              break;
+            case "telegram":
+              urlLabel.textContent = "Chat ID";
+              urlHint.textContent = "Telegram chat/group ID (numeric)";
+              urlInput.placeholder = "123456789";
+              secretRow.style.display = "";
+              secretLabel.textContent = "Bot Token";
+              secretHint.textContent = "Telegram bot token from @BotFather";
+              webhookSecretEl.placeholder = "123456:ABC-DEF...";
+              break;
+            case "slack":
+              urlLabel.textContent = "Webhook URL";
+              urlHint.textContent = "Slack incoming webhook URL";
+              urlInput.placeholder = "https://hooks.slack.com/services/...";
+              secretRow.style.display = "none";
+              break;
+            case "generic":
+              urlLabel.textContent = "Endpoint URL";
+              urlHint.textContent = "ntfy/Gotify/custom POST URL";
+              urlInput.placeholder = "https://ntfy.sh/mytopic";
+              secretRow.style.display = "";
+              secretLabel.textContent = "Auth Header";
+              secretHint.textContent = "Optional: Bearer token or Basic auth";
+              webhookSecretEl.placeholder = "Bearer your-token";
+              break;
+          }
+        };
+        var updateWebhookLabels = updateWebhookLabels2;
+        webhookEnabledEl.checked = cfg["webhook_enabled"] === "true";
+        webhookConfigRows.style.display = webhookEnabledEl.checked ? "" : "none";
+        var webhookTypeEl = document.getElementById("s-webhook-type");
+        var webhookUrlEl = document.getElementById("s-webhook-url");
+        var webhookSecretEl = document.getElementById("s-webhook-secret");
+        webhookTypeEl.value = cfg["webhook_type"] || "discord";
+        webhookUrlEl.value = cfg["webhook_url"] || "";
+        if (cfg["webhook_secret"]) {
+          webhookSecretEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+        }
+        updateWebhookLabels2();
+        webhookEnabledEl.addEventListener("change", function() {
+          var val = webhookEnabledEl.checked ? "true" : "false";
+          updateConfig("webhook_enabled", val).then(function() {
+            showToast(webhookEnabledEl.checked ? "\u{1F517} Webhook enabled" : "\u{1F517} Webhook disabled", "success");
+          });
+          webhookConfigRows.style.display = webhookEnabledEl.checked ? "" : "none";
+        });
+        webhookTypeEl.addEventListener("change", function() {
+          updateConfig("webhook_type", webhookTypeEl.value);
+          showToast("\u{1F517} Webhook service updated", "success");
+          updateWebhookLabels2();
+        });
+        webhookUrlEl.addEventListener("change", function() {
+          updateConfig("webhook_url", webhookUrlEl.value.trim());
+          showToast("\u{1F517} Webhook URL saved", "success");
+        });
+        webhookSecretEl.addEventListener("change", function() {
+          var val = webhookSecretEl.value.trim();
+          if (val) {
+            updateConfig("webhook_secret", val).then(function() {
+              showToast("\u{1F517} Webhook secret saved", "success");
+              webhookSecretEl.value = "";
+              webhookSecretEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+            });
+          }
+        });
+        document.getElementById("webhook-test-btn").addEventListener("click", function() {
+          var btn = document.getElementById("webhook-test-btn");
+          btn.disabled = true;
+          btn.textContent = "\u{1F517} Sending...";
+          fetch("/api/notify/test-webhook", { method: "POST" }).then(function(r) {
+            return r.json();
+          }).then(function(data) {
+            if (data.error) showToast("\u274C " + data.error, "error");
+            else showToast("\u{1F517} Test webhook sent!", "success");
+          }).catch(function() {
+            showToast("\u274C Failed to send test webhook", "error");
+          }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = "\u{1F517} Send Test";
+          });
+        });
+      }
+      var webpushEnabledEl = document.getElementById("s-webpush-enabled");
+      var webpushConfigRows = document.getElementById("webpush-config-rows");
+      if (webpushEnabledEl && "serviceWorker" in navigator && "PushManager" in window) {
+        let urlBase64ToUint8Array2 = function(base64String) {
+          var padding = "=".repeat((4 - base64String.length % 4) % 4);
+          var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+          var rawData = window.atob(base64);
+          var outputArray = new Uint8Array(rawData.length);
+          for (var i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+          return outputArray;
+        }, updateWebPushStatus2 = function() {
+          var badge = document.getElementById("webpush-status-badge");
+          var btn = document.getElementById("webpush-subscribe-btn");
+          navigator.serviceWorker.getRegistration("/sw.js").then(function(reg) {
+            if (!reg) {
+              badge.textContent = "\u26AA Not registered";
+              badge.style.color = "var(--text-secondary)";
+              btn.textContent = "\u{1F514} Subscribe";
+              return;
+            }
+            reg.pushManager.getSubscription().then(function(sub) {
+              if (sub) {
+                badge.textContent = "\u{1F7E2} Subscribed";
+                badge.style.color = "#22c55e";
+                btn.textContent = "\u{1F515} Unsubscribe";
+              } else {
+                badge.textContent = "\u26AA Not subscribed";
+                badge.style.color = "var(--text-secondary)";
+                btn.textContent = "\u{1F514} Subscribe";
+              }
+            });
+          });
+        };
+        var urlBase64ToUint8Array = urlBase64ToUint8Array2, updateWebPushStatus = updateWebPushStatus2;
+        webpushEnabledEl.checked = cfg["webpush_enabled"] === "true";
+        webpushConfigRows.style.display = webpushEnabledEl.checked ? "" : "none";
+        updateWebPushStatus2();
+        webpushEnabledEl.addEventListener("change", function() {
+          var val = webpushEnabledEl.checked ? "true" : "false";
+          updateConfig("webpush_enabled", val).then(function() {
+            showToast(webpushEnabledEl.checked ? "\u{1F514} WebPush enabled" : "\u{1F514} WebPush disabled", "success");
+          });
+          webpushConfigRows.style.display = webpushEnabledEl.checked ? "" : "none";
+        });
+        document.getElementById("webpush-subscribe-btn").addEventListener("click", function() {
+          var btn = document.getElementById("webpush-subscribe-btn");
+          btn.disabled = true;
+          navigator.serviceWorker.getRegistration("/sw.js").then(function(reg) {
+            if (!reg) {
+              return navigator.serviceWorker.register("/sw.js");
+            }
+            return reg;
+          }).then(function(reg) {
+            return reg.pushManager.getSubscription().then(function(existingSub) {
+              if (existingSub) {
+                return existingSub.unsubscribe().then(function() {
+                  return fetch("/api/webpush/unsubscribe", {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ endpoint: existingSub.endpoint })
+                  });
+                }).then(function() {
+                  showToast("\u{1F515} Unsubscribed from push notifications", "success");
+                  updateWebPushStatus2();
+                });
+              } else {
+                return fetch("/api/webpush/vapid-key").then(function(r) {
+                  return r.json();
+                }).then(function(data) {
+                  var applicationServerKey = urlBase64ToUint8Array2(data.publicKey);
+                  return reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey
+                  });
+                }).then(function(sub) {
+                  return fetch("/api/webpush/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(sub.toJSON())
+                  });
+                }).then(function() {
+                  showToast("\u{1F514} Subscribed to push notifications!", "success");
+                  updateWebPushStatus2();
+                });
+              }
+            });
+          }).catch(function(err) {
+            showToast("\u274C Push subscription failed: " + err.message, "error");
+          }).finally(function() {
+            btn.disabled = false;
+          });
+        });
+        document.getElementById("webpush-test-btn").addEventListener("click", function() {
+          var btn = document.getElementById("webpush-test-btn");
+          btn.disabled = true;
+          btn.textContent = "\u{1F514} Sending...";
+          fetch("/api/notify/test-webpush", { method: "POST" }).then(function(r) {
+            return r.json();
+          }).then(function(data) {
+            if (data.error) showToast("\u274C " + data.error, "error");
+            else showToast("\u{1F514} Test push sent!", "success");
+          }).catch(function() {
+            showToast("\u274C Failed to send test push", "error");
+          }).finally(function() {
+            btn.disabled = false;
+            btn.textContent = "\u{1F514} Send Test";
+          });
+        });
+      } else if (webpushEnabledEl) {
+        webpushEnabledEl.disabled = true;
+        var hint = document.getElementById("webpush-status-hint");
+        if (hint) hint.textContent = "Not supported in this browser";
+      }
+      var codexCaptureEl = document.getElementById("s-codex-capture");
+      if (codexCaptureEl) {
+        codexCaptureEl.checked = cfg["codex_capture"] === "true";
+        codexCaptureEl.addEventListener("change", function() {
+          var val = codexCaptureEl.checked ? "true" : "false";
+          updateConfig("codex_capture", val).then(function() {
+            showToast(codexCaptureEl.checked ? "\u{1F916} Codex capture enabled" : "\u{1F916} Codex capture disabled", "success");
+            loadCodexSettingsStatus();
+            loadDataSources();
+          });
+        });
+        loadCodexSettingsStatus();
+      }
+      var cursorCaptureEl = document.getElementById("s-cursor-capture");
+      if (cursorCaptureEl) {
+        cursorCaptureEl.checked = cfg["cursor_capture"] === "true";
+        cursorCaptureEl.addEventListener("change", function() {
+          var val = cursorCaptureEl.checked ? "true" : "false";
+          updateConfig("cursor_capture", val).then(function() {
+            showToast(cursorCaptureEl.checked ? "\u{1F5B1}\uFE0F Cursor capture enabled" : "\u{1F5B1}\uFE0F Cursor capture disabled", "success");
+            loadDataSources();
+          });
+        });
+      }
+      var geminiCaptureEl = document.getElementById("s-gemini-capture");
+      if (geminiCaptureEl) {
+        geminiCaptureEl.checked = cfg["gemini_capture"] === "true";
+        geminiCaptureEl.addEventListener("change", function() {
+          var val = geminiCaptureEl.checked ? "true" : "false";
+          updateConfig("gemini_capture", val).then(function() {
+            showToast(geminiCaptureEl.checked ? "\u2728 Gemini capture enabled" : "\u2728 Gemini capture disabled", "success");
+            loadDataSources();
+          });
+        });
+      }
+      var copilotCaptureEl = document.getElementById("s-copilot-capture");
+      var copilotPatEl = document.getElementById("s-copilot-pat");
+      if (copilotCaptureEl) {
+        copilotCaptureEl.checked = cfg["copilot_capture"] === "true";
+        copilotCaptureEl.addEventListener("change", function() {
+          var val = copilotCaptureEl.checked ? "true" : "false";
+          updateConfig("copilot_capture", val).then(function() {
+            showToast(copilotCaptureEl.checked ? "\u{1F419} Copilot capture enabled" : "\u{1F419} Copilot capture disabled", "success");
+            loadDataSources();
+          });
+        });
+      }
+      if (copilotPatEl) {
+        if (cfg["copilot_pat"]) {
+          copilotPatEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+        }
+        copilotPatEl.addEventListener("change", function() {
+          var val = copilotPatEl.value.trim();
+          if (val) {
+            updateConfig("copilot_pat", val).then(function() {
+              showToast("\u{1F419} Copilot PAT saved", "success");
+              copilotPatEl.value = "";
+              copilotPatEl.placeholder = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (configured)";
+              loadDataSources();
+            });
+          }
+        });
+      }
+      var importBtn = document.getElementById("import-json-btn");
+      var importFile = document.getElementById("import-file");
+      if (importBtn && importFile) {
+        importBtn.addEventListener("click", function() {
+          importFile.click();
+        });
+        importFile.addEventListener("change", function() {
+          if (!importFile.files || !importFile.files[0]) return;
+          var file = importFile.files[0];
+          showToast("\u{1F4E5} Importing " + file.name + "...", "info");
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            fetch("/api/import/json", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: e.target.result
+            }).then(function(r) {
+              return r.json();
+            }).then(function(data) {
+              if (data.error) {
+                showToast("\u274C Import failed: " + data.error, "error");
+                return;
+              }
+              var msg = "\u2705 Imported: " + (data.accountsCreated || 0) + " accounts, " + (data.subsCreated || 0) + " subs, " + (data.snapshotsImported || 0) + " snapshots";
+              showToast(msg, "success");
+              var resultEl = document.getElementById("import-result");
+              if (resultEl) {
+                resultEl.style.display = "";
+                resultEl.innerHTML = '<span style="color:var(--accent)">' + msg + "</span>" + (data.accountsSkipped ? "<br>Accounts skipped (existing): " + data.accountsSkipped : "") + (data.subsSkipped ? "<br>Subs skipped (existing): " + data.subsSkipped : "") + (data.snapshotsDuped ? "<br>Snapshots deduped: " + data.snapshotsDuped : "") + (data.errors && data.errors.length ? "<br>\u26A0\uFE0F Errors: " + data.errors.length : "");
+              }
+              fetchStatus().then(renderAccounts);
+              loadSubscriptions();
+            }).catch(function() {
+              showToast("\u274C Import failed", "error");
+            });
+          };
+          reader.readAsText(file);
+          importFile.value = "";
+        });
+      }
+    });
+    loadModelPricing();
+    document.getElementById("pricing-add-btn").addEventListener("click", addPricingRow);
+    document.getElementById("pricing-reset-btn").addEventListener("click", resetPricingDefaults);
+    loadMode();
+    loadDataSources();
+    document.getElementById("activity-refresh").addEventListener("click", loadActivityLog);
+    document.getElementById("activity-filter").addEventListener("change", loadActivityLog);
+    loadActivityLog();
+    loadPlugins();
+  }
+  function migrateLocalStorage(cfg) {
+    var lsBudget = localStorage.getItem("niyantra-budget");
+    var lsCurrency = localStorage.getItem("niyantra-currency");
+    if (lsBudget && (!cfg["budget_monthly"] || cfg["budget_monthly"] === "0")) {
+      updateConfig("budget_monthly", lsBudget);
+      serverConfig["budget_monthly"] = lsBudget;
+      localStorage.removeItem("niyantra-budget");
+    }
+    if (lsCurrency && cfg["currency"] === "USD") {
+      updateConfig("currency", lsCurrency);
+      serverConfig["currency"] = lsCurrency;
+      localStorage.removeItem("niyantra-currency");
+    }
+  }
+
+  // internal/web/src/advanced/palette.ts
+  var PALETTE_COMMANDS = [
+    { name: "Snap Now", key: "S", icon: "\u{1F4F8}", action: function() {
+      handleSnap();
+    } },
+    { name: "Show Quotas", key: "1", icon: "\u{1F4CA}", action: function() {
+      switchToTab("quotas");
+    } },
+    { name: "Show Subscriptions", key: "2", icon: "\u{1F4B3}", action: function() {
+      switchToTab("subscriptions");
+    } },
+    { name: "Show Overview", key: "3", icon: "\u{1F4CB}", action: function() {
+      switchToTab("overview");
+    } },
+    { name: "Show Settings", key: "4", icon: "\u2699\uFE0F", action: function() {
+      switchToTab("settings");
+    } },
+    { name: "New Subscription", key: "N", icon: "\u2795", action: function() {
+      openModal();
+    } },
+    { name: "Toggle Auto-Capture", icon: "\u{1F504}", action: function() {
+      var el = document.getElementById("s-auto-capture");
+      if (el) {
+        el.checked = !el.checked;
+        el.dispatchEvent(new Event("change"));
+      }
+    } },
+    { name: "Export CSV", icon: "\u{1F4E5}", action: function() {
+      window.location.href = "/api/export/csv";
+    } },
+    { name: "Export JSON", icon: "\u{1F4E6}", action: function() {
+      window.location.href = "/api/export/json";
+    } },
+    { name: "Download Backup", icon: "\u{1F4BE}", action: function() {
+      window.location.href = "/api/backup";
+    } },
+    { name: "Search Subscriptions", key: "/", icon: "\u{1F50D}", action: function() {
+      switchToTab("subscriptions");
+      setTimeout(function() {
+        var s = document.getElementById("search-subs");
+        if (s) s.focus();
+      }, 100);
+    } },
+    { name: "Set Budget", icon: "\u{1F4B0}", action: function() {
+      openBudgetModal();
+    } },
+    { name: "Toggle Theme", icon: "\u{1F313}", action: function() {
+      var cur = document.documentElement.getAttribute("data-theme");
+      var next = cur === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("niyantra-theme", next);
+      var themeEl = document.getElementById("s-theme");
+      if (themeEl) themeEl.value = next;
+      updateChartTheme(next);
+    } },
+    { name: "Codex Snap", icon: "\u{1F916}", action: function() {
+      handleCodexSnap();
+    } },
+    { name: "Import JSON", icon: "\u{1F4E5}", action: function() {
+      var f = document.getElementById("import-file");
+      if (f) f.click();
+    } }
+  ];
+  var paletteSelectedIndex = 0;
+  var paletteFilteredCommands = PALETTE_COMMANDS;
+  function initCommandPalette() {
+    var overlay = document.getElementById("command-palette-overlay");
+    var search = document.getElementById("command-palette-search");
+    if (!overlay || !search) return;
+    overlay.addEventListener("click", function(e) {
+      if (e.target === overlay) closeCommandPalette();
+    });
+    search.addEventListener("input", function() {
+      var query = search.value.toLowerCase().trim();
+      paletteFilteredCommands = PALETTE_COMMANDS.filter(function(cmd) {
+        return cmd.name.toLowerCase().indexOf(query) >= 0;
+      });
+      paletteSelectedIndex = 0;
+      renderPaletteList();
+    });
+    search.addEventListener("keydown", function(e) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        paletteSelectedIndex = Math.min(paletteSelectedIndex + 1, paletteFilteredCommands.length - 1);
+        renderPaletteList();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        paletteSelectedIndex = Math.max(paletteSelectedIndex - 1, 0);
+        renderPaletteList();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (paletteFilteredCommands[paletteSelectedIndex]) {
+          closeCommandPalette();
+          paletteFilteredCommands[paletteSelectedIndex].action();
+        }
+      } else if (e.key === "Escape") {
+        closeCommandPalette();
+      }
+    });
+  }
+  function toggleCommandPalette() {
+    var overlay = document.getElementById("command-palette-overlay");
+    if (overlay.hidden) {
+      openCommandPalette();
+    } else {
+      closeCommandPalette();
+    }
+  }
+  function openCommandPalette() {
+    var overlay = document.getElementById("command-palette-overlay");
+    var search = document.getElementById("command-palette-search");
+    overlay.hidden = false;
+    search.value = "";
+    paletteFilteredCommands = PALETTE_COMMANDS;
+    paletteSelectedIndex = 0;
+    renderPaletteList();
+    setTimeout(function() {
+      search.focus();
+    }, 50);
+  }
+  function closeCommandPalette() {
+    document.getElementById("command-palette-overlay").hidden = true;
+  }
+  function renderPaletteList() {
+    var list = document.getElementById("command-palette-list");
+    if (paletteFilteredCommands.length === 0) {
+      list.innerHTML = '<div class="command-palette-empty">No matching commands</div>';
+      return;
+    }
+    var html = "";
+    for (var i = 0; i < paletteFilteredCommands.length; i++) {
+      var cmd = paletteFilteredCommands[i];
+      var sel = i === paletteSelectedIndex ? " selected" : "";
+      html += '<div class="command-palette-item' + sel + '" data-idx="' + i + '"><span class="cp-icon">' + cmd.icon + '</span><span class="cp-name">' + esc(cmd.name) + "</span>" + (cmd.key ? '<span class="cp-shortcut">' + cmd.key + "</span>" : "") + "</div>";
+    }
+    list.innerHTML = html;
+    list.querySelectorAll(".command-palette-item").forEach(function(el) {
+      el.addEventListener("click", function() {
+        var idx = parseInt(el.getAttribute("data-idx"));
+        closeCommandPalette();
+        paletteFilteredCommands[idx].action();
+      });
+    });
+    var selected = list.querySelector(".selected");
+    if (selected) selected.scrollIntoView({ block: "nearest" });
+  }
+
+  // internal/web/src/advanced/keyboard.ts
+  function initKeyboardShortcuts() {
+    document.addEventListener("keydown", function(e) {
+      var tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        if (e.key === "Escape") {
+          document.activeElement?.blur();
+          closeModal();
+          closeDelete();
+          closeBudget();
+        }
+        return;
+      }
+      var anyModal = !document.getElementById("modal-overlay").hidden || !document.getElementById("delete-overlay").hidden || !document.getElementById("budget-overlay").hidden;
+      if (e.key === "Escape") {
+        closeModal();
+        closeDelete();
+        closeBudget();
+        return;
+      }
+      if (anyModal) return;
+      switch (e.key) {
+        case "1":
+          switchToTab("quotas");
+          break;
+        case "2":
+          switchToTab("subscriptions");
+          break;
+        case "3":
+          switchToTab("overview");
+          break;
+        case "4":
+          switchToTab("settings");
+          break;
+        case "n":
+        case "N":
+          openModal();
+          e.preventDefault();
+          break;
+        case "s":
+        case "S":
+          handleSnap();
+          e.preventDefault();
+          break;
+        case "/":
+          e.preventDefault();
+          switchToTab("subscriptions");
+          setTimeout(function() {
+            var search = document.getElementById("search-subs");
+            if (search) search.focus();
+          }, 100);
+          break;
+      }
+    });
+    document.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        toggleCommandPalette();
+      }
+    });
+  }
+
+  // internal/web/src/main.ts
+  document.addEventListener("DOMContentLoaded", function() {
+    initTheme();
+    initTabs();
+    setRenderAccounts(renderAccounts);
+    initQuotas();
+    setupToggle();
+    initModal();
+    initBudget();
+    initSettings();
+    initSearch();
+    initKeyboardShortcuts();
+    initAccountMetaHandlers();
+    document.addEventListener("niyantra:tab-change", function(e) {
+      var tab = e.detail.tab;
+      if (tab === "overview") {
+        loadOverview();
+        checkOnboardingStep("overview");
+      }
+      if (tab === "settings") {
+        loadActivityLog();
+        loadMode();
+        loadDataSources();
+      }
+    });
+    document.addEventListener("niyantra:theme-change", function(e) {
+      updateChartTheme(e.detail.theme);
+    });
+    document.addEventListener("niyantra:chart-refresh", function() {
+      loadHistoryChart();
+    });
+    document.addEventListener("niyantra:overview-refresh", function() {
+      loadOverview();
+    });
+    document.getElementById("snap-btn").addEventListener("click", handleSnap);
+    initSnapDropdown();
+    document.getElementById("chart-account").addEventListener("change", loadHistoryChart);
+    document.getElementById("chart-range").addEventListener("change", loadHistoryChart);
+    Promise.all([fetchStatus(), fetchUsage()]).then(function(results) {
+      var data = results[0];
+      renderAccounts(data);
+      updateTimestamp();
+      populateChartAccountSelect(data);
+      loadHistoryChart();
+      if (!data.accounts || data.accounts.length === 0) {
+        var grid = document.getElementById("account-grid");
+        if (grid) grid.innerHTML = emptyQuotas();
+        var emptySnapBtn = document.getElementById("empty-snap-btn");
+        if (emptySnapBtn) emptySnapBtn.addEventListener("click", handleSnap);
+      }
+      autoDetectSteps(data, serverConfig);
+      renderOnboarding();
+      if (!data.codexSnapshot || !data.claudeSnapshot) {
+        setTimeout(function() {
+          fetchStatus().then(function(data2) {
+            if (data2.codexSnapshot || data2.claudeSnapshot) {
+              renderAccounts(data2);
+            }
+          }).catch(function() {
+          });
+        }, 3e3);
+      }
+    }).catch(function(err) {
+      console.error("Failed to load status:", err);
+    });
+    loadSubscriptions();
+    fetchPresets().then(function(data) {
+      setPresetsData(data.presets || []);
+      var list = document.getElementById("preset-list");
+      for (var i = 0; i < presetsData.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = presetsData[i].platform;
+        list.appendChild(opt);
+      }
+    });
+    loadMode();
+    initCommandPalette();
+    loadSystemAlerts();
+    setInterval(refreshTimestampDisplay, 3e4);
+  });
+  window.openBudgetModal = openBudgetModal;
+  window.dismissAlert = dismissAlert;
+  window.switchToTab = switchToTab;
+  window.calendarNav = calendarNav;
+  window.handleCodexSnap = handleCodexSnap;
+})();

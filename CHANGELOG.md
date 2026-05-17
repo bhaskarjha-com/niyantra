@@ -3,6 +3,27 @@
 All notable changes to Niyantra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions map to feature milestones, not semver.
 
+## [0.28.0]
+
+### Added
+- **Safe to Spend guardrail (F1-UX)** — hero card showing remaining budget with semantic color coding (healthy/warning/over), daily burn rate, and projected overspend. CSP-safe event binding (no inline onclick). Full-width layout in overview grid.
+- **SVG sparkline renderer (F2-UX)** — pure SVG micro-charts with trend direction detection (↑/↓/→). Zero dependencies, theme-aware via CSS variables.
+- **Beautiful empty states (F3-UX)** — preview cards with sample data for Quotas, Subscriptions, and Overview tabs. Replaces blank screens for new users with actionable CTAs.
+- **Usage streak hero card (F4-UX)** — prominent display of current streak, total snapshots, active days, and best streak. Rendered above the activity heatmap (replaces duplicate stats bar).
+- **Reset countdown chips (F6-UX)** — inline countdown timers for providers with quota resets within 24h. Auto-refreshes every 60s.
+- **Onboarding checklist (F7-UX)** — 5-step persistent checklist with auto-detection (snapshot, subscription, budget, notifications, overview tab). Progress bar, confetti on completion, localStorage persistence. Dismiss button.
+
+### Fixed
+- **Token Usage Analytics CSS** — added complete missing stylesheet for KPI cards, range selector, model distribution bars, daily burn chart, and breakdown chips. Previously had no CSS at all (pre-existing bug).
+- **Gemini CLI model breakdown CSS** — added missing styles for per-model rows (`cursor-model-breakdown`, `cursor-model-row`, `quota-minibar`). Previously rendered as unstyled raw content. Applies to both Gemini CLI and Cursor providers.
+- **CSP inline handler violations** — replaced all inline `onclick` handlers with CSP-safe `addEventListener` wiring for budget modal buttons.
+- **Activity section data duplication** — removed old stats bar from heatmap (streak card now shows the same data in a better format).
+
+### Changed
+- Overview content order: Safe to Spend hero → Countdown → Advisor → Cost KPI → Token Analytics → Git Costs → Heatmap → Provider Health → Insights
+- CSS entry point: 4 new stylesheets (ux-features, sparklines, onboarding, token-analytics)
+- Provider model breakdown: upgraded from flexbox to CSS Grid layout with larger font (13px) and taller progress bars (7px)
+
 ## [0.27.0]
 
 ### Added
