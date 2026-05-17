@@ -1,4 +1,5 @@
 // Niyantra Dashboard — Quota History Chart
+import { loadChartAnnotations } from './annotations';
 var Chart = (window as any).Chart;
 
 
@@ -197,6 +198,14 @@ export function renderHistoryChart(snapshots: any[]): void {
       }
     }
   });
+
+  // F19-UX: Load chart annotations (event markers)
+  var chartEl = document.querySelector('.chart-container') as HTMLElement;
+  if (chartEl && historyChart) {
+    // Pass raw timestamps for matching
+    var rawTimestamps = snapshots.map(function(s: any) { return s.capturedAt; });
+    loadChartAnnotations(chartEl, rawTimestamps, historyChart);
+  }
 }
 
 export function populateChartAccountSelect(data: any): void {
