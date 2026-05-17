@@ -2847,6 +2847,249 @@
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
+  // internal/web/src/advanced/report.ts
+  async function assembleReportData() {
+    var results = await Promise.all([
+      fetch("/api/overview").then(function(r) {
+        return r.json();
+      }),
+      fetch("/api/history/heatmap").then(function(r) {
+        return r.json();
+      })
+    ]);
+    var overview = results[0];
+    var heatmap = results[1];
+    var stats = overview.stats || {};
+    var byCat = stats.byCategory || {};
+    var catKeys = Object.keys(byCat);
+    var topCat = null;
+    if (catKeys.length > 0) {
+      catKeys.sort(function(a, b) {
+        return (byCat[b].monthlySpend || 0) - (byCat[a].monthlySpend || 0);
+      });
+      var topName = catKeys[0];
+      var topSpend = byCat[topName].monthlySpend || 0;
+      var totalSpend = stats.totalMonthlySpend || 0;
+      topCat = {
+        name: topName,
+        pct: totalSpend > 0 ? Math.round(topSpend / totalSpend * 100) : 0,
+        spend: topSpend
+      };
+    }
+    var dailyBurn = [];
+    if (heatmap && heatmap.days) {
+      var dayKeys = Object.keys(heatmap.days).sort().slice(-30);
+      for (var i = 0; i < dayKeys.length; i++) {
+        dailyBurn.push(heatmap.days[dayKeys[i]] || 0);
+      }
+    }
+    var now = /* @__PURE__ */ new Date();
+    var period = now.toLocaleString("default", { month: "long", year: "numeric" });
+    return {
+      totalSpend: stats.totalMonthlySpend || 0,
+      providerCount: overview.providerCount || (overview.quotaSummary ? Object.keys(overview.quotaSummary.byProvider || {}).length : 0),
+      accountCount: overview.accountCount || 0,
+      topCategory: topCat,
+      activeDays: heatmap ? heatmap.activeDays || 0 : 0,
+      totalSnaps: heatmap ? heatmap.totalSnaps || 0 : 0,
+      currentStreak: heatmap ? heatmap.currentStreak || 0 : 0,
+      longestStreak: heatmap ? heatmap.longestStreak || 0 : 0,
+      period,
+      dailyBurn
+    };
+  }
+  async function generateReport() {
+    var data = await assembleReportData();
+    var canvas = document.createElement("canvas");
+    var dpr = window.devicePixelRatio || 1;
+    var W = 1200;
+    var H = 630;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    var ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    var bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, "#0a0f1a");
+    bg.addColorStop(1, "#0f172a");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = "rgba(255,255,255,0.02)";
+    ctx.lineWidth = 1;
+    for (var gy = 0; gy < H; gy += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(W, gy);
+      ctx.stroke();
+    }
+    drawHeader(ctx, data, W);
+    drawHeroMetrics(ctx, data);
+    drawStatCards(ctx, data, W);
+    drawTrendBars(ctx, data.dailyBurn, W);
+    drawFooter(ctx, data, W, H);
+    return new Promise(function(resolve) {
+      canvas.toBlob(function(blob) {
+        resolve(blob);
+      }, "image/png");
+    });
+  }
+  function drawHeader(ctx, data, W) {
+    ctx.font = "700 20px Inter, system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "#6ee7b7";
+    ctx.fillText("\u26A1 Niyantra", 40, 42);
+    ctx.font = "400 14px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.textAlign = "right";
+    ctx.fillText(data.period + " Report", W - 40, 42);
+    ctx.textAlign = "left";
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 60);
+    ctx.lineTo(W - 40, 60);
+    ctx.stroke();
+  }
+  function drawHeroMetrics(ctx, data) {
+    ctx.font = "400 11px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.letterSpacing = "1px";
+    ctx.fillText("TOTAL AI SPEND", 50, 98);
+    ctx.font = "700 48px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#f1f5f9";
+    ctx.fillText("$" + data.totalSpend.toFixed(2), 50, 155);
+    if (data.topCategory) {
+      ctx.font = "400 11px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#64748b";
+      ctx.fillText("TOP CATEGORY", 700, 98);
+      ctx.font = "700 28px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillText(data.topCategory.name + " (" + data.topCategory.pct + "%)", 700, 135);
+      ctx.font = "400 16px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText("$" + data.topCategory.spend.toFixed(2) + "/mo", 700, 160);
+    }
+  }
+  function drawStatCards(ctx, data, W) {
+    var cards = [
+      { label: "PROVIDERS", value: String(data.providerCount || "\u2014"), color: "#6366f1" },
+      { label: "SNAPSHOTS", value: String(data.totalSnaps || "\u2014"), color: "#10b981" },
+      { label: "ACTIVE DAYS", value: String(data.activeDays || "\u2014"), color: "#3b82f6" },
+      { label: "BEST STREAK", value: data.longestStreak > 0 ? data.longestStreak + "d" : "\u2014", color: "#f59e0b" }
+    ];
+    var startX = 50;
+    var cardW = (W - 100 - 60) / 4;
+    var gap = 20;
+    var y = 200;
+    var cardH = 80;
+    for (var i = 0; i < cards.length; i++) {
+      var x = startX + i * (cardW + gap);
+      var c = cards[i];
+      ctx.fillStyle = "#131b2e";
+      roundRect(ctx, x, y, cardW, cardH, 8);
+      ctx.fill();
+      ctx.fillStyle = c.color;
+      roundRect(ctx, x, y, 3, cardH, 2);
+      ctx.fill();
+      ctx.font = "500 10px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#64748b";
+      ctx.fillText(c.label, x + 16, y + 24);
+      ctx.font = "700 28px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillText(c.value, x + 16, y + 60);
+    }
+  }
+  function drawTrendBars(ctx, daily, W) {
+    var chartX = 50;
+    var chartY = 320;
+    var chartW = W - 100;
+    var chartH = 200;
+    ctx.fillStyle = "#131b2e";
+    roundRect(ctx, chartX, chartY, chartW, chartH, 8);
+    ctx.fill();
+    if (daily.length === 0) {
+      ctx.font = "400 13px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#475569";
+      ctx.textAlign = "center";
+      ctx.fillText("No activity data available", chartX + chartW / 2, chartY + chartH / 2);
+      ctx.textAlign = "left";
+      return;
+    }
+    var max = Math.max.apply(null, daily);
+    if (max === 0) max = 1;
+    var barCount = daily.length;
+    var barArea = chartW - 40;
+    var barW = Math.max(4, Math.floor(barArea / barCount) - 2);
+    var barStartX = chartX + 20;
+    for (var i = 0; i < barCount; i++) {
+      var barH = Math.max(2, daily[i] / max * (chartH - 50));
+      var bx = barStartX + i * (barW + 2);
+      var by = chartY + chartH - 20 - barH;
+      var alpha = 0.4 + daily[i] / max * 0.6;
+      ctx.fillStyle = "rgba(110, 231, 183, " + alpha + ")";
+      roundRect(ctx, bx, by, barW, barH, 2);
+      ctx.fill();
+    }
+    ctx.font = "400 11px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("Activity Trend (last " + daily.length + " days)", chartX + 20, chartY + chartH - 4);
+  }
+  function drawFooter(ctx, data, W, H) {
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, H - 40);
+    ctx.lineTo(W - 40, H - 40);
+    ctx.stroke();
+    ctx.font = "400 11px Inter, system-ui, sans-serif";
+    ctx.fillStyle = "#475569";
+    ctx.fillText("Tracked with Niyantra \xB7 niyantra.bhaskarjha.dev", 50, H - 18);
+    ctx.textAlign = "right";
+    ctx.fillText((/* @__PURE__ */ new Date()).toLocaleDateString(), W - 50, H - 18);
+    ctx.textAlign = "left";
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+  function downloadReport() {
+    var btn = document.getElementById("generate-report-btn");
+    if (btn) {
+      btn.textContent = "\u23F3 Generating...";
+      btn.setAttribute("disabled", "true");
+    }
+    generateReport().then(function(blob) {
+      if (btn) {
+        btn.textContent = "\u{1F4CA} Monthly Report";
+        btn.removeAttribute("disabled");
+      }
+      if (!blob) return;
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "niyantra-report-" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 7) + ".png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }).catch(function(err) {
+      console.error("Report generation failed:", err);
+      if (btn) {
+        btn.textContent = "\u{1F4CA} Monthly Report";
+        btn.removeAttribute("disabled");
+      }
+    });
+  }
+
   // internal/web/src/overview/overview.ts
   function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
@@ -2926,7 +3169,7 @@
         linksHTML += "</div></div>";
       }
     }
-    var exportHTML = '<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a></div></div>';
+    var exportHTML = '<div class="overview-card full-width"><h3>Export</h3><p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Download your data for expense tracking, tax reports, or backup.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E5} CSV</a><a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">\u{1F4E6} JSON</a><button class="btn-add" id="generate-report-btn" style="padding:6px 12px;font-size:12px">\u{1F4CA} Monthly Report</button></div></div>';
     var providerHTML = '<div class="overview-card full-width"><h3>Provider Health</h3>';
     providerHTML += '<div class="provider-health-grid">';
     if (latestQuotaData && latestQuotaData.accounts && latestQuotaData.accounts.length > 0) {
@@ -2959,6 +3202,12 @@
     el.innerHTML = safeToSpendHTML + anomalyHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
     wireSafeToSpendButtons(openBudgetModal);
     loadAnomalies();
+    var reportBtn = document.getElementById("generate-report-btn");
+    if (reportBtn) {
+      reportBtn.addEventListener("click", function() {
+        downloadReport();
+      });
+    }
     if (serverConfig["claude_bridge"] === "true") {
       loadClaudeCardData();
     } else {
@@ -3120,6 +3369,121 @@
       btn.disabled = false;
       btn.classList.remove("snapping");
       setSnapInProgress(false);
+    });
+  }
+
+  // internal/web/src/charts/annotations.ts
+  function getAnnotationMeta(type) {
+    switch (type) {
+      case "config_change":
+        return { icon: "\u2699\uFE0F", color: "#6366f1" };
+      case "account_added":
+        return { icon: "\u2795", color: "#10b981" };
+      case "account_removed":
+        return { icon: "\u2796", color: "#ef4444" };
+      case "subscription_created":
+        return { icon: "\u{1F4B3}", color: "#f59e0b" };
+      case "subscription_updated":
+        return { icon: "\u270F\uFE0F", color: "#8b5cf6" };
+      case "subscription_deleted":
+        return { icon: "\u274C", color: "#ef4444" };
+      case "budget_changed":
+        return { icon: "\u{1F4B0}", color: "#f59e0b" };
+      case "notification":
+        return { icon: "\u{1F514}", color: "#ec4899" };
+      case "quota_alert":
+        return { icon: "\u26A0\uFE0F", color: "#ef4444" };
+      default:
+        return { icon: "\u{1F4CC}", color: "#94a3b8" };
+    }
+  }
+  var SKIP_EVENTS = {
+    "snapshot": true,
+    "auto_capture": true,
+    "snap": true,
+    "poll_cycle": true
+  };
+  function parseAnnotations(entries) {
+    var annotations = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (SKIP_EVENTS[e.eventType]) continue;
+      var meta = getAnnotationMeta(e.eventType);
+      var label = e.eventType.replace(/_/g, " ");
+      var details = {};
+      try {
+        details = JSON.parse(e.details || "{}");
+      } catch (ex) {
+      }
+      if (details.key) {
+        label = details.key + " \u2192 " + (details.value || "");
+      } else if (e.accountEmail) {
+        label += ": " + e.accountEmail;
+      }
+      if (label.length > 40) label = label.substring(0, 37) + "\u2026";
+      annotations.push({
+        date: e.timestamp,
+        type: e.eventType,
+        icon: meta.icon,
+        color: meta.color,
+        label,
+        tooltip: meta.icon + " " + label + "\n" + new Date(e.timestamp).toLocaleString()
+      });
+    }
+    return annotations;
+  }
+  function renderChartAnnotations(chartContainer, annotations, chartLabels, chartInstance) {
+    var existing = chartContainer.querySelectorAll(".chart-annotation");
+    for (var i = 0; i < existing.length; i++) existing[i].remove();
+    if (!annotations.length || !chartInstance) return;
+    var visible = annotations.slice(0, 10);
+    var chartArea = chartInstance.chartArea;
+    if (!chartArea) return;
+    for (var j = 0; j < visible.length; j++) {
+      var ann = visible[j];
+      var annDate = new Date(ann.date);
+      var bestIdx = -1;
+      var bestDiff = Infinity;
+      for (var k = 0; k < chartLabels.length; k++) {
+        var labelDate = new Date(chartLabels[k]);
+        if (isNaN(labelDate.getTime())) continue;
+        var diff = Math.abs(labelDate.getTime() - annDate.getTime());
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestIdx = k;
+        }
+      }
+      if (bestIdx < 0) continue;
+      var x = chartInstance.scales.x.getPixelForValue(bestIdx);
+      if (x < chartArea.left || x > chartArea.right) continue;
+      var marker = document.createElement("div");
+      marker.className = "chart-annotation";
+      marker.style.left = x + "px";
+      marker.style.top = chartArea.top + "px";
+      marker.style.height = chartArea.bottom - chartArea.top + "px";
+      marker.style.borderLeftColor = ann.color;
+      var dot = document.createElement("span");
+      dot.className = "chart-annotation-dot";
+      dot.textContent = ann.icon;
+      marker.appendChild(dot);
+      var tip = document.createElement("div");
+      tip.className = "chart-annotation-tooltip";
+      tip.textContent = ann.label;
+      marker.appendChild(tip);
+      chartContainer.appendChild(marker);
+    }
+  }
+  function loadChartAnnotations(chartContainer, chartLabels, chartInstance) {
+    fetch("/api/activity?limit=100").then(function(r) {
+      return r.json();
+    }).then(function(data) {
+      if (!data || !data.entries || data.entries.length === 0) return;
+      var annotations = parseAnnotations(data.entries);
+      if (annotations.length > 0) {
+        renderChartAnnotations(chartContainer, annotations, chartLabels, chartInstance);
+      }
+    }).catch(function(err) {
+      console.error("Chart annotations failed:", err);
     });
   }
 
@@ -3299,6 +3663,13 @@
         }
       }
     });
+    var chartEl = document.querySelector(".chart-container");
+    if (chartEl && historyChart) {
+      var rawTimestamps = snapshots.map(function(s) {
+        return s.capturedAt;
+      });
+      loadChartAnnotations(chartEl, rawTimestamps, historyChart);
+    }
   }
   function populateChartAccountSelect(data) {
     var sel = document.getElementById("chart-account");

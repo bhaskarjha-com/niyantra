@@ -5193,4 +5193,67 @@ kbd {
   font-weight: 500;
 }
 
+/* internal/web/src/styles/annotations.css */
+.chart-container {
+  position: relative;
+}
+.chart-annotation {
+  position: absolute;
+  width: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.25);
+  pointer-events: auto;
+  z-index: 5;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.chart-annotation:hover {
+  opacity: 1;
+  z-index: 10;
+}
+.chart-annotation-dot {
+  position: absolute;
+  top: -12px;
+  left: -10px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s;
+}
+.chart-annotation:hover .chart-annotation-dot {
+  transform: scale(1.3);
+}
+.chart-annotation-tooltip {
+  display: none;
+  position: absolute;
+  top: -36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text);
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  z-index: 15;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chart-annotation:hover .chart-annotation-tooltip {
+  display: block;
+}
+[data-theme=light] .chart-annotation {
+  border-left-color: rgba(0, 0, 0, 0.2);
+}
+
 /* internal/web/src/styles/main.css */

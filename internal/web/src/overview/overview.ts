@@ -17,6 +17,7 @@ import { renderSafeToSpend, wireSafeToSpendButtons } from './safeToSpend';
 import { renderStreakCard } from './streaks';
 import { renderCountdowns, startCountdownRefresh } from './countdown';
 import { loadAnomalies } from './anomalyCard';
+import { downloadReport } from '../advanced/report';
 
 export function loadOverview(): void {
   // Fetch overview, subscriptions, and usage intelligence
@@ -137,9 +138,10 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
   var exportHTML = '<div class="overview-card full-width"><h3>Export</h3>' +
     '<p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">' +
     'Download your data for expense tracking, tax reports, or backup.</p>' +
-    '<div style="display:flex;gap:8px">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
     '<a class="btn-add" href="/api/export/csv" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📥 CSV</a>' +
     '<a class="btn-add" href="/api/export/json" download style="text-decoration:none;display:inline-flex;padding:6px 12px;font-size:12px">📦 JSON</a>' +
+    '<button class="btn-add" id="generate-report-btn" style="padding:6px 12px;font-size:12px">📊 Monthly Report</button>' +
     '</div></div>';
 
   // ── Provider Health Overview ──
@@ -209,6 +211,12 @@ export function renderOverviewEnhanced(data: any, subs: any[], usageData: any): 
 
   // F5-UX: Load anomaly detection (async)
   loadAnomalies();
+
+  // F16-UX: Wire monthly report button (CSP-safe)
+  var reportBtn = document.getElementById('generate-report-btn');
+  if (reportBtn) {
+    reportBtn.addEventListener('click', function() { downloadReport(); });
+  }
 
   // Async load Claude Code bridge data (only if bridge enabled)
   if (serverConfig['claude_bridge'] === 'true') {
