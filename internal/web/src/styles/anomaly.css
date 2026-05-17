@@ -1,0 +1,52 @@
+/* ═══════════════════════════════════════════
+   F5-UX: Cost Anomaly Detection Card
+   ═══════════════════════════════════════════ */
+
+.anomaly-card {
+  grid-column: 1 / -1;
+  background: var(--bg-card);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.08);
+  backdrop-filter: var(--backdrop-blur);
+}
+.anomaly-card.critical {
+  border-color: var(--red);
+  box-shadow: 0 0 20px rgba(248, 113, 113, 0.1);
+}
+
+.anomaly-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.anomaly-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.anomaly-card.warning .anomaly-title { color: var(--amber); }
+.anomaly-card.critical .anomaly-title { color: var(--red); }
+
+.anomaly-dismiss {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+  font-size: 14px; padding: 4px 8px; color: var(--text-muted);
+  transition: color 0.2s, border-color 0.2s;
+}
+.anomaly-dismiss:hover { color: var(--text); border-color: var(--text-muted); }
+
+.anomaly-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.anomaly-item:last-child { border-bottom: none; }
+
+.anomaly-provider {
+  font-weight: 600; font-size: 14px; color: var(--text);
+}
+.anomaly-detail {
+  font-size: 12px; color: var(--text-secondary); margin-top: 4px;
+}
+.anomaly-impact {
+  font-size: 12px; color: var(--amber); margin-top: 4px; font-weight: 500;
+}

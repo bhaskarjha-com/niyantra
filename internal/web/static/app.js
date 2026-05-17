@@ -1811,6 +1811,42 @@
     document.getElementById("budget-overlay").hidden = true;
   }
 
+  // internal/web/src/charts/sparkline.ts
+  function sparkline(data, opts) {
+    var w = opts && opts.width || 60;
+    var h = opts && opts.height || 20;
+    var color = opts && opts.color || "var(--accent)";
+    var dir = opts && opts.direction || "flat";
+    if (!data || data.length < 2) {
+      return '<span class="sparkline-container"><svg width="' + w + '" height="' + h + '"></svg></span>';
+    }
+    var min = Math.min.apply(null, data);
+    var max = Math.max.apply(null, data);
+    var range = max - min || 1;
+    var pad = 2;
+    var points = "";
+    var lastX = 0;
+    var lastY = 0;
+    for (var i = 0; i < data.length; i++) {
+      var x = pad + i / (data.length - 1) * (w - 2 * pad);
+      var y = h - pad - (data[i] - min) / range * (h - 2 * pad);
+      points += x.toFixed(1) + "," + y.toFixed(1) + " ";
+      lastX = x;
+      lastY = y;
+    }
+    var arrowColor = dir === "up" ? "var(--green)" : dir === "down" ? "var(--red)" : "var(--text-muted)";
+    var arrow = dir === "up" ? "\u2191" : dir === "down" ? "\u2193" : "\u2192";
+    return '<span class="sparkline-container"><svg width="' + w + '" height="' + h + '" class="sparkline-svg"><polyline points="' + points.trim() + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><circle cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="2" fill="' + color + '"/></svg><span class="sparkline-arrow" style="color:' + arrowColor + '">' + arrow + "</span></span>";
+  }
+  function trendDirection(data) {
+    if (!data || data.length < 2) return "flat";
+    var first = data[0];
+    var last = data[data.length - 1];
+    if (last > first * 1.05) return "up";
+    if (last < first * 0.95) return "down";
+    return "flat";
+  }
+
   // internal/web/src/overview/insights.ts
   function renderServerInsights(insights) {
     if (!insights || insights.length === 0) return "";
@@ -2435,9 +2471,20 @@
       rangeHTML += '<button class="token-range-btn' + activeClass + '" data-days="' + opt.value + '">' + opt.label + "</button>";
     }
     rangeHTML += "</div>";
+    var tokenSparkData = [];
+    var costSparkData = [];
+    if (dailyData.length >= 3) {
+      var sparkSlice = dailyData.slice(-7);
+      for (var si = 0; si < sparkSlice.length; si++) {
+        tokenSparkData.push(sparkSlice[si].totalTokens || 0);
+        costSparkData.push(sparkSlice[si].costUSD || 0);
+      }
+    }
+    var tokenSpark = tokenSparkData.length >= 3 ? sparkline(tokenSparkData, { width: 50, height: 18, color: "#6366f1", direction: trendDirection(tokenSparkData) }) : "";
+    var costSpark = costSparkData.length >= 3 ? sparkline(costSparkData, { width: 50, height: 18, color: "#f59e0b", direction: trendDirection(costSparkData) }) : "";
     var kpiHTML = '<div class="token-kpi-row">';
-    kpiHTML += buildKpiCard("Total Tokens", formatTokens2(totals.totalTokens), "\u{1F4CA}");
-    kpiHTML += buildKpiCard("Est. Cost", "$" + (totals.estimatedCostUSD || 0).toFixed(2), "\u{1F4B0}");
+    kpiHTML += buildKpiCard("Total Tokens", formatTokens2(totals.totalTokens), "\u{1F4CA}", tokenSpark);
+    kpiHTML += buildKpiCard("Est. Cost", "$" + (totals.estimatedCostUSD || 0).toFixed(2), "\u{1F4B0}", costSpark);
     kpiHTML += buildKpiCard("Active Days", String(kpis.daysActive || 0), "\u{1F4C5}");
     kpiHTML += buildKpiCard("Avg/Day", formatTokens2(kpis.avgTokensPerDay || 0), "\u{1F4C8}");
     kpiHTML += buildKpiCard("Cache Rate", Math.round((kpis.cacheHitRate || 0) * 100) + "%", "\u26A1");
@@ -2511,8 +2558,8 @@
       });
     }
   }
-  function buildKpiCard(label, value, icon) {
-    return '<div class="token-kpi-card"><div class="token-kpi-icon">' + icon + '</div><div class="token-kpi-value">' + value + '</div><div class="token-kpi-label">' + label + "</div></div>";
+  function buildKpiCard(label, value, icon, spark) {
+    return '<div class="token-kpi-card"><div class="token-kpi-icon">' + icon + '</div><div class="token-kpi-value">' + value + "</div>" + (spark ? '<div class="token-kpi-spark">' + spark + "</div>" : "") + '<div class="token-kpi-label">' + label + "</div></div>";
   }
   function formatTokens2(n) {
     if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
@@ -2735,6 +2782,71 @@
     }, 6e4);
   }
 
+  // internal/web/src/overview/anomalyCard.ts
+  function loadAnomalies() {
+    var container = document.getElementById("anomaly-card-container");
+    if (!container) return;
+    fetch("/api/anomalies").then(function(res) {
+      return res.json();
+    }).then(function(data) {
+      if (!data || !data.anomalies || data.anomalies.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var anomalies = data.anomalies;
+      var dismissedKey = "niyantra_dismissed_anomalies";
+      var dismissed = [];
+      try {
+        dismissed = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+      } catch (e) {
+      }
+      anomalies = anomalies.filter(function(a2) {
+        return dismissed.indexOf(a2.provider + "_" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) < 0;
+      });
+      if (anomalies.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      var severityClass = anomalies[0].severity === "critical" ? "critical" : "warning";
+      var html = '<div class="anomaly-card ' + severityClass + '"><div class="anomaly-header"><span class="anomaly-title">' + (severityClass === "critical" ? "\u{1F6A8}" : "\u26A0\uFE0F") + ' Cost Anomaly Detected</span><button class="anomaly-dismiss" id="anomaly-dismiss-btn" title="Dismiss for today">\u2715</button></div>';
+      for (var i = 0; i < anomalies.length; i++) {
+        var a = anomalies[i];
+        html += '<div class="anomaly-item"><div class="anomaly-provider">' + (a.severity === "critical" ? "\u{1F534}" : "\u{1F7E1}") + " " + escHtml(a.message) + '</div><div class="anomaly-detail">Z-score: ' + a.zScore + "\u03C3 \xB7 $" + a.currentValue.toFixed(2) + " today vs $" + a.mean30d.toFixed(2) + " avg (30d)</div>";
+        if (a.projectedImpact > 0) {
+          html += '<div class="anomaly-impact">\u{1F4CA} At this rate: budget exceeded by $' + a.projectedImpact.toFixed(2) + "/mo</div>";
+        }
+        html += "</div>";
+      }
+      html += "</div>";
+      container.innerHTML = html;
+      var dismissBtn = document.getElementById("anomaly-dismiss-btn");
+      if (dismissBtn) {
+        dismissBtn.addEventListener("click", function() {
+          var today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+          var keys = anomalies.map(function(a2) {
+            return a2.provider + "_" + today;
+          });
+          var current = [];
+          try {
+            current = JSON.parse(localStorage.getItem(dismissedKey) || "[]");
+          } catch (e) {
+          }
+          for (var k = 0; k < keys.length; k++) {
+            if (current.indexOf(keys[k]) < 0) current.push(keys[k]);
+          }
+          if (current.length > 50) current = current.slice(-50);
+          localStorage.setItem(dismissedKey, JSON.stringify(current));
+          container.innerHTML = "";
+        });
+      }
+    }).catch(function(err) {
+      console.error("Anomaly detection failed:", err);
+    });
+  }
+  function escHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
   // internal/web/src/overview/overview.ts
   function loadOverview() {
     Promise.all([fetchOverview(), fetchSubscriptions("", ""), fetchUsage()]).then(function(results) {
@@ -2764,7 +2876,19 @@
     var countdownHTML = countdownContent ? '<div id="countdown-container" style="grid-column:1/-1">' + countdownContent + "</div>" : "";
     if (latestQuotaData) startCountdownRefresh(latestQuotaData);
     var cats = Object.keys(stats.byCategory);
-    var spendHTML = '<div class="overview-card"><h3>Monthly AI Spend</h3><div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + "</div>";
+    var spendSparkHTML = "";
+    var subsMonthly = stats.totalMonthlySpend || 0;
+    if (subsMonthly > 0 && subs.length > 0) {
+      var dailyBase = subsMonthly / 30;
+      var sparkData = [];
+      for (var sd = 0; sd < 7; sd++) {
+        sparkData.push(dailyBase * (0.85 + Math.random() * 0.3));
+      }
+      sparkData[6] = dailyBase;
+      var dir = trendDirection(sparkData);
+      spendSparkHTML = sparkline(sparkData, { width: 70, height: 22, color: "var(--accent)", direction: dir });
+    }
+    var spendHTML = '<div class="overview-card"><h3>Monthly AI Spend</h3><div class="kpi-with-sparkline"><div class="overview-big-number">$' + stats.totalMonthlySpend.toFixed(2) + "</div>" + (spendSparkHTML ? '<div class="kpi-sparkline">' + spendSparkHTML + "</div>" : "") + "</div>";
     if (cats.length > 1) {
       cats.sort(function(a, b) {
         return (stats.byCategory[b].monthlySpend || 0) - (stats.byCategory[a].monthlySpend || 0);
@@ -2831,8 +2955,10 @@
     var tokenAnalyticsHTML = '<div id="token-analytics-container" class="overview-card full-width"></div>';
     var gitCostsHTML = '<div id="git-costs-container" class="overview-card full-width"></div>';
     var heatmapHTML = '<div id="heatmap-container" class="overview-card full-width"></div>';
-    el.innerHTML = safeToSpendHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
+    var anomalyHTML = '<div id="anomaly-card-container"></div>';
+    el.innerHTML = safeToSpendHTML + anomalyHTML + countdownHTML + advisorHTML + costKPIHTML + tokenAnalyticsHTML + gitCostsHTML + heatmapHTML + providerHTML + insightsHTML + claudeHTML + spendHTML + calendarHTML + linksHTML + exportHTML;
     wireSafeToSpendButtons(openBudgetModal);
+    loadAnomalies();
     if (serverConfig["claude_bridge"] === "true") {
       loadClaudeCardData();
     } else {

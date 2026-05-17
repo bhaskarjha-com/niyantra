@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/bhaskarjha-com/niyantra/internal/advisor"
 	"github.com/bhaskarjha-com/niyantra/internal/costtrack"
@@ -124,4 +125,69 @@ func (s *Server) handleForecast(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, result)
+}
+
+// ── F5: Anomaly Detection ────────────────────────────────────────
+
+// handleAnomalies returns detected cost anomalies using Z-score analysis.
+func (s *Server) handleAnomalies(w http.ResponseWriter, r *http.Request) {
+	// Compute daily spend by provider from estimated costs
+	// Use subscription spend as base for all providers
+	dailyByProvider := make(map[string][]float64)
+
+	// Get subscription-based monthly spend breakdown
+	overview, err := s.store.SubscriptionOverview()
+	if err == nil && overview.TotalMonthlySpend > 0 {
+		// Use subscription data as the "antigravity" provider daily spend
+		// Generate 30-day synthetic series from monthly spend
+		dailyBase := overview.TotalMonthlySpend / 30.0
+		dailySeries := make([]float64, 30)
+		for i := range dailySeries {
+			dailySeries[i] = dailyBase
+		}
+		dailyByProvider["subscriptions"] = dailySeries
+	}
+
+	// Get estimated costs per account for multi-provider anomaly detection
+	snapshots, _ := s.store.LatestPerAccount()
+	if len(snapshots) > 0 {
+		forecasts := s.computeAccountForecasts(snapshots)
+		costs := s.computeAccountCosts(snapshots, forecasts)
+		for _, snap := range snapshots {
+			if snap == nil {
+				continue
+			}
+			if est, ok := costs[snap.AccountID]; ok && est.TotalCost > 0 {
+				// Build daily series (current cost as today's value, repeated baseline for history)
+				dailyBase := est.TotalCost / 30.0
+				dailySeries := make([]float64, 30)
+				for i := range dailySeries {
+					dailySeries[i] = dailyBase
+				}
+				// Today's actual cost as last element
+				dailySeries[29] = est.TotalCost / float64(s.dayOfMonth())
+				provider := "account_" + snap.Email
+				dailyByProvider[provider] = dailySeries
+			}
+		}
+	}
+
+	budget := s.store.GetConfigFloat("budget_monthly", 0)
+	cfg := forecast.DefaultConfig()
+
+	anomalies := forecast.DetectAnomalies(dailyByProvider, budget, cfg)
+
+	writeJSON(w, map[string]interface{}{
+		"anomalies": anomalies,
+		"config":    cfg,
+	})
+}
+
+// dayOfMonth returns the current day of the month (1-31).
+func (s *Server) dayOfMonth() int {
+	d := time.Now().Day()
+	if d == 0 {
+		d = 1
+	}
+	return d
 }

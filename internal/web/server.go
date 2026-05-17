@@ -273,6 +273,7 @@ func (s *Server) ListenAndServe() error {
 	mux.HandleFunc("GET /api/forecast", s.handleForecast)
 	mux.HandleFunc("GET /api/cost", s.handleCost)
 	mux.HandleFunc("GET /api/history/heatmap", s.handleHeatmap)
+	mux.HandleFunc("GET /api/anomalies", s.handleAnomalies)
 
 	// Phase 15 routes: Token Usage Analytics (F13)
 	mux.HandleFunc("GET /api/token-usage", s.handleTokenUsage)
